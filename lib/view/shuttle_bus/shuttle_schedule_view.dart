@@ -33,7 +33,6 @@ class _ShuttleScheduleViewState extends State<ShuttleScheduleView> {
   final Map<int, GlobalKey> _scheduleItemKeys = <int, GlobalKey>{};
 
   int? _expandedScheduleId;
-  int? _highlightedScheduleId;
   bool _isInlineLoading = false;
   final Map<int, List<ScheduleStop>> _inlineStopsCache =
       <int, List<ScheduleStop>>{};
@@ -119,30 +118,13 @@ class _ShuttleScheduleViewState extends State<ShuttleScheduleView> {
       final clampedTarget = targetOffset.clamp(minOffset, maxOffset).toDouble();
       final distance = (clampedTarget - _scheduleScrollController.offset).abs();
 
-      if (distance < 1.0) {
-        _applyHighlightAfterScroll(scheduleId, scrollToken);
-        return;
-      }
+      if (distance < 1.0) return;
 
       await _scheduleScrollController.animateTo(
         clampedTarget,
         duration: const Duration(milliseconds: 300),
         curve: Curves.easeOutCubic,
       );
-      _applyHighlightAfterScroll(scheduleId, scrollToken);
-    });
-  }
-
-  void _applyHighlightAfterScroll(int scheduleId, int scrollToken) {
-    if (!mounted) return;
-    if (scrollToken != _lastScrollToken || _expandedScheduleId != scheduleId) {
-      return;
-    }
-    if (_highlightedScheduleId == scheduleId) {
-      return;
-    }
-    setState(() {
-      _highlightedScheduleId = scheduleId;
     });
   }
 
@@ -156,7 +138,6 @@ class _ShuttleScheduleViewState extends State<ShuttleScheduleView> {
     if (_expandedScheduleId == scheduleId) {
       setState(() {
         _expandedScheduleId = null;
-        _highlightedScheduleId = null;
         _isInlineLoading = false;
       });
       return;
@@ -168,7 +149,6 @@ class _ShuttleScheduleViewState extends State<ShuttleScheduleView> {
     // 다른 항목 펼치기 (동시에 하나만)
     setState(() {
       _expandedScheduleId = scheduleId;
-      _highlightedScheduleId = null;
       _isInlineLoading = !hasCached && !hasNoStops;
     });
 
@@ -231,6 +211,114 @@ class _ShuttleScheduleViewState extends State<ShuttleScheduleView> {
   }
 
   Widget _buildHeaderInfo() {
+    const shuttleColor = Color(0xFFB83227);
+    final brightness = Theme.of(context).brightness;
+    final backgroundColor = brightness == Brightness.dark
+        ? shuttleColor.withOpacity(0.2)
+        : shuttleColor.withOpacity(0.1);
+    final primaryTextColor =
+        brightness == Brightness.dark ? Colors.redAccent : shuttleColor;
+    final secondaryTextColor = primaryTextColor.withOpacity(0.78);
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        borderRadius: BorderRadius.circular(25),
+      ),
+      child: Obx(() {
+        final scheduleType = viewModel.scheduleTypeName.value.trim();
+        final typeText = scheduleType.isNotEmpty ? scheduleType : '유형 정보 없음';
+
+        var firstBusTime = '--:--';
+        var lastBusTime = '--:--';
+        if (viewModel.schedules.isNotEmpty) {
+          firstBusTime =
+              DateFormat('HH:mm').format(viewModel.schedules.first.startTime);
+          lastBusTime =
+              DateFormat('HH:mm').format(viewModel.schedules.last.startTime);
+        }
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                const Icon(
+                  Icons.directions_bus_rounded,
+                  color: shuttleColor,
+                  size: 24,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    widget.routeName,
+                    style: TextStyle(
+                      fontWeight: FontWeight.w800,
+                      fontSize: 22,
+                      height: 1.1,
+                      color: primaryTextColor,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  _formatDateWithoutYear(widget.date),
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 12,
+                    color: secondaryTextColor,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Text(
+              typeText,
+              style: TextStyle(
+                fontWeight: FontWeight.w700,
+                fontSize: 15,
+                color: primaryTextColor,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Icon(
+                  Icons.access_time_rounded,
+                  size: 15,
+                  color: secondaryTextColor,
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  '첫차 $firstBusTime  ·  막차 $lastBusTime',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13,
+                    color: secondaryTextColor,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        );
+      }),
+    );
+  }
+
+  String _formatDateWithoutYear(String dateStr) {
+    try {
+      final date = DateFormat('yyyy-MM-dd').parseStrict(dateStr);
+      return DateFormat('MM월 dd일').format(date);
+    } catch (e) {
+      return dateStr;
+    }
+  }
+
+  // ignore: unused_element
+  Widget _buildHeaderInfoLegacy() {
     // 셔틀버스 색상 - 홈 화면과 동일하게 맞춤
     const shuttleColor = Color(0xFFB83227);
     final brightness = Theme.of(context).brightness;
@@ -477,7 +565,6 @@ class _ShuttleScheduleViewState extends State<ShuttleScheduleView> {
   Widget _buildScheduleItem(BuildContext context, int index) {
     final schedule = viewModel.schedules[index];
     final isExpanded = _expandedScheduleId == schedule.id;
-    final isHighlightActive = _highlightedScheduleId == schedule.id;
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
     final expandedRowColor = isDarkMode
         ? Theme.of(context).colorScheme.primary.withOpacity(0.14)
@@ -503,9 +590,7 @@ class _ShuttleScheduleViewState extends State<ShuttleScheduleView> {
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 180),
               curve: Curves.easeOutCubic,
-              color: (isExpanded && isHighlightActive)
-                  ? expandedRowColor
-                  : Colors.transparent,
+              color: isExpanded ? expandedRowColor : Colors.transparent,
               padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
               child: Row(
                 children: [
