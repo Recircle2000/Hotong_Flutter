@@ -261,6 +261,22 @@ class ShuttleViewModel extends GetxController {
     }
   }
 
+  // 인라인 상세 조회용 정류장 정보 조회 (전역 상태 미변경)
+  Future<List<ScheduleStop>?> fetchScheduleStopsForInline(
+      int scheduleId) async {
+    try {
+      final data = await _shuttleRepository.fetchScheduleStops(scheduleId);
+      if (data == null) {
+        print('해당 스케줄의 정류장 정보가 없습니다 (404)');
+        return null;
+      }
+      return data;
+    } catch (e) {
+      print('인라인 정류장 정보를 불러오는데 실패했습니다: $e');
+      return null;
+    }
+  }
+
   // 정류장 목록 조회
   Future<void> fetchStations() async {
     isLoadingStations.value = true;
