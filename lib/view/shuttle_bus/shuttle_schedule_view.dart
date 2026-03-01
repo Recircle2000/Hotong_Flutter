@@ -33,6 +33,7 @@ class _ShuttleScheduleViewState extends State<ShuttleScheduleView> {
   final Map<int, GlobalKey> _scheduleItemKeys = <int, GlobalKey>{};
 
   int? _expandedScheduleId;
+  int? _highlightedScheduleId;
   bool _isInlineLoading = false;
   final Map<int, List<ScheduleStop>> _inlineStopsCache =
       <int, List<ScheduleStop>>{};
@@ -118,13 +119,30 @@ class _ShuttleScheduleViewState extends State<ShuttleScheduleView> {
       final clampedTarget = targetOffset.clamp(minOffset, maxOffset).toDouble();
       final distance = (clampedTarget - _scheduleScrollController.offset).abs();
 
-      if (distance < 1.0) return;
+      if (distance < 1.0) {
+        _applyHighlightAfterScroll(scheduleId, scrollToken);
+        return;
+      }
 
       await _scheduleScrollController.animateTo(
         clampedTarget,
         duration: const Duration(milliseconds: 300),
         curve: Curves.easeOutCubic,
       );
+      _applyHighlightAfterScroll(scheduleId, scrollToken);
+    });
+  }
+
+  void _applyHighlightAfterScroll(int scheduleId, int scrollToken) {
+    if (!mounted) return;
+    if (scrollToken != _lastScrollToken || _expandedScheduleId != scheduleId) {
+      return;
+    }
+    if (_highlightedScheduleId == scheduleId) {
+      return;
+    }
+    setState(() {
+      _highlightedScheduleId = scheduleId;
     });
   }
 
@@ -138,6 +156,7 @@ class _ShuttleScheduleViewState extends State<ShuttleScheduleView> {
     if (_expandedScheduleId == scheduleId) {
       setState(() {
         _expandedScheduleId = null;
+        _highlightedScheduleId = null;
         _isInlineLoading = false;
       });
       return;
@@ -149,6 +168,7 @@ class _ShuttleScheduleViewState extends State<ShuttleScheduleView> {
     // 다른 항목 펼치기 (동시에 하나만)
     setState(() {
       _expandedScheduleId = scheduleId;
+      _highlightedScheduleId = null;
       _isInlineLoading = !hasCached && !hasNoStops;
     });
 
@@ -538,22 +558,24 @@ class _ShuttleScheduleViewState extends State<ShuttleScheduleView> {
                       Expanded(
                         child: Container(
                           key: _scheduleViewportKey,
-                          child: isIOS
-                              ? ListView.builder(
-                                  controller: _scheduleScrollController,
-                                  itemCount: viewModel.schedules.length,
-                                  itemBuilder: _buildScheduleItem,
-                                )
-                              : Scrollbar(
-                                  interactive: true,
-                                  thumbVisibility: true,
-                                  controller: _scheduleScrollController,
-                                  child: ListView.builder(
+                          child: ClipRect(
+                            child: isIOS
+                                ? ListView.builder(
                                     controller: _scheduleScrollController,
                                     itemCount: viewModel.schedules.length,
                                     itemBuilder: _buildScheduleItem,
+                                  )
+                                : Scrollbar(
+                                    interactive: true,
+                                    thumbVisibility: true,
+                                    controller: _scheduleScrollController,
+                                    child: ListView.builder(
+                                      controller: _scheduleScrollController,
+                                      itemCount: viewModel.schedules.length,
+                                      itemBuilder: _buildScheduleItem,
+                                    ),
                                   ),
-                                ),
+                          ),
                         ),
                       ),
                     ],
@@ -565,6 +587,7 @@ class _ShuttleScheduleViewState extends State<ShuttleScheduleView> {
   Widget _buildScheduleItem(BuildContext context, int index) {
     final schedule = viewModel.schedules[index];
     final isExpanded = _expandedScheduleId == schedule.id;
+    final isHighlightActive = _highlightedScheduleId == schedule.id;
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
     final expandedRowColor = isDarkMode
         ? Theme.of(context).colorScheme.primary.withOpacity(0.14)
@@ -585,49 +608,53 @@ class _ShuttleScheduleViewState extends State<ShuttleScheduleView> {
       ),
       child: Column(
         children: [
-          InkWell(
+          GestureDetector(
+            behavior: HitTestBehavior.opaque,
             onTap: () => _onScheduleTap(schedule),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 180),
-              curve: Curves.easeOutCubic,
-              color: isExpanded ? expandedRowColor : Colors.transparent,
-              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-              child: Row(
-                children: [
-                  Expanded(
-                    flex: 1,
-                    child: Text('${schedule.round}'),
-                  ),
-                  Expanded(
-                    flex: 2,
-                    child: Text(
-                      DateFormat('HH:mm').format(schedule.startTime),
-                      style: const TextStyle(fontWeight: FontWeight.bold),
+            child: ClipRect(
+              child: Container(
+                color: (isExpanded && isHighlightActive)
+                    ? expandedRowColor
+                    : Colors.transparent,
+                padding:
+                    const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                child: Row(
+                  children: [
+                    Expanded(
+                      flex: 1,
+                      child: Text('${schedule.round}'),
                     ),
-                  ),
-                  Expanded(
-                    flex: 1,
-                    child: Align(
-                      alignment: Alignment.centerRight,
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            isExpanded
-                                ? (Platform.isIOS
-                                    ? CupertinoIcons.chevron_up
-                                    : Icons.keyboard_arrow_up)
-                                : (Platform.isIOS
-                                    ? CupertinoIcons.chevron_down
-                                    : Icons.keyboard_arrow_down),
-                            size: 18,
-                            color: actionColor,
-                          ),
-                        ],
+                    Expanded(
+                      flex: 2,
+                      child: Text(
+                        DateFormat('HH:mm').format(schedule.startTime),
+                        style: const TextStyle(fontWeight: FontWeight.bold),
                       ),
                     ),
-                  ),
-                ],
+                    Expanded(
+                      flex: 1,
+                      child: Align(
+                        alignment: Alignment.centerRight,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              isExpanded
+                                  ? (Platform.isIOS
+                                      ? CupertinoIcons.chevron_up
+                                      : Icons.keyboard_arrow_up)
+                                  : (Platform.isIOS
+                                      ? CupertinoIcons.chevron_down
+                                      : Icons.keyboard_arrow_down),
+                              size: 18,
+                              color: actionColor,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
