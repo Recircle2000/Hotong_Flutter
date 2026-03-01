@@ -1,4 +1,4 @@
-import 'dart:io' show Platform;
+﻿import 'dart:io' show Platform;
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
@@ -288,7 +288,7 @@ class _ShuttleScheduleViewState extends State<ShuttleScheduleView> {
                   _formatDateWithoutYear(widget.date),
                   style: TextStyle(
                     fontWeight: FontWeight.w600,
-                    fontSize: 12,
+                    fontSize: 14,
                     color: secondaryTextColor,
                   ),
                 ),
@@ -812,7 +812,7 @@ class _ShuttleScheduleViewState extends State<ShuttleScheduleView> {
                   child: Align(
                     alignment: Alignment.centerRight,
                     child: Text(
-                      '도착(경유) 시간',
+                      '도착 시간',
                       style:
                           TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
                     ),
