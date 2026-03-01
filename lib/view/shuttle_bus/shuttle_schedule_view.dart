@@ -2,6 +2,7 @@
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
@@ -29,8 +30,7 @@ class ShuttleScheduleView extends StatefulWidget {
 class _ShuttleScheduleViewState extends State<ShuttleScheduleView> {
   final ShuttleViewModel viewModel = Get.find<ShuttleViewModel>();
   final ScrollController _scheduleScrollController = ScrollController();
-  final GlobalKey _scheduleViewportKey = GlobalKey();
-  final Map<int, GlobalKey> _scheduleItemKeys = <int, GlobalKey>{};
+  final Map<int, GlobalKey> _scheduleRowKeys = <int, GlobalKey>{};
 
   int? _expandedScheduleId;
   int? _highlightedScheduleId;
@@ -57,24 +57,28 @@ class _ShuttleScheduleViewState extends State<ShuttleScheduleView> {
     super.dispose();
   }
 
-  GlobalKey _getScheduleItemKey(int scheduleId) {
-    return _scheduleItemKeys.putIfAbsent(scheduleId, () => GlobalKey());
+  GlobalKey _getScheduleRowKey(int scheduleId) {
+    return _scheduleRowKeys.putIfAbsent(scheduleId, () => GlobalKey());
   }
 
   Future<void> _scrollExpandedSectionIntoView(
     int scheduleId, {
-    bool afterAnimation = true,
     required int scrollToken,
+    Duration delay = Duration.zero,
   }) async {
     if (!mounted) return;
 
-    if (afterAnimation) {
-      await Future<void>.delayed(const Duration(milliseconds: 260));
-      if (!mounted) return;
-    }
-
     if (scrollToken != _lastScrollToken || _expandedScheduleId != scheduleId) {
       return;
+    }
+
+    if (delay > Duration.zero) {
+      await Future<void>.delayed(delay);
+      if (!mounted) return;
+      if (scrollToken != _lastScrollToken ||
+          _expandedScheduleId != scheduleId) {
+        return;
+      }
     }
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
@@ -84,65 +88,32 @@ class _ShuttleScheduleViewState extends State<ShuttleScheduleView> {
         return;
       }
 
-      final itemContext = _scheduleItemKeys[scheduleId]?.currentContext;
-      final viewportContext = _scheduleViewportKey.currentContext;
-      if (itemContext == null || viewportContext == null) return;
-
-      final itemBox = itemContext.findRenderObject() as RenderBox?;
-      final viewportBox = viewportContext.findRenderObject() as RenderBox?;
-      if (itemBox == null || viewportBox == null) return;
-
-      final itemTop =
-          itemBox.localToGlobal(Offset.zero, ancestor: viewportBox).dy;
-      final itemBottom = itemTop + itemBox.size.height;
-      final viewportHeight = viewportBox.size.height;
+      final rowContext = _scheduleRowKeys[scheduleId]?.currentContext;
+      if (rowContext == null) return;
 
       const topPadding = 8.0;
-      const bottomPadding = 8.0;
-      final availableHeight = viewportHeight - topPadding - bottomPadding;
+      final position = _scheduleScrollController.position;
+      final rowRenderObject = rowContext.findRenderObject();
+      if (rowRenderObject == null) return;
 
-      double targetOffset = _scheduleScrollController.offset;
-      if (itemBox.size.height > availableHeight) {
-        // 카드가 화면보다 크면 상단 기준으로 정렬
-        targetOffset += (itemTop - topPadding);
-      } else {
-        // 카드 전체가 보이도록 필요한 만큼만 이동
-        if (itemTop < topPadding) {
-          targetOffset += (itemTop - topPadding);
-        } else if (itemBottom > viewportHeight - bottomPadding) {
-          targetOffset += (itemBottom - (viewportHeight - bottomPadding));
-        }
-      }
+      final viewport = RenderAbstractViewport.of(rowRenderObject);
+      final rowTopOffset =
+          viewport.getOffsetToReveal(rowRenderObject, 0.0).offset;
+      final currentOffset = position.pixels;
+      final targetOffset = rowTopOffset - topPadding;
 
-      final minOffset = _scheduleScrollController.position.minScrollExtent;
-      final maxOffset = _scheduleScrollController.position.maxScrollExtent;
+      final minOffset = position.minScrollExtent;
+      final maxOffset = position.maxScrollExtent;
       final clampedTarget = targetOffset.clamp(minOffset, maxOffset).toDouble();
-      final distance = (clampedTarget - _scheduleScrollController.offset).abs();
+      final distance = (clampedTarget - currentOffset).abs();
 
-      if (distance < 1.0) {
-        _applyHighlightAfterScroll(scheduleId, scrollToken);
-        return;
-      }
+      if (distance < 1.0) return;
 
       await _scheduleScrollController.animateTo(
         clampedTarget,
-        duration: const Duration(milliseconds: 300),
+        duration: const Duration(milliseconds: 180),
         curve: Curves.easeOutCubic,
       );
-      _applyHighlightAfterScroll(scheduleId, scrollToken);
-    });
-  }
-
-  void _applyHighlightAfterScroll(int scheduleId, int scrollToken) {
-    if (!mounted) return;
-    if (scrollToken != _lastScrollToken || _expandedScheduleId != scheduleId) {
-      return;
-    }
-    if (_highlightedScheduleId == scheduleId) {
-      return;
-    }
-    setState(() {
-      _highlightedScheduleId = scheduleId;
     });
   }
 
@@ -168,7 +139,7 @@ class _ShuttleScheduleViewState extends State<ShuttleScheduleView> {
     // 다른 항목 펼치기 (동시에 하나만)
     setState(() {
       _expandedScheduleId = scheduleId;
-      _highlightedScheduleId = null;
+      _highlightedScheduleId = scheduleId;
       _isInlineLoading = !hasCached && !hasNoStops;
     });
 
@@ -176,6 +147,7 @@ class _ShuttleScheduleViewState extends State<ShuttleScheduleView> {
       _scrollExpandedSectionIntoView(
         scheduleId,
         scrollToken: scrollToken,
+        delay: const Duration(milliseconds: 220),
       );
       return;
     }
@@ -203,6 +175,7 @@ class _ShuttleScheduleViewState extends State<ShuttleScheduleView> {
     _scrollExpandedSectionIntoView(
       scheduleId,
       scrollToken: scrollToken,
+      delay: const Duration(milliseconds: 120),
     );
   }
 
@@ -542,7 +515,7 @@ class _ShuttleScheduleViewState extends State<ShuttleScheduleView> {
                               child: Align(
                                 alignment: Alignment.centerRight,
                                 child: Text(
-                                  '정류장',
+                                  '상세',
                                   style: TextStyle(fontWeight: FontWeight.bold),
                                 ),
                               ),
@@ -557,7 +530,6 @@ class _ShuttleScheduleViewState extends State<ShuttleScheduleView> {
                       ),
                       Expanded(
                         child: Container(
-                          key: _scheduleViewportKey,
                           child: ClipRect(
                             child: isIOS
                                 ? ListView.builder(
@@ -597,7 +569,6 @@ class _ShuttleScheduleViewState extends State<ShuttleScheduleView> {
         : Theme.of(context).hintColor;
 
     return Container(
-      key: _getScheduleItemKey(schedule.id),
       decoration: BoxDecoration(
         border: Border(
           bottom: BorderSide(
@@ -613,6 +584,7 @@ class _ShuttleScheduleViewState extends State<ShuttleScheduleView> {
             onTap: () => _onScheduleTap(schedule),
             child: ClipRect(
               child: Container(
+                key: _getScheduleRowKey(schedule.id),
                 color: (isExpanded && isHighlightActive)
                     ? expandedRowColor
                     : Colors.transparent,
