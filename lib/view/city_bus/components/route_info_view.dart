@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import '../../../utils/responsive_layout.dart';
 import '../../../viewmodel/busmap_viewmodel.dart';
 import '../helpers/timetable_helper.dart';
 
@@ -8,7 +7,7 @@ import '../helpers/timetable_helper.dart';
 class RouteInfoView extends StatelessWidget {
   final Map<String, String> routeDisplayNames;
   final Map<String, String> routeSimpleNames;
-
+  
   const RouteInfoView({
     Key? key,
     required this.routeDisplayNames,
@@ -18,8 +17,7 @@ class RouteInfoView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final controller = Get.find<BusMapViewModel>();
-    final layout = AppResponsive.of(context);
-
+    
     return FutureBuilder<Map<String, dynamic>>(
       future: TimetableHelper.loadTimetable(),
       builder: (context, snapshot) {
@@ -40,7 +38,7 @@ class RouteInfoView extends StatelessWidget {
         final String interval = TimetableHelper.calculateInterval(times);
 
         return ListView(
-          padding: EdgeInsets.all(layout.space(16)),
+          padding: const EdgeInsets.all(16),
           children: [
             _infoCard(
                 context,
@@ -56,24 +54,20 @@ class RouteInfoView extends StatelessWidget {
       },
     );
   }
-
+  
   /// 정보 카드 위젯
   Widget _infoCard(BuildContext context, String title, String content) {
-    final layout = AppResponsive.of(context);
     return Card(
-      margin: EdgeInsets.only(bottom: layout.space(8)),
+      margin: const EdgeInsets.only(bottom: 8),
       child: Padding(
-        padding: EdgeInsets.symmetric(
-          horizontal: layout.space(16),
-          vertical: layout.space(12),
-        ),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         child: Row(
           children: [
             Text(
               title,
               style: TextStyle(
                 fontWeight: FontWeight.w500,
-                fontSize: layout.font(16),
+                fontSize: 16,
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
             ),
@@ -81,7 +75,7 @@ class RouteInfoView extends StatelessWidget {
             Text(
               content,
               style: TextStyle(
-                fontSize: layout.font(16),
+                fontSize: 16,
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
             ),
@@ -90,4 +84,4 @@ class RouteInfoView extends StatelessWidget {
       ),
     );
   }
-}
+} 

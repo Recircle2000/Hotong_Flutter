@@ -3,13 +3,13 @@ import 'package:flutter/services.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:get/get.dart';
 import 'dart:async';
+import 'dart:io' show Platform;
 import '../../viewmodel/upcoming_departure_viewmodel.dart';
 import '../shuttle_bus/shuttle_route_detail_view.dart';
 import '../../viewmodel/shuttle_viewmodel.dart';
 import '../city_bus/bus_map_view.dart';
 import 'auto_scroll_text.dart';
 import 'scale_button.dart';
-import '../../utils/responsive_layout.dart';
 import '../../viewmodel/busmap_viewmodel.dart';
 
 class UpcomingDeparturesWidget extends StatefulWidget {
@@ -134,15 +134,8 @@ class _UpcomingDeparturesWidgetState extends State<UpcomingDeparturesWidget>
 
   @override
   Widget build(BuildContext context) {
-    final layout = AppResponsive.of(context);
-    final panelMinHeight = layout.space(
-      layout.isCompactHeight ? 192 : 206,
-      minScale: 0.95,
-      maxScale: 1.14,
-    );
-
     return Container(
-      margin: EdgeInsets.symmetric(horizontal: layout.space(20)),
+      margin: const EdgeInsets.symmetric(horizontal: 20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -151,35 +144,32 @@ class _UpcomingDeparturesWidgetState extends State<UpcomingDeparturesWidget>
             mainAxisAlignment: MainAxisAlignment.start,
             children: [
               Icon(Icons.timer,
-                  size: layout.icon(16),
-                  color: Theme.of(context).colorScheme.primary),
-              SizedBox(width: layout.space(6)),
+                  size: 16, color: Theme.of(context).colorScheme.primary),
+              const SizedBox(width: 6),
               Text(
                 '곧 출발',
                 style: TextStyle(
-                  fontSize: layout.font(15),
+                  fontSize: 15,
                   fontWeight: FontWeight.bold,
                   color: Theme.of(context).colorScheme.primary,
                 ),
               ),
-              SizedBox(width: layout.space(4)),
+              const SizedBox(width: 4),
               Expanded(
                 child: Obx(() => Text(
                       '${viewModel.settingsViewModel.selectedCampus.value == '천안' ? '기점 출발 기준 / 실시간 도착 정보 제공' : '아캠 출발 기준'} ',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                        fontSize: layout.font(10),
+                        fontSize: 10,
                         fontWeight: FontWeight.w500,
                         color: Colors.grey[600],
                       ),
                     )),
               ),
-              SizedBox(width: layout.space(8)),
+              const SizedBox(width: 8),
               Obx(() => viewModel.isRefreshing.value
                   ? SizedBox(
-                      width: layout.space(10),
-                      height: layout.space(10),
+                      width: 10,
+                      height: 10,
                       child: CircularProgressIndicator.adaptive(
                         strokeWidth: 2,
                         valueColor: AlwaysStoppedAnimation<Color>(Colors.grey),
@@ -188,18 +178,18 @@ class _UpcomingDeparturesWidgetState extends State<UpcomingDeparturesWidget>
                   : Text(
                       '${_remainingSeconds}초',
                       style: TextStyle(
-                        fontSize: layout.font(10),
+                        fontSize: 10,
                         color: Colors.grey[600],
                       ),
                     )),
-              SizedBox(width: layout.space(4)),
+              const SizedBox(width: 4),
               ScaleButton(
                 onTap: _manualRefresh,
                 child: Padding(
-                  padding: EdgeInsets.all(layout.space(6)),
+                  padding: const EdgeInsets.all(6.0),
                   child: Icon(
                     Icons.refresh,
-                    size: layout.icon(16),
+                    size: 16,
                     color: Theme.of(context).colorScheme.secondary,
                   ),
                 ),
@@ -207,14 +197,16 @@ class _UpcomingDeparturesWidgetState extends State<UpcomingDeparturesWidget>
             ],
           ),
 
+          //const SizedBox(height: 8),
+
           // 로딩 상태에 따른 표시
           Obx(() {
             if (viewModel.isLoading.value) {
               return Container(
-                constraints: BoxConstraints(minHeight: panelMinHeight),
+                height: 210, // 로딩 상태에서의 고정된 높이
                 decoration: BoxDecoration(
                   color: Colors.transparent,
-                  borderRadius: BorderRadius.circular(layout.radius(12)),
+                  borderRadius: BorderRadius.circular(12),
                 ),
                 child: Center(
                   child: CircularProgressIndicator.adaptive(
@@ -226,19 +218,16 @@ class _UpcomingDeparturesWidgetState extends State<UpcomingDeparturesWidget>
 
             if (viewModel.error.isNotEmpty) {
               return Container(
-                constraints: BoxConstraints(minHeight: panelMinHeight),
-                padding: EdgeInsets.all(layout.space(10)),
+                height: 200, // 에러 상태에서의 고정된 높이
+                padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
                   color: Colors.red.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(layout.radius(8)),
+                  borderRadius: BorderRadius.circular(8),
                 ),
                 child: Center(
                   child: Text(
                     viewModel.error.value,
-                    style: TextStyle(
-                      color: Colors.red,
-                      fontSize: layout.font(12),
-                    ),
+                    style: TextStyle(color: Colors.red, fontSize: 12),
                     textAlign: TextAlign.center,
                   ),
                 ),
@@ -282,10 +271,10 @@ class _UpcomingDeparturesWidgetState extends State<UpcomingDeparturesWidget>
 
             // 기본 데이터가 있는 경우는 고정된 컨테이너로 감싸기
             return Container(
-              constraints: BoxConstraints(minHeight: panelMinHeight),
+              height: 210, // 데이터 표시 상태에서의 고정된 높이
               decoration: BoxDecoration(
                 color: Colors.transparent,
-                borderRadius: BorderRadius.circular(layout.radius(8)),
+                borderRadius: BorderRadius.circular(8),
               ),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -318,7 +307,7 @@ class _UpcomingDeparturesWidgetState extends State<UpcomingDeparturesWidget>
                     ),
                   ),
 
-                  SizedBox(width: layout.space(10)),
+                  SizedBox(width: 10),
 
                   // 시내버스 (오른쪽)
                   Expanded(
@@ -390,8 +379,8 @@ class _UpcomingDeparturesWidgetState extends State<UpcomingDeparturesWidget>
   }
 
   Widget _buildEmptyMessage(BuildContext context, String type) {
-    final layout = AppResponsive.of(context);
     String message;
+    String? firstTimeText;
     if (type == '셔틀' && viewModel.isShuttleServiceNotOperated.value) {
       message = '오늘 셔틀버스 운행 없음';
     } else if (type == '셔틀' && viewModel.isShuttleServiceEnded.value) {
@@ -402,16 +391,13 @@ class _UpcomingDeparturesWidgetState extends State<UpcomingDeparturesWidget>
       message = '90분 내 출발 $type 없음';
     }
     return Container(
-      padding: EdgeInsets.symmetric(
-        vertical: layout.space(15.5, minScale: 0.92, maxScale: 1.02),
-        horizontal: layout.space(8),
-      ),
+      padding: EdgeInsets.symmetric(vertical: 15.5, horizontal: 8),
       decoration: BoxDecoration(
         color: Theme.of(context).cardColor,
-        borderRadius: BorderRadius.circular(layout.radius(15)),
+        borderRadius: BorderRadius.circular(15),
         border: Border.all(
           color: Colors.grey.withOpacity(0.2),
-          width: layout.border(1),
+          width: 1,
         ),
       ),
       child: Center(
@@ -422,9 +408,18 @@ class _UpcomingDeparturesWidgetState extends State<UpcomingDeparturesWidget>
               message,
               style: TextStyle(
                 color: Colors.grey,
-                fontSize: layout.font(12),
+                fontSize: 12,
               ),
             ),
+            if (firstTimeText != null) ...[
+              SizedBox(height: 4),
+              Text(
+                firstTimeText,
+                style: TextStyle(
+                  color: Colors.grey[600],
+                ),
+              ),
+            ],
           ],
         ),
       ),
@@ -432,18 +427,12 @@ class _UpcomingDeparturesWidgetState extends State<UpcomingDeparturesWidget>
   }
 
   Widget _buildSectionTitle(BuildContext context, String title) {
-    final layout = AppResponsive.of(context);
-
     return Padding(
-      padding: EdgeInsets.only(
-        top: layout.space(4),
-        bottom: layout.space(4),
-        left: layout.space(2),
-      ),
+      padding: const EdgeInsets.only(top: 4, bottom: 4, left: 2),
       child: Text(
         title,
         style: TextStyle(
-          fontSize: layout.font(12),
+          fontSize: 12,
           fontWeight: FontWeight.w600,
           color: Colors.grey[600],
         ),
@@ -458,11 +447,10 @@ class _UpcomingDeparturesWidgetState extends State<UpcomingDeparturesWidget>
     Color color,
     IconData icon,
   ) {
-    final layout = AppResponsive.of(context);
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
 
     return Padding(
-      padding: EdgeInsets.only(bottom: layout.space(6)),
+      padding: const EdgeInsets.only(bottom: 6),
       child: ScaleButton(
         onTap: () {
           // 셔틀버스 클릭 시 상세 페이지로 이동
@@ -497,22 +485,22 @@ class _UpcomingDeparturesWidgetState extends State<UpcomingDeparturesWidget>
         child: Container(
           decoration: BoxDecoration(
             color: isDarkMode ? Colors.grey[800] : Colors.white,
-            borderRadius: BorderRadius.circular(layout.radius(15)),
+            borderRadius: BorderRadius.circular(15),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withOpacity(0.1),
-                blurRadius: layout.space(10),
-                offset: Offset(0, layout.space(2)),
+                blurRadius: 10,
+                offset: Offset(0, 2),
               ),
             ],
           ),
           child: Padding(
-            padding: EdgeInsets.all(layout.space(8)),
+            padding: const EdgeInsets.all(8.0),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 Container(
-                  padding: EdgeInsets.all(layout.space(4)),
+                  padding: const EdgeInsets.all(4),
                   decoration: BoxDecoration(
                     color: color.withOpacity(0.1),
                     shape: BoxShape.circle,
@@ -520,10 +508,10 @@ class _UpcomingDeparturesWidgetState extends State<UpcomingDeparturesWidget>
                   child: Icon(
                     icon,
                     color: color,
-                    size: layout.icon(12),
+                    size: 12,
                   ),
                 ),
-                SizedBox(width: layout.space(6)),
+                const SizedBox(width: 6),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -531,31 +519,28 @@ class _UpcomingDeparturesWidgetState extends State<UpcomingDeparturesWidget>
                       AutoScrollText(
                         text: departure.destination,
                         style: TextStyle(
-                          fontSize: layout.font(11),
+                          fontSize: 11,
                           fontWeight: FontWeight.w500,
                         ),
                       ),
                       Row(
                         children: [
-                          Flexible(
-                            child: Text(
-                              '${departure.departureTime.hour.toString().padLeft(2, '0')}:${departure.departureTime.minute.toString().padLeft(2, '0')} 출발',
-                              maxLines: 1,
+                          Text(
+                            '${departure.departureTime.hour.toString().padLeft(2, '0')}:${departure.departureTime.minute.toString().padLeft(2, '0')} 출발',
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: Colors.grey[600],
                               overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                fontSize: layout.font(10),
-                                color: Colors.grey[600],
-                              ),
                             ),
                           ),
                           if (departure.isLastBus) // 막차 표시
                             Padding(
-                              padding: EdgeInsets.only(left: layout.space(5)),
+                              padding: const EdgeInsets.only(left: 5),
                               child: Text(
                                 '막차',
                                 style: TextStyle(
                                   color: Colors.red,
-                                  fontSize: layout.font(10),
+                                  fontSize: 10,
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
@@ -566,21 +551,19 @@ class _UpcomingDeparturesWidgetState extends State<UpcomingDeparturesWidget>
                   ),
                 ),
                 Container(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: layout.space(6),
-                    vertical: layout.space(2),
-                  ),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   decoration: BoxDecoration(
                     color:
                         _getTimeColor(departure.minutesLeft).withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(layout.radius(15)),
+                    borderRadius: BorderRadius.circular(15),
                   ),
                   child: Text(
                     '${departure.minutesLeft}분',
                     style: TextStyle(
                       color: _getTimeColor(departure.minutesLeft),
                       fontWeight: FontWeight.bold,
-                      fontSize: layout.font(10),
+                      fontSize: 10,
                     ),
                   ),
                 ),
@@ -599,11 +582,10 @@ class _UpcomingDeparturesWidgetState extends State<UpcomingDeparturesWidget>
     Color color,
     IconData icon,
   ) {
-    final layout = AppResponsive.of(context);
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
 
     return Padding(
-      padding: EdgeInsets.only(bottom: layout.space(6)),
+      padding: const EdgeInsets.only(bottom: 6),
       child: ScaleButton(
         onTap: () {
           // 시내버스 클릭 시 햅틱 피드백 제공
@@ -625,22 +607,22 @@ class _UpcomingDeparturesWidgetState extends State<UpcomingDeparturesWidget>
         child: Container(
           decoration: BoxDecoration(
             color: isDarkMode ? Colors.grey[800] : Colors.white,
-            borderRadius: BorderRadius.circular(layout.radius(15)),
+            borderRadius: BorderRadius.circular(15),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withOpacity(0.1),
-                blurRadius: layout.space(10),
-                offset: Offset(0, layout.space(2)),
+                blurRadius: 10,
+                offset: Offset(0, 2),
               ),
             ],
           ),
           child: Padding(
-            padding: EdgeInsets.all(layout.space(8)),
+            padding: const EdgeInsets.all(8.0),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 Container(
-                  padding: EdgeInsets.all(layout.space(4)),
+                  padding: const EdgeInsets.all(4),
                   decoration: BoxDecoration(
                     color: color.withOpacity(0.1),
                     shape: BoxShape.circle,
@@ -648,10 +630,10 @@ class _UpcomingDeparturesWidgetState extends State<UpcomingDeparturesWidget>
                   child: Icon(
                     icon,
                     color: color,
-                    size: layout.icon(12),
+                    size: 12,
                   ),
                 ),
-                SizedBox(width: layout.space(6)),
+                const SizedBox(width: 6),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -661,7 +643,7 @@ class _UpcomingDeparturesWidgetState extends State<UpcomingDeparturesWidget>
                         text:
                             '${departure.routeName} → ${departure.destination}',
                         style: TextStyle(
-                          fontSize: layout.font(11),
+                          fontSize: 11,
                           fontWeight: FontWeight.w500,
                         ),
                       ),
@@ -682,23 +664,22 @@ class _UpcomingDeparturesWidgetState extends State<UpcomingDeparturesWidget>
                                     '위치 : ' +
                                         departure.departureTime.toString(),
                                     style: TextStyle(
-                                      fontSize: layout.font(10),
+                                      fontSize: 10,
                                       color: Colors.grey[600],
+                                      overflow: TextOverflow.ellipsis,
                                     ),
                                     softWrap: false,
                                     maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
                                 if (departure.isLastBus)
                                   Padding(
-                                    padding:
-                                        EdgeInsets.only(left: layout.space(5)),
+                                    padding: const EdgeInsets.only(left: 5),
                                     child: Text(
                                       '막차',
                                       style: TextStyle(
                                         color: Colors.red,
-                                        fontSize: layout.font(10),
+                                        fontSize: 10,
                                         fontWeight: FontWeight.bold,
                                       ),
                                     ),
@@ -709,26 +690,22 @@ class _UpcomingDeparturesWidgetState extends State<UpcomingDeparturesWidget>
 
                           return Row(
                             children: [
-                              Flexible(
-                                child: Text(
-                                  '${departure.departureTime.hour.toString().padLeft(2, '0')}:${departure.departureTime.minute.toString().padLeft(2, '0')} 출발',
-                                  maxLines: 1,
+                              Text(
+                                '${departure.departureTime.hour.toString().padLeft(2, '0')}:${departure.departureTime.minute.toString().padLeft(2, '0')} 출발',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  color: Colors.grey[600],
                                   overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    fontSize: layout.font(10),
-                                    color: Colors.grey[600],
-                                  ),
                                 ),
                               ),
                               if (departure.isLastBus)
                                 Padding(
-                                  padding:
-                                      EdgeInsets.only(left: layout.space(5)),
+                                  padding: const EdgeInsets.only(left: 5),
                                   child: Text(
                                     '막차',
                                     style: TextStyle(
                                       color: Colors.red,
-                                      fontSize: layout.font(10),
+                                      fontSize: 10,
                                       fontWeight: FontWeight.bold,
                                     ),
                                   ),
@@ -773,20 +750,18 @@ class _UpcomingDeparturesWidgetState extends State<UpcomingDeparturesWidget>
                     }
 
                     return Container(
-                      padding: EdgeInsets.symmetric(
-                        horizontal: layout.space(6),
-                        vertical: layout.space(2),
-                      ),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
                         color: badgeColor.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(layout.radius(15)),
+                        borderRadius: BorderRadius.circular(15),
                       ),
                       child: Text(
                         displayText,
                         style: TextStyle(
                           color: badgeColor,
                           fontWeight: FontWeight.bold,
-                          fontSize: layout.font(10),
+                          fontSize: 10,
                         ),
                       ),
                     );

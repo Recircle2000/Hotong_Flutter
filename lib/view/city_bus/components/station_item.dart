@@ -1,17 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import '../../../utils/responsive_layout.dart';
 import '../../../viewmodel/busmap_viewmodel.dart';
 
 // BusMapViewModel 확장 - 강조 표시용 변수
 // 전역 상태로 사용하기 위해 파일 레벨에 선언
 class StationHighlightManager {
   static final RxInt highlightedStation = RxInt(-1);
-
+  
   static void highlightStation(int index) {
     highlightedStation.value = index;
   }
-
+  
   static void clearHighlightedStation() {
     highlightedStation.value = -1;
   }
@@ -35,9 +34,8 @@ class StationItem extends StatelessWidget {
   Widget build(BuildContext context) {
     return Obx(() {
       // 강조 표시 여부 확인
-      final isHighlighted =
-          StationHighlightManager.highlightedStation.value == index;
-
+      final isHighlighted = StationHighlightManager.highlightedStation.value == index;
+      
       // 강조 표시된 정류장이면 애니메이션 효과 추가
       if (isHighlighted) {
         return TweenAnimationBuilder<double>(
@@ -46,8 +44,7 @@ class StationItem extends StatelessWidget {
           builder: (context, value, child) {
             return Container(
               decoration: BoxDecoration(
-                color: Color.lerp(
-                    Colors.transparent, Colors.yellow.withOpacity(0.3), value),
+                color: Color.lerp(Colors.transparent, Colors.yellow.withOpacity(0.3), value),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: child,
@@ -56,36 +53,32 @@ class StationItem extends StatelessWidget {
           child: _buildStationContent(context, isHighlighted),
         );
       }
-
+      
       // 일반 정류장
       return _buildStationContent(context, isHighlighted);
     });
   }
-
+  
   // 정류장 내용 위젯
   Widget _buildStationContent(BuildContext context, bool isHighlighted) {
     return Obx(() {
-      final layout = AppResponsive.of(context);
       final controller = Get.find<BusMapViewModel>();
-
+      
       // 현재 정류장에서 다음 정류장 사이에 있는 버스들 찾기 (정류장에 있는 버스 포함)
-      final busesInSegment = controller.detailedBusPositions
-          .where((busPos) => busPos.nearestStationIndex == index)
-          .toList();
-
+      final busesInSegment = controller.detailedBusPositions.where((busPos) => 
+        busPos.nearestStationIndex == index
+      ).toList();
+      
       return Column(
         children: [
           Container(
-            padding: EdgeInsets.symmetric(
-              vertical: layout.space(26, maxScale: 1.08),
-              horizontal: layout.space(16),
-            ),
+            padding: const EdgeInsets.symmetric(vertical: 26.0, horizontal: 16.0),
             child: Row(
               children: [
                 // 왼쪽: 정류장 번호와 연결선 (버스 위치 포함)
                 SizedBox(
-                  width: layout.space(24, maxScale: 1.08),
-                  height: layout.space(24, maxScale: 1.08),
+                  width: 24,
+                  height: 24,
                   child: Stack(
                     children: [
                       CustomPaint(
@@ -96,15 +89,12 @@ class StationItem extends StatelessWidget {
                           isBusHere: isBusHere,
                           busesInSegment: busesInSegment,
                         ),
-                        size: Size(
-                          layout.space(24, maxScale: 1.08),
-                          layout.space(24, maxScale: 1.08),
-                        ),
+                        size: const Size(24, 24),
                       ),
                       Center(
                         child: Icon(
                           Icons.keyboard_arrow_down,
-                          size: layout.icon(18),
+                          size: 18,
                           color: isHighlighted ? Colors.orange : Colors.grey,
                         ),
                       ),
@@ -112,12 +102,14 @@ class StationItem extends StatelessWidget {
                   ),
                 ),
 
-                SizedBox(width: layout.space(12)),
+                const SizedBox(width: 12),
 
                 // 버스 아이콘 제거 (StationPainter에서 원 강조로 대체)
                 SizedBox(
-                  width: layout.space(40, maxScale: 1.10),
-                  child: isHighlighted ? _buildPulsingIcon() : null,
+                  width: 40,
+                  child: isHighlighted 
+                      ? _buildPulsingIcon()
+                      : null,
                 ),
 
                 // 정류장 이름과 번호 (강조 제거)
@@ -128,16 +120,16 @@ class StationItem extends StatelessWidget {
                       Text(
                         stationName,
                         style: TextStyle(
-                          fontSize: layout.font(15),
-                          fontWeight: isHighlighted
-                              ? FontWeight.bold
+                          fontSize: 15,
+                          fontWeight: isHighlighted 
+                              ? FontWeight.bold 
                               : FontWeight.normal,
-                          color: isHighlighted
+                          color: isHighlighted 
                               ? Colors.orange
                               : Theme.of(context).textTheme.bodyLarge?.color,
                         ),
                       ),
-                      SizedBox(height: layout.space(4, maxScale: 1.05)),
+                      const SizedBox(height: 4),
                       Obx(() {
                         final controller = Get.find<BusMapViewModel>();
                         final stationNumber =
@@ -147,10 +139,8 @@ class StationItem extends StatelessWidget {
                         return Text(
                           "$stationNumber",
                           style: TextStyle(
-                            fontSize: layout.font(12),
-                            color: isHighlighted
-                                ? Colors.orange[700]
-                                : Colors.grey,
+                            fontSize: 12,
+                            color: isHighlighted ? Colors.orange[700] : Colors.grey,
                           ),
                         );
                       }),
@@ -164,20 +154,18 @@ class StationItem extends StatelessWidget {
           // 구분선
           if (!isLastStation)
             Padding(
-              padding: EdgeInsets.only(left: layout.space(76, maxScale: 1.08)),
+              padding: const EdgeInsets.only(left: 76.0),
               child: Divider(
-                height: 0,
-                thickness: 1,
-                color: isHighlighted
-                    ? Colors.orange.withOpacity(0.3)
-                    : Colors.grey,
+                height: 0, 
+                thickness: 1, 
+                color: isHighlighted ? Colors.orange.withOpacity(0.3) : Colors.grey,
               ),
             ),
         ],
       );
     });
   }
-
+  
   // 펄스 애니메이션 아이콘
   Widget _buildPulsingIcon() {
     return TweenAnimationBuilder<double>(
@@ -186,8 +174,7 @@ class StationItem extends StatelessWidget {
       // 애니메이션 반복
       onEnd: () {
         // 반복 애니메이션을 위해 다시 빌드하게 함
-        Future.microtask(
-            () => StationHighlightManager.highlightedStation.refresh());
+        Future.microtask(() => StationHighlightManager.highlightedStation.refresh());
       },
       builder: (context, value, child) {
         return Transform.scale(
@@ -223,19 +210,19 @@ class StationPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     // 원 그리기 (버스가 있으면 파란색으로 강조)
     final Paint circlePaint = Paint()
-      ..color = isBusHere
+      ..color = isBusHere 
           ? Colors.blue[100]!
-          : isHighlighted
-              ? Colors.orange[100]!
-              : Colors.grey[300]!
+          : isHighlighted 
+            ? Colors.orange[100]! 
+            : Colors.grey[300]!
       ..style = PaintingStyle.fill;
 
     final Paint borderPaint = Paint()
       ..color = isBusHere
           ? Colors.blue
-          : isHighlighted
-              ? Colors.orange
-              : Colors.grey[400]!
+          : isHighlighted 
+            ? Colors.orange 
+            : Colors.grey[400]!
       ..style = PaintingStyle.stroke
       ..strokeWidth = isBusHere || isHighlighted ? 2.0 : 1.0;
 
@@ -250,45 +237,44 @@ class StationPainter extends CustomPainter {
       final Paint linePaint = Paint()
         ..color = isBusHere
             ? Colors.blue[300]!
-            : isHighlighted
-                ? Colors.orange[300]!
-                : Colors.grey[300]!
+            : isHighlighted 
+              ? Colors.orange[300]! 
+              : Colors.grey[300]!
         ..strokeWidth = isBusHere || isHighlighted ? 2.0 : 2.0;
 
       final startPoint = Offset(size.width / 2, size.height);
-      final endPoint =
-          Offset(size.width / 2, size.height + 78.0); // 세로선을 더 길게 (화살표까지 닿도록)
+      final endPoint = Offset(size.width / 2, size.height + 78.0); // 세로선을 더 길게 (화살표까지 닿도록)
 
       canvas.drawLine(startPoint, endPoint, linePaint);
-
+      
       // 버스 위치 표시 (세로선 위에)
       for (int i = 0; i < busesInSegment.length; i++) {
         final busPos = busesInSegment[i];
         final progress = busPos.progressToNext;
-
+        
         // 버스 위치 계산 (세로선을 따라)
         final busY = size.height + (78.0 * progress); // 길어진 세로선에 맞춰 조정
         final busCenter = Offset(size.width / 2, busY);
-
+        
         // 버스 아이콘 배경 (흰색 원)
         final Paint busBgPaint = Paint()
           ..color = Colors.white
           ..style = PaintingStyle.fill;
-
+        
         final Paint busBorderPaint = Paint()
           ..color = Colors.blue
           ..style = PaintingStyle.stroke
           ..strokeWidth = 1.5;
-
+        
         // 버스 아이콘 그리기 (더 큰 원)
         canvas.drawCircle(busCenter, 10, busBgPaint);
         canvas.drawCircle(busCenter, 10, busBorderPaint);
-
+        
         // 더 직관적인 버스 아이콘 그리기
         final Paint busIconPaint = Paint()
           ..color = Colors.blue
           ..style = PaintingStyle.fill;
-
+        
         // 버스 본체 (직사각형)
         final busBodyRect = Rect.fromCenter(
           center: busCenter,
@@ -299,12 +285,12 @@ class StationPainter extends CustomPainter {
           RRect.fromRectAndRadius(busBodyRect, const Radius.circular(1.5)),
           busIconPaint,
         );
-
+        
         // 버스 창문들 (작은 흰색 사각형들)
         final Paint windowPaint = Paint()
           ..color = Colors.white
           ..style = PaintingStyle.fill;
-
+        
         // 왼쪽 창문
         final leftWindow = Rect.fromCenter(
           center: Offset(busCenter.dx - 3, busCenter.dy),
@@ -312,7 +298,7 @@ class StationPainter extends CustomPainter {
           height: 3,
         );
         canvas.drawRect(leftWindow, windowPaint);
-
+        
         // 오른쪽 창문
         final rightWindow = Rect.fromCenter(
           center: Offset(busCenter.dx + 3, busCenter.dy),
@@ -320,26 +306,26 @@ class StationPainter extends CustomPainter {
           height: 3,
         );
         canvas.drawRect(rightWindow, windowPaint);
-
+        
         // 버스 바퀴들 (파란색 원)
         final Paint wheelPaint = Paint()
           ..color = Colors.blue
           ..style = PaintingStyle.fill;
-
+        
         // 왼쪽 바퀴
         canvas.drawCircle(
           Offset(busCenter.dx - 3.5, busCenter.dy + 4),
           1.5,
           wheelPaint,
         );
-
+        
         // 오른쪽 바퀴
         canvas.drawCircle(
           Offset(busCenter.dx + 3.5, busCenter.dy + 4),
           1.5,
           wheelPaint,
         );
-
+        
         // 버스 번호 표시 (아이콘 밑에, "충남72자" 제거하고 4자리 숫자만)
         String displayNumber = _extractBusNumber(busPos.vehicleNo);
         if (displayNumber.isNotEmpty) {
@@ -355,7 +341,7 @@ class StationPainter extends CustomPainter {
             textDirection: TextDirection.ltr,
           );
           textPainter.layout();
-
+          
           // 버스 번호를 버스 아이콘 오른쪽에 표시
           final textOffset = Offset(
             busCenter.dx + 12, // 아이콘 오른쪽으로 이동
@@ -377,4 +363,4 @@ class StationPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
-}
+} 

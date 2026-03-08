@@ -1,11 +1,8 @@
-import 'dart:io' show Platform;
-
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-
 import '../../models/subway_schedule_model.dart';
-import '../../utils/responsive_layout.dart';
 import '../../viewmodel/subway_schedule_viewmodel.dart';
+import 'dart:io' show Platform;
 
 class SubwayScheduleView extends StatefulWidget {
   final String? initialStationName;
@@ -24,12 +21,13 @@ class _SubwayScheduleViewState extends State<SubwayScheduleView> {
   @override
   void initState() {
     super.initState();
+    // Initialize controller manually if it's not already registered or find it
     if (!Get.isRegistered<SubwayScheduleViewModel>()) {
       controller = Get.put(
-        SubwayScheduleViewModel(initialStation: widget.initialStationName),
-      );
+          SubwayScheduleViewModel(initialStation: widget.initialStationName));
     } else {
       controller = Get.find<SubwayScheduleViewModel>();
+      // If passing a specific initial station but reusing VM, ensure VM updates
       if (widget.initialStationName != null) {
         controller.changeStation(widget.initialStationName!);
       }
@@ -52,36 +50,32 @@ class _SubwayScheduleViewState extends State<SubwayScheduleView> {
 
   void _onStationTapped(String station) {
     if (controller.selectedStation.value == station) return;
-
     final index = station == '천안' ? 0 : 1;
     _pageController.animateToPage(
       index,
       duration: const Duration(milliseconds: 300),
       curve: Curves.easeInOut,
     );
+
     controller.changeStation(station);
   }
 
   @override
   Widget build(BuildContext context) {
-    final layout = AppResponsive.of(context);
-
     return Scaffold(
       body: SafeArea(
         child: Column(
           children: [
             _buildHeader(context),
             Padding(
-              padding: EdgeInsets.symmetric(horizontal: layout.space(16)),
-              child: AppPageFrame(
-                child: Column(
-                  children: [
-                    _buildStationSelector(context),
-                    SizedBox(height: layout.space(16)),
-                    _buildDayTypeAndLegendRow(context),
-                    SizedBox(height: layout.space(16)),
-                  ],
-                ),
+              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+              child: Column(
+                children: [
+                  _buildStationSelector(context),
+                  const SizedBox(height: 16),
+                  _buildDayTypeAndLegendRow(context),
+                  const SizedBox(height: 16),
+                ],
               ),
             ),
             Expanded(
@@ -102,8 +96,6 @@ class _SubwayScheduleViewState extends State<SubwayScheduleView> {
   }
 
   Widget _buildScheduleContent(BuildContext context, String station) {
-    final layout = AppResponsive.of(context);
-
     return Obx(() {
       if (controller.selectedStation.value != station) {
         return const Center(child: CircularProgressIndicator.adaptive());
@@ -112,7 +104,6 @@ class _SubwayScheduleViewState extends State<SubwayScheduleView> {
       if (controller.isLoading.value) {
         return const Center(child: CircularProgressIndicator.adaptive());
       }
-
       if (controller.error.value.isNotEmpty) {
         return Center(child: Text(controller.error.value));
       }
@@ -122,35 +113,36 @@ class _SubwayScheduleViewState extends State<SubwayScheduleView> {
         return const Center(child: Text('데이터가 없습니다.'));
       }
 
-      return AppPageFrame(
-        child: Column(
-          children: [
-            _buildSectionContainer(
-              context,
-              title: '상행',
-              subtitle: '(서울/병점/천안)',
-              icon: Icons.arrow_circle_up,
-              isExpanded: controller.isUpExpanded.value,
-              items: schedule.timetable['상행'] ?? [],
-              onTap: () => controller.isUpExpanded.toggle(),
-            ),
-            _buildSectionContainer(
-              context,
-              title: '하행',
-              subtitle: '(신창/아산)',
-              icon: Icons.arrow_circle_down,
-              isExpanded: controller.isDownExpanded.value,
-              items: schedule.timetable['하행'] ?? [],
-              onTap: () => controller.isDownExpanded.toggle(),
-            ),
-            if (!controller.isUpExpanded.value &&
-                !controller.isDownExpanded.value)
-              Expanded(child: _buildFooter(context)),
-            if (controller.isUpExpanded.value ||
-                controller.isDownExpanded.value)
-              SizedBox(height: layout.space(16)),
-          ],
-        ),
+      return Column(
+        children: [
+          // Up Section
+          _buildSectionContainer(
+            context,
+            title: '상행',
+            subtitle: '(서울/병점/천안)',
+            icon: Icons.arrow_circle_up,
+            isExpanded: controller.isUpExpanded.value,
+            items: schedule.timetable['상행'] ?? [],
+            onTap: () => controller.isUpExpanded.toggle(),
+          ),
+
+          // Down Section
+          _buildSectionContainer(
+            context,
+            title: '하행',
+            subtitle: '(신창/아산)',
+            icon: Icons.arrow_circle_down,
+            isExpanded: controller.isDownExpanded.value,
+            items: schedule.timetable['하행'] ?? [],
+            onTap: () => controller.isDownExpanded.toggle(),
+          ),
+
+          if (!controller.isUpExpanded.value &&
+              !controller.isDownExpanded.value)
+            Expanded(child: _buildFooter(context)),
+          if (controller.isUpExpanded.value || controller.isDownExpanded.value)
+            const SizedBox(height: 16), // Bottom spacing
+        ],
       );
     });
   }
@@ -164,7 +156,6 @@ class _SubwayScheduleViewState extends State<SubwayScheduleView> {
     required List<SubwayScheduleItem> items,
     required VoidCallback onTap,
   }) {
-    final layout = AppResponsive.of(context);
     final header =
         _buildSectionHeader(context, title, subtitle, icon, isExpanded, onTap);
 
@@ -173,6 +164,7 @@ class _SubwayScheduleViewState extends State<SubwayScheduleView> {
     }
 
     return Expanded(
+      flex: 1,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -192,7 +184,7 @@ class _SubwayScheduleViewState extends State<SubwayScheduleView> {
                 );
               },
               child: Padding(
-                padding: EdgeInsets.symmetric(horizontal: layout.space(16)),
+                padding: const EdgeInsets.symmetric(horizontal: 16.0),
                 child: _buildTimeTableGrid(context, items),
               ),
             ),
@@ -202,63 +194,40 @@ class _SubwayScheduleViewState extends State<SubwayScheduleView> {
     );
   }
 
-  Widget _buildSectionHeader(
-    BuildContext context,
-    String title,
-    String subtitle,
-    IconData icon,
-    bool isExpanded,
-    VoidCallback onTap,
-  ) {
-    final layout = AppResponsive.of(context);
-
+  Widget _buildSectionHeader(BuildContext context, String title,
+      String subtitle, IconData icon, bool isExpanded, VoidCallback onTap) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
         color: Theme.of(context).scaffoldBackgroundColor,
-        padding: EdgeInsets.symmetric(
-          horizontal: layout.space(16),
-          vertical: layout.space(12),
-        ),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Expanded(
-              child: Row(
-                children: [
-                  Icon(
-                    icon,
-                    color: const Color(0xFF0052A4),
-                    size: layout.icon(24),
+            Row(
+              children: [
+                Icon(icon, color: const Color(0xFF0052A4), size: 24),
+                const SizedBox(width: 8),
+                Text(
+                  title,
+                  style: const TextStyle(
+                      fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  subtitle,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.normal,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
-                  SizedBox(width: layout.space(8)),
-                  Text(
-                    title,
-                    style: TextStyle(
-                      fontSize: layout.font(18),
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  SizedBox(width: layout.space(4, maxScale: 1.08)),
-                  Expanded(
-                    child: Text(
-                      subtitle,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: layout.font(14),
-                        fontWeight: FontWeight.normal,
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
             Icon(
               isExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
-              size: layout.icon(24),
               color: Theme.of(context).colorScheme.onSurfaceVariant,
-            ),
+            )
           ],
         ),
       ),
@@ -266,64 +235,48 @@ class _SubwayScheduleViewState extends State<SubwayScheduleView> {
   }
 
   Widget _buildHeader(BuildContext context) {
-    final layout = AppResponsive.of(context);
-
     return Padding(
-      padding: EdgeInsets.fromLTRB(
-        layout.space(16),
-        layout.space(16),
-        layout.space(16),
-        layout.space(8),
-      ),
-      child: AppPageFrame(
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            IconButton(
-              onPressed: () => Get.back(),
-              icon: Icon(
-                Platform.isIOS ? Icons.arrow_back_ios : Icons.arrow_back,
-                color: Theme.of(context).colorScheme.onSurface,
-                size: layout.icon(24),
-              ),
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(),
-              style: IconButton.styleFrom(
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              ),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          IconButton(
+            onPressed: () => Get.back(),
+            icon: Icon(Platform.isIOS ? Icons.arrow_back_ios : Icons.arrow_back,
+                color: Theme.of(context).colorScheme.onBackground),
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
+            style: IconButton.styleFrom(
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
             ),
-            Text(
-              '지하철 시간표',
-              style: TextStyle(
-                fontSize: layout.font(20),
-                fontWeight: FontWeight.bold,
-              ),
+          ),
+          const Text(
+            '지하철 시간표',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
             ),
-            SizedBox(width: layout.space(24)),
-          ],
-        ),
+          ),
+          const SizedBox(width: 24),
+        ],
       ),
     );
   }
 
   Widget _buildStationSelector(BuildContext context) {
-    final layout = AppResponsive.of(context);
-
     return Obx(() {
       final isCheonan = controller.selectedStation.value == '천안';
-
       return Container(
-        padding: EdgeInsets.all(layout.space(4, maxScale: 1.08)),
+        padding: const EdgeInsets.all(4),
         decoration: BoxDecoration(
           color: Theme.of(context).cardColor,
-          borderRadius: BorderRadius.circular(layout.radius(12)),
+          borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: Theme.of(context).dividerColor.withOpacity(0.1),
-          ),
+              color: Theme.of(context).dividerColor.withOpacity(0.1)),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withOpacity(0.03),
-              blurRadius: layout.space(10, maxScale: 1.08),
+              blurRadius: 10,
               offset: const Offset(0, 2),
             ),
           ],
@@ -338,7 +291,7 @@ class _SubwayScheduleViewState extends State<SubwayScheduleView> {
                 onTap: () => _onStationTapped('천안'),
               ),
             ),
-            SizedBox(width: layout.space(4, maxScale: 1.08)),
+            const SizedBox(width: 4),
             Expanded(
               child: _buildToggleButton(
                 context,
@@ -353,29 +306,25 @@ class _SubwayScheduleViewState extends State<SubwayScheduleView> {
     });
   }
 
-  Widget _buildToggleButton(
-    BuildContext context, {
-    required String text,
-    required bool isSelected,
-    required VoidCallback onTap,
-  }) {
-    final layout = AppResponsive.of(context);
-
+  Widget _buildToggleButton(BuildContext context,
+      {required String text,
+      required bool isSelected,
+      required VoidCallback onTap}) {
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        padding: EdgeInsets.symmetric(vertical: layout.space(10)),
+        padding: const EdgeInsets.symmetric(vertical: 10),
         decoration: BoxDecoration(
           color: isSelected ? const Color(0xFF0052A4) : Colors.transparent,
-          borderRadius: BorderRadius.circular(layout.radius(8)),
+          borderRadius: BorderRadius.circular(8),
           boxShadow: isSelected
               ? [
                   BoxShadow(
                     color: const Color(0xFF0052A4).withOpacity(0.3),
-                    blurRadius: layout.space(8, maxScale: 1.08),
+                    blurRadius: 8,
                     offset: const Offset(0, 2),
-                  ),
+                  )
                 ]
               : [],
         ),
@@ -383,7 +332,7 @@ class _SubwayScheduleViewState extends State<SubwayScheduleView> {
           text,
           textAlign: TextAlign.center,
           style: TextStyle(
-            fontSize: layout.font(14),
+            fontSize: 14,
             fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
             color: isSelected
                 ? Colors.white
@@ -395,129 +344,93 @@ class _SubwayScheduleViewState extends State<SubwayScheduleView> {
   }
 
   Widget _buildDayTypeAndLegendRow(BuildContext context) {
-    final layout = AppResponsive.of(context);
-
-    final legend = Obx(() {
-      final isCheonanStation = controller.selectedStation.value == '천안';
-      final legendItems = <Widget>[
-        _buildLegendItem(context, '급행', Colors.red),
-        _buildLegendItem(context, '구로행', Colors.blue),
-        _buildLegendItem(context, '병점행', Colors.green),
-        if (!isCheonanStation) _buildLegendItem(context, '천안행', Colors.orange),
-      ];
-
-      Widget buildLegendRow(List<Widget> items) {
-        return Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            for (int i = 0; i < items.length; i++) ...[
-              if (i > 0) SizedBox(width: layout.space(6, maxScale: 1.08)),
-              items[i],
-            ],
-          ],
-        );
-      }
-
-      return Container(
-        padding: EdgeInsets.symmetric(
-          horizontal: layout.space(8),
-          vertical: layout.space(4, maxScale: 1.08),
-        ),
-        decoration: BoxDecoration(
-          color: Theme.of(context).brightness == Brightness.dark
-              ? Colors.grey[800]
-              : Colors.grey[100],
-          borderRadius: BorderRadius.circular(layout.radius(4)),
-          border: Border.all(
-            color: Theme.of(context).dividerColor.withOpacity(0.2),
-          ),
-        ),
-        child: legendItems.length == 4
-            ? Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  buildLegendRow(legendItems.sublist(0, 2)),
-                  SizedBox(height: layout.space(4, maxScale: 1.08)),
-                  buildLegendRow(legendItems.sublist(2, 4)),
-                ],
-              )
-            : buildLegendRow(legendItems),
-      );
-    });
-
-    final dayTypeSelector = Obx(() {
-      final isWeekday = controller.selectedDayType.value == '평일';
-
-      return Container(
-        decoration: BoxDecoration(
-          color: Theme.of(context).brightness == Brightness.dark
-              ? const Color(0xFF1E1E1E)
-              : Colors.grey[100],
-          borderRadius: BorderRadius.circular(layout.radius(8)),
-          border: Border.all(
-            color: Theme.of(context).dividerColor.withOpacity(0.1),
-          ),
-        ),
-        padding: EdgeInsets.all(layout.space(4, maxScale: 1.08)),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _buildDayTypeButton(
-              context,
-              '평일',
-              isWeekday,
-              () => controller.changeDayType('평일'),
-            ),
-            _buildDayTypeButton(
-              context,
-              '토요일/공휴일',
-              !isWeekday,
-              () => controller.changeDayType('주말'),
-            ),
-          ],
-        ),
-      );
-    });
-
-    if (layout.isCompactWidth) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          legend,
-          SizedBox(height: layout.space(12)),
-          Align(
-            alignment: Alignment.centerRight,
-            child: dayTypeSelector,
-          ),
-        ],
-      );
-    }
-
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Expanded(child: legend),
-        SizedBox(width: layout.space(12)),
-        dayTypeSelector,
+        // Express & Destination Legend
+        Obx(() {
+          final isCheonanStation = controller.selectedStation.value == '천안';
+          final legendItems = <Widget>[
+            _buildLegendItem(context, '급행', Colors.red),
+            _buildLegendItem(context, '구로행', Colors.blue),
+            _buildLegendItem(context, '병점행', Colors.green),
+            if (!isCheonanStation)
+              _buildLegendItem(context, '천안행', Colors.orange),
+          ];
+
+          Widget buildLegendRow(List<Widget> items) {
+            return Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                for (int i = 0; i < items.length; i++) ...[
+                  if (i > 0) const SizedBox(width: 6),
+                  items[i],
+                ],
+              ],
+            );
+          }
+
+          return Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: Theme.of(context).brightness == Brightness.dark
+                  ? Colors.grey[800]
+                  : Colors.grey[100],
+              borderRadius: BorderRadius.circular(4),
+              border: Border.all(
+                  color: Theme.of(context).dividerColor.withOpacity(0.2)),
+            ),
+            child: legendItems.length == 4
+                ? Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      buildLegendRow(legendItems.sublist(0, 2)),
+                      const SizedBox(height: 4),
+                      buildLegendRow(legendItems.sublist(2, 4)),
+                    ],
+                  )
+                : buildLegendRow(legendItems),
+          );
+        }),
+
+        // Day Type Selectors
+        Obx(() {
+          final isWeekday = controller.selectedDayType.value == '평일';
+          return Container(
+            decoration: BoxDecoration(
+              color: Theme.of(context).brightness == Brightness.dark
+                  ? const Color(0xFF1E1E1E)
+                  : Colors.grey[100],
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                  color: Theme.of(context).dividerColor.withOpacity(0.1)),
+            ),
+            padding: const EdgeInsets.all(4),
+            child: Row(
+              children: [
+                _buildDayTypeButton(context, '평일', isWeekday,
+                    () => controller.changeDayType('평일')),
+                _buildDayTypeButton(context, '토요일/공휴일', !isWeekday,
+                    () => controller.changeDayType('주말')),
+              ],
+            ),
+          );
+        }),
       ],
     );
   }
 
   Widget _buildLegendItem(BuildContext context, String label, Color color) {
-    final layout = AppResponsive.of(context);
-
     return Row(
       children: [
-        CircleAvatar(
-          backgroundColor: color,
-          radius: layout.space(4, maxScale: 1.08),
-        ),
-        SizedBox(width: layout.space(4, maxScale: 1.08)),
+        CircleAvatar(backgroundColor: color, radius: 4),
+        const SizedBox(width: 4),
         Text(
           label,
           style: TextStyle(
-            fontSize: layout.font(12),
+            fontSize: 12,
             color: Theme.of(context).colorScheme.onSurfaceVariant,
             fontWeight: FontWeight.w500,
           ),
@@ -527,38 +440,29 @@ class _SubwayScheduleViewState extends State<SubwayScheduleView> {
   }
 
   Widget _buildDayTypeButton(
-    BuildContext context,
-    String text,
-    bool isSelected,
-    VoidCallback onTap,
-  ) {
-    final layout = AppResponsive.of(context);
-
+      BuildContext context, String text, bool isSelected, VoidCallback onTap) {
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        padding: EdgeInsets.symmetric(
-          horizontal: layout.space(12),
-          vertical: layout.space(4, maxScale: 1.08),
-        ),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
         decoration: BoxDecoration(
           color: isSelected ? const Color(0xFF0052A4) : Colors.transparent,
-          borderRadius: BorderRadius.circular(layout.radius(6)),
+          borderRadius: BorderRadius.circular(6),
           boxShadow: isSelected
               ? [
                   BoxShadow(
                     color: Colors.black.withOpacity(0.05),
-                    blurRadius: layout.space(2, maxScale: 1.08),
+                    blurRadius: 2,
                     offset: const Offset(0, 1),
-                  ),
+                  )
                 ]
               : [],
         ),
         child: Text(
           text,
           style: TextStyle(
-            fontSize: layout.font(12),
+            fontSize: 12,
             fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
             color: isSelected ? Colors.white : Theme.of(context).hintColor,
           ),
@@ -568,45 +472,34 @@ class _SubwayScheduleViewState extends State<SubwayScheduleView> {
   }
 
   Widget _buildTimeTableGrid(
-    BuildContext context,
-    List<SubwayScheduleItem> items,
-  ) {
-    final layout = AppResponsive.of(context);
-
+      BuildContext context, List<SubwayScheduleItem> items) {
     if (items.isEmpty) {
       return Container(
+        padding: const EdgeInsets.all(24),
         width: double.infinity,
-        padding: EdgeInsets.all(layout.space(24)),
         decoration: BoxDecoration(
           color: Theme.of(context).cardColor,
-          borderRadius: BorderRadius.circular(layout.radius(16)),
+          borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: Theme.of(context).dividerColor.withOpacity(0.1),
-          ),
+              color: Theme.of(context).dividerColor.withOpacity(0.1)),
         ),
         child: Center(
-          child: Text(
-            '운행 정보가 없습니다.',
-            style: TextStyle(
-              fontSize: layout.font(14),
-              color: Theme.of(context).hintColor,
-            ),
-          ),
-        ),
+            child: Text('운행 정보가 없습니다.',
+                style: TextStyle(color: Theme.of(context).hintColor))),
       );
     }
 
-    final grouped = <int, List<SubwayScheduleItem>>{};
-    for (final item in items) {
+    final Map<int, List<SubwayScheduleItem>> grouped = {};
+    for (var item in items) {
       try {
         final parts = item.departureTime.split(':');
         if (parts.length >= 2) {
-          var hour = int.parse(parts[0]);
+          int hour = int.parse(parts[0]);
           if (hour == 0) hour = 25;
           grouped.putIfAbsent(hour, () => []).add(item);
         }
-      } catch (_) {
-        // Ignore malformed time data.
+      } catch (e) {
+        // ignore parsing error
       }
     }
 
@@ -615,14 +508,13 @@ class _SubwayScheduleViewState extends State<SubwayScheduleView> {
     return Container(
       decoration: BoxDecoration(
         color: Theme.of(context).cardColor,
-        borderRadius: BorderRadius.circular(layout.radius(16)),
-        border: Border.all(
-          color: Theme.of(context).dividerColor.withOpacity(0.1),
-        ),
+        borderRadius: BorderRadius.circular(16),
+        border:
+            Border.all(color: Theme.of(context).dividerColor.withOpacity(0.1)),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.03),
-            blurRadius: layout.space(10, maxScale: 1.08),
+            blurRadius: 10,
             offset: const Offset(0, 2),
           ),
         ],
@@ -630,46 +522,33 @@ class _SubwayScheduleViewState extends State<SubwayScheduleView> {
       child: Column(
         children: [
           Container(
-            padding: EdgeInsets.symmetric(
-              vertical: layout.space(8),
-              horizontal: layout.space(16),
-            ),
+            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
             decoration: BoxDecoration(
               color: Theme.of(context).brightness == Brightness.dark
                   ? Colors.grey[800]!.withOpacity(0.5)
                   : Colors.grey[50],
-              borderRadius: BorderRadius.vertical(
-                top: Radius.circular(layout.radius(16)),
-              ),
+              borderRadius:
+                  const BorderRadius.vertical(top: Radius.circular(16)),
               border: Border(
-                bottom: BorderSide(
-                  color: Theme.of(context).dividerColor.withOpacity(0.1),
-                ),
-              ),
+                  bottom: BorderSide(
+                      color: Theme.of(context).dividerColor.withOpacity(0.1))),
             ),
             child: Row(
               children: [
                 SizedBox(
-                  width: layout.space(40, maxScale: 1.12),
-                  child: Text(
-                    '시',
-                    textAlign: TextAlign.center,
+                    width: 40,
+                    child: Text('시',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: Theme.of(context).hintColor))),
+                const SizedBox(width: 16),
+                Text('분',
                     style: TextStyle(
-                      fontSize: layout.font(12),
-                      fontWeight: FontWeight.bold,
-                      color: Theme.of(context).hintColor,
-                    ),
-                  ),
-                ),
-                SizedBox(width: layout.space(16)),
-                Text(
-                  '분',
-                  style: TextStyle(
-                    fontSize: layout.font(12),
-                    fontWeight: FontWeight.bold,
-                    color: Theme.of(context).hintColor,
-                  ),
-                ),
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: Theme.of(context).hintColor)),
               ],
             ),
           ),
@@ -679,44 +558,44 @@ class _SubwayScheduleViewState extends State<SubwayScheduleView> {
               itemCount: sortedHours.length,
               itemBuilder: (context, index) {
                 final hour = sortedHours[index];
-                final hourItems = grouped[hour]!
-                  ..sort((a, b) => a.departureTime.compareTo(b.departureTime));
+                final hourItems = grouped[hour]!;
+                hourItems
+                    .sort((a, b) => a.departureTime.compareTo(b.departureTime));
 
                 return Container(
-                  padding: EdgeInsets.symmetric(
-                    vertical: layout.space(12),
-                    horizontal: layout.space(16),
-                  ),
+                  padding:
+                      const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
                   decoration: BoxDecoration(
                     border: Border(
-                      bottom: BorderSide(
-                        color: Theme.of(context).dividerColor.withOpacity(0.05),
-                      ),
-                    ),
+                        bottom: BorderSide(
+                            color: Theme.of(context)
+                                .dividerColor
+                                .withOpacity(0.05))),
                   ),
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       SizedBox(
-                        width: layout.space(40, maxScale: 1.12),
-                        child: Text(
-                          (hour == 25 ? '00' : hour).toString().padLeft(2, '0'),
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            color: const Color(0xFF0052A4),
-                            fontSize: layout.font(14),
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                      SizedBox(width: layout.space(16)),
+                          width: 40,
+                          child: Text(
+                              (hour == 25 ? '00' : hour)
+                                  .toString()
+                                  .padLeft(2, '0'),
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                color: Color(0xFF0052A4),
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                              ))),
+                      const SizedBox(width: 16),
                       Expanded(
                         child: Wrap(
-                          spacing: layout.space(12),
-                          runSpacing: layout.space(8),
+                          spacing: 12,
+                          runSpacing: 8,
                           children: hourItems.map((item) {
                             final minute = item.departureTime.split(':')[1];
 
+                            // Determine color based on destination (priority) or express status
                             Color itemColor;
                             if (item.arrivalStation == '구로') {
                               itemColor = Colors.blue;
@@ -734,7 +613,7 @@ class _SubwayScheduleViewState extends State<SubwayScheduleView> {
                             return Text(
                               minute,
                               style: TextStyle(
-                                fontSize: layout.font(14),
+                                fontSize: 14,
                                 fontWeight: item.isExpress
                                     ? FontWeight.bold
                                     : FontWeight.w500,
@@ -743,7 +622,7 @@ class _SubwayScheduleViewState extends State<SubwayScheduleView> {
                             );
                           }).toList(),
                         ),
-                      ),
+                      )
                     ],
                   ),
                 );
@@ -756,34 +635,26 @@ class _SubwayScheduleViewState extends State<SubwayScheduleView> {
   }
 
   Widget _buildFooter(BuildContext context) {
-    final layout = AppResponsive.of(context);
-
     return Center(
       child: Container(
-        margin: EdgeInsets.only(top: layout.space(8)),
-        padding: EdgeInsets.symmetric(
-          horizontal: layout.space(12),
-          vertical: layout.space(6, maxScale: 1.08),
-        ),
+        margin: const EdgeInsets.only(top: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
           color: Theme.of(context).brightness == Brightness.dark
               ? Colors.grey[800]
               : Colors.grey[100],
-          borderRadius: BorderRadius.circular(layout.radius(20)),
+          borderRadius: BorderRadius.circular(20),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              Icons.info_outline,
-              size: layout.icon(14),
-              color: Theme.of(context).hintColor,
-            ),
-            SizedBox(width: layout.space(6, maxScale: 1.08)),
+            Icon(Icons.info_outline,
+                size: 14, color: Theme.of(context).hintColor),
+            const SizedBox(width: 6),
             Text(
               '도로 사정이나 철도 운영 상황에 따라 변경될 수 있습니다',
               style: TextStyle(
-                fontSize: layout.font(10),
+                fontSize: 10,
                 fontWeight: FontWeight.w500,
                 color: Theme.of(context).hintColor,
               ),

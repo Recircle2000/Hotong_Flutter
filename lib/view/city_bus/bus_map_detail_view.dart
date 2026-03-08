@@ -3,7 +3,6 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:get/get.dart';
 import 'package:latlong2/latlong.dart';
 
-import '../../utils/responsive_layout.dart';
 import '../../viewmodel/busmap_viewmodel.dart';
 import '../../viewmodel/settings_viewmodel.dart';
 
@@ -45,7 +44,6 @@ class _BusMapDetailViewState extends State<BusMapDetailView> {
   }
 
   void _showStationInfo(StationMarkerInfo station) {
-    final layout = AppResponsive.of(context);
     Get.dialog(
       AlertDialog(
         title: Text(station.name),
@@ -54,9 +52,9 @@ class _BusMapDetailViewState extends State<BusMapDetailView> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text('정류장 ID: ${station.nodeId}'),
-            SizedBox(height: layout.space(8)),
+            const SizedBox(height: 8),
             Text('정류장 번호: ${station.nodeNo}'),
-            SizedBox(height: layout.space(8)),
+            const SizedBox(height: 8),
             Text('정류장 순서: ${station.nodeOrd}'),
           ],
         ),
@@ -86,21 +84,20 @@ class _BusMapDetailViewState extends State<BusMapDetailView> {
   }
 
   List<Marker> _buildStationMarkers() {
-    final layout = AppResponsive.of(context);
     return controller.stationMarkers
         .map(
           (station) => Marker(
-            width: layout.space(30, maxScale: 1.10),
-            height: layout.space(30, maxScale: 1.10),
+            width: 30.0,
+            height: 30.0,
             point: station.position,
             child: GestureDetector(
               onTap: () => _showStationInfo(station),
               child: Transform.translate(
-                offset: Offset(0, -layout.space(13, maxScale: 1.10)),
-                child: Icon(
+                offset: const Offset(0, -13),
+                child: const Icon(
                   Icons.location_on,
                   color: Colors.blueAccent,
-                  size: layout.icon(30, maxScale: 1.10),
+                  size: 30,
                 ),
               ),
             ),
@@ -110,32 +107,27 @@ class _BusMapDetailViewState extends State<BusMapDetailView> {
   }
 
   List<Marker> _buildBusMarkers() {
-    final layout = AppResponsive.of(context);
     return controller.markers
         .map(
           (bus) => Marker(
-            width: layout.space(80, maxScale: 1.10),
-            height: layout.space(80, maxScale: 1.10),
+            width: 80.0,
+            height: 80.0,
             point: bus.position,
             child: Column(
               children: [
-                Icon(
-                  Icons.directions_bus,
-                  color: Colors.indigo,
-                  size: layout.icon(40, maxScale: 1.10),
-                ),
+                const Icon(Icons.directions_bus, color: Colors.indigo, size: 40),
                 Container(
-                  padding: EdgeInsets.all(layout.space(5, maxScale: 1.05)),
+                  padding: const EdgeInsets.all(5),
                   decoration: BoxDecoration(
                     color: Colors.white.withOpacity(0.8),
-                    borderRadius: BorderRadius.circular(layout.radius(4)),
+                    borderRadius: BorderRadius.circular(4),
                   ),
                   child: Text(
                     bus.vehicleNo,
-                    style: TextStyle(
+                    style: const TextStyle(
                       color: Colors.black,
                       fontWeight: FontWeight.bold,
-                      fontSize: layout.font(10),
+                      fontSize: 10,
                     ),
                   ),
                 ),
@@ -148,16 +140,11 @@ class _BusMapDetailViewState extends State<BusMapDetailView> {
 
   @override
   Widget build(BuildContext context) {
-    final layout = AppResponsive.of(context);
     return Scaffold(
       appBar: AppBar(
-        title: Text(
-          widget.routeName,
-          style:
-              TextStyle(fontSize: layout.font(20), fontWeight: FontWeight.w700),
-        ),
+        title: Text(widget.routeName),
         leading: IconButton(
-          icon: Icon(Icons.arrow_back, size: layout.icon(24)),
+          icon: const Icon(Icons.arrow_back),
           onPressed: Get.back,
         ),
         elevation: 0,
@@ -186,8 +173,7 @@ class _BusMapDetailViewState extends State<BusMapDetailView> {
                 ),
                 children: [
                   TileLayer(
-                    urlTemplate:
-                        'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                    urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                     userAgentPackageName: 'com.jw.hoseotransport',
                   ),
                   PolylineLayer(polylines: _buildPolylines()),
@@ -197,13 +183,13 @@ class _BusMapDetailViewState extends State<BusMapDetailView> {
                     MarkerLayer(
                       markers: [
                         Marker(
-                          width: layout.space(40, maxScale: 1.10),
-                          height: layout.space(40, maxScale: 1.10),
+                          width: 40.0,
+                          height: 40.0,
                           point: controller.currentLocation.value!,
-                          child: Icon(
+                          child: const Icon(
                             Icons.my_location,
                             color: Colors.red,
-                            size: layout.icon(20),
+                            size: 20,
                           ),
                         ),
                       ],
@@ -212,8 +198,8 @@ class _BusMapDetailViewState extends State<BusMapDetailView> {
               );
             }),
             Positioned(
-              right: layout.space(16),
-              bottom: layout.space(16),
+              right: 16,
+              bottom: 16,
               child: Obx(
                 () => Container(
                   decoration: BoxDecoration(
@@ -222,7 +208,7 @@ class _BusMapDetailViewState extends State<BusMapDetailView> {
                     boxShadow: [
                       BoxShadow(
                         color: Colors.black.withOpacity(0.1),
-                        blurRadius: layout.space(10, maxScale: 1.08),
+                        blurRadius: 10,
                         offset: const Offset(0, 0),
                       ),
                     ],
@@ -230,10 +216,10 @@ class _BusMapDetailViewState extends State<BusMapDetailView> {
                   child: Material(
                     color: Colors.transparent,
                     child: InkWell(
-                      borderRadius: BorderRadius.circular(layout.radius(50)),
+                      borderRadius: BorderRadius.circular(50),
                       onTap: _moveToCurrentLocation,
                       child: Padding(
-                        padding: EdgeInsets.all(layout.space(12)),
+                        padding: const EdgeInsets.all(12),
                         child: Icon(
                           controller.isLocationLoading.value
                               ? Icons.hourglass_empty
@@ -241,7 +227,7 @@ class _BusMapDetailViewState extends State<BusMapDetailView> {
                           color: controller.isLocationEnabled.value
                               ? Colors.blue
                               : Colors.grey,
-                          size: layout.icon(24),
+                          size: 24,
                         ),
                       ),
                     ),

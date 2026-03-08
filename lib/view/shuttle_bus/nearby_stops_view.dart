@@ -5,7 +5,6 @@ import 'package:get/get.dart';
 import 'dart:io' show Platform;
 import 'package:intl/intl.dart';
 import '../../viewmodel/nearby_stops_viewmodel.dart';
-import '../../utils/responsive_layout.dart';
 import 'shuttle_route_detail_view.dart'; // 노선 상세 정보 화면 임포트
 import 'naver_map_station_detail_view.dart'; // 네이버 지도 정류장 상세 정보 화면 임포트
 import '../components/scale_button.dart';
@@ -61,43 +60,34 @@ class _NearbyStopsViewState extends State<NearbyStopsView> {
 
   @override
   Widget build(BuildContext context) {
-    final layout = AppResponsive.of(context);
     return Scaffold(
       appBar: AppBar(
-        title: Text(
-          '내 주변 정류장 찾기',
-          style: TextStyle(
-            fontSize: layout.font(20),
-            fontWeight: FontWeight.w700,
-          ),
-        ),
+        title: Text('내 주변 정류장 찾기'),
       ),
       body: SafeArea(
-        child: AppPageFrame(
-          child: Padding(
-            padding: EdgeInsets.all(layout.space(16)),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildLocationHeader(context),
-                SizedBox(height: layout.space(16)),
-                Container(
-                  key: _stationSelectorKey,
-                  child: _buildStationSelector(context),
+        child: Padding(
+          padding: EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildLocationHeader(context),
+              SizedBox(height: 16),
+              Container(
+                key: _stationSelectorKey,
+                child: _buildStationSelector(context),
+              ),
+              SizedBox(height: 16),
+              _buildDateSelector(context),
+              SizedBox(height: 8),
+              _buildScheduleHeader(context),
+              SizedBox(height: 8),
+              Expanded(
+                child: Container(
+                  key: _scheduleTableKey,
+                  child: _buildScheduleTable(context),
                 ),
-                SizedBox(height: layout.space(16)),
-                _buildDateSelector(context),
-                SizedBox(height: layout.space(8)),
-                _buildScheduleHeader(context),
-                SizedBox(height: layout.space(8)),
-                Expanded(
-                  child: Container(
-                    key: _scheduleTableKey,
-                    child: _buildScheduleTable(context),
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),
@@ -172,31 +162,30 @@ class _NearbyStopsViewState extends State<NearbyStopsView> {
     required String description,
     bool isLast = false,
   }) {
-    final layout = AppResponsive.of(Get.context!);
     return Container(
-      constraints: BoxConstraints(maxWidth: layout.space(320, maxScale: 1.08)),
+      constraints: const BoxConstraints(maxWidth: 320),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             title,
-            style: TextStyle(
+            style: const TextStyle(
               fontWeight: FontWeight.bold,
               color: Colors.white,
-              fontSize: layout.font(20),
+              fontSize: 20,
             ),
           ),
-          SizedBox(height: layout.space(8)),
+          const SizedBox(height: 8),
           Text(
             description,
-            style: TextStyle(
+            style: const TextStyle(
               color: Colors.white,
-              fontSize: layout.font(15),
+              fontSize: 15,
               height: 1.4,
             ),
           ),
-          SizedBox(height: layout.space(14)),
+          const SizedBox(height: 14),
           Row(
             children: [
               TextButton(
@@ -213,7 +202,7 @@ class _NearbyStopsViewState extends State<NearbyStopsView> {
                   backgroundColor: Colors.white,
                   foregroundColor: Colors.black,
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(layout.radius(12)),
+                    borderRadius: BorderRadius.circular(12),
                   ),
                 ),
                 child: Text(isLast ? '시내버스 이동' : '다음'),
@@ -226,7 +215,6 @@ class _NearbyStopsViewState extends State<NearbyStopsView> {
   }
 
   Widget _buildLocationHeader(BuildContext context) {
-    final layout = AppResponsive.of(context);
     return Obx(() {
       final isLoading = viewModel.isLoadingLocation.value;
       final hasLocation = viewModel.currentPosition.value != null;
@@ -234,41 +222,38 @@ class _NearbyStopsViewState extends State<NearbyStopsView> {
       return Container(
         decoration: BoxDecoration(
           color: Theme.of(context).cardColor,
-          borderRadius: BorderRadius.circular(layout.radius(25)),
+          borderRadius: BorderRadius.circular(25),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withOpacity(0.1),
-              blurRadius: layout.space(10, maxScale: 1.08),
+              blurRadius: 10,
               offset: const Offset(0, 0),
             ),
           ],
         ),
         child: Container(
-          padding: EdgeInsets.symmetric(
-            horizontal: layout.space(16),
-            vertical: layout.space(12),
-          ),
+          padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           width: double.infinity,
           child: Row(
             children: [
               Icon(
                 Icons.location_on,
                 color: Colors.green.shade700,
-                size: layout.icon(20),
+                size: 20,
               ),
-              SizedBox(width: layout.space(8)),
+              SizedBox(width: 8),
               Text(
                 '내 위치에서 가까운 정류장',
                 style: TextStyle(
-                  fontSize: layout.font(14),
+                  fontSize: 14,
                   fontWeight: FontWeight.bold,
                 ),
               ),
-              const Spacer(),
+              Spacer(),
               if (isLoading)
-                SizedBox(
-                  height: layout.space(20, maxScale: 1.08),
-                  width: layout.space(20, maxScale: 1.08),
+                Container(
+                  height: 20,
+                  width: 20,
                   child: CircularProgressIndicator.adaptive(strokeWidth: 2),
                 )
               else if (!hasLocation)
@@ -281,14 +266,14 @@ class _NearbyStopsViewState extends State<NearbyStopsView> {
                     children: [
                       Icon(
                         Icons.refresh,
-                        size: layout.icon(14),
+                        size: 14,
                         color: Colors.green.shade700,
                       ),
-                      SizedBox(width: layout.space(4, maxScale: 1.05)),
+                      SizedBox(width: 4),
                       Text(
                         '위치 새로고침',
                         style: TextStyle(
-                          fontSize: layout.font(12),
+                          fontSize: 12,
                           color: Colors.green.shade700,
                           fontWeight: FontWeight.bold,
                         ),
@@ -304,7 +289,6 @@ class _NearbyStopsViewState extends State<NearbyStopsView> {
   }
 
   Widget _buildCompactLocationButton(BuildContext context) {
-    final layout = AppResponsive.of(context);
     if (Platform.isIOS) {
       return CupertinoButton(
         padding: EdgeInsets.zero,
@@ -312,7 +296,7 @@ class _NearbyStopsViewState extends State<NearbyStopsView> {
         child: Text(
           '위치 확인',
           style: TextStyle(
-            fontSize: layout.font(12),
+            fontSize: 12,
             color: Colors.green.shade700,
             fontWeight: FontWeight.bold,
           ),
@@ -322,17 +306,14 @@ class _NearbyStopsViewState extends State<NearbyStopsView> {
     } else {
       return TextButton(
         style: TextButton.styleFrom(
-          padding: EdgeInsets.symmetric(
-            horizontal: layout.space(8),
-            vertical: layout.space(4, maxScale: 1.05),
-          ),
+          padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           minimumSize: Size.zero,
           tapTargetSize: MaterialTapTargetSize.shrinkWrap,
         ),
         child: Text(
           '위치 확인',
           style: TextStyle(
-            fontSize: layout.font(12),
+            fontSize: 12,
             color: Colors.green.shade700,
             fontWeight: FontWeight.bold,
           ),
@@ -343,7 +324,6 @@ class _NearbyStopsViewState extends State<NearbyStopsView> {
   }
 
   Widget _buildStationSelector(BuildContext context) {
-    final layout = AppResponsive.of(context);
     return Obx(() {
       final isLoading = viewModel.isLoadingStations.value;
       final hasLocation = viewModel.currentPosition.value != null;
@@ -370,33 +350,33 @@ class _NearbyStopsViewState extends State<NearbyStopsView> {
               Text(
                 '정류장 선택',
                 style: TextStyle(
-                  fontSize: layout.font(16),
+                  fontSize: 16,
                   fontWeight: FontWeight.bold,
                 ),
               ),
               if (hasLocation)
                 Padding(
-                  padding: EdgeInsets.only(left: layout.space(8)),
+                  padding: const EdgeInsets.only(left: 8.0),
                   child: Text(
                     '(자동 정렬됨)',
                     style: TextStyle(
-                      fontSize: layout.font(12),
+                      fontSize: 12,
                       color: Colors.green.shade700,
                     ),
                   ),
                 ),
             ],
           ),
-          SizedBox(height: layout.space(8)),
+          SizedBox(height: 8),
           Container(
             decoration: BoxDecoration(
               // border: Border.all(color: Colors.grey.shade300),
               color: Theme.of(context).cardColor,
-              borderRadius: BorderRadius.circular(layout.radius(25)),
+              borderRadius: BorderRadius.circular(25),
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withOpacity(0.1),
-                  blurRadius: layout.space(10, maxScale: 1.08),
+                  blurRadius: 10,
                   offset: const Offset(0, 0),
                 ),
               ],
@@ -407,8 +387,8 @@ class _NearbyStopsViewState extends State<NearbyStopsView> {
                     ? viewModel.selectedStationId.value
                     : stations.first.id,
                 isExpanded: true,
-                padding: EdgeInsets.symmetric(horizontal: layout.space(12)),
-                borderRadius: BorderRadius.circular(layout.radius(8)),
+                padding: EdgeInsets.symmetric(horizontal: 12),
+                borderRadius: BorderRadius.circular(8),
                 items: stations.map((station) {
                   final hasDistance =
                       hasLocation && viewModel.currentPosition.value != null;
@@ -429,19 +409,16 @@ class _NearbyStopsViewState extends State<NearbyStopsView> {
                         if (hasDistance)
                           Container(
                             padding: EdgeInsets.symmetric(
-                              horizontal: layout.space(8),
-                              vertical: layout.space(2, maxScale: 1.05),
-                            ),
+                                horizontal: 8, vertical: 2),
                             decoration: BoxDecoration(
                               color: Colors.green.shade50,
-                              borderRadius:
-                                  BorderRadius.circular(layout.radius(4)),
+                              borderRadius: BorderRadius.circular(4),
                               border: Border.all(color: Colors.green.shade100),
                             ),
                             child: Text(
                               distance!,
                               style: TextStyle(
-                                fontSize: layout.font(12),
+                                fontSize: 12,
                                 color: Colors.green.shade700,
                               ),
                             ),
@@ -472,18 +449,17 @@ class _NearbyStopsViewState extends State<NearbyStopsView> {
   }
 
   Widget _buildIOSDateSelector(BuildContext context) {
-    final layout = AppResponsive.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           '운행 날짜 선택',
           style: TextStyle(
-            fontSize: layout.font(16),
+            fontSize: 16,
             fontWeight: FontWeight.bold,
           ),
         ),
-        SizedBox(height: layout.space(8)),
+        SizedBox(height: 8),
         _buildDateSelectorWithArrows(
           context,
           onTapDatePicker: () => _showIOSDatePicker(context),
@@ -493,7 +469,6 @@ class _NearbyStopsViewState extends State<NearbyStopsView> {
   }
 
   void _showIOSDatePicker(BuildContext context) {
-    final layout = AppResponsive.of(context);
     DateTime selectedDate =
         _clampDateToSelectableRange(_getSelectedDateOrToday());
     final minimumDate = _getMinimumSelectableDate();
@@ -502,12 +477,12 @@ class _NearbyStopsViewState extends State<NearbyStopsView> {
     showCupertinoModalPopup(
       context: context,
       builder: (context) => Container(
-        height: layout.space(250, maxScale: 1.08),
+        height: 250,
         color: CupertinoColors.systemBackground.resolveFrom(context),
         child: Column(
           children: [
             Container(
-              height: layout.space(50, maxScale: 1.08),
+              height: 50,
               color: CupertinoColors.systemGrey5.resolveFrom(context),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -546,18 +521,17 @@ class _NearbyStopsViewState extends State<NearbyStopsView> {
   }
 
   Widget _buildAndroidDateSelector(BuildContext context) {
-    final layout = AppResponsive.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           '운행 날짜 선택',
           style: TextStyle(
-            fontSize: layout.font(16),
+            fontSize: 16,
             fontWeight: FontWeight.bold,
           ),
         ),
-        SizedBox(height: layout.space(8)),
+        SizedBox(height: 8),
         _buildDateSelectorWithArrows(
           context,
           onTapDatePicker: () => _showAndroidDatePicker(context),
@@ -570,7 +544,6 @@ class _NearbyStopsViewState extends State<NearbyStopsView> {
     BuildContext context, {
     required VoidCallback onTapDatePicker,
   }) {
-    final layout = AppResponsive.of(context);
     return Obx(() {
       final selectedDate = _getSelectedDateOrToday();
       final minimumDate = _getMinimumSelectableDate();
@@ -587,24 +560,24 @@ class _NearbyStopsViewState extends State<NearbyStopsView> {
             enabled: canMovePrevious,
             onTap: () => _moveSelectedDateBy(-1),
           ),
-          SizedBox(width: layout.space(8)),
+          SizedBox(width: 8),
           Expanded(
             child: ScaleButton(
               onTap: onTapDatePicker,
               child: Container(
-                height: layout.space(50, maxScale: 1.08),
+                height: 50,
                 decoration: BoxDecoration(
                   color: Theme.of(context).cardColor,
-                  borderRadius: BorderRadius.circular(layout.radius(25)),
+                  borderRadius: BorderRadius.circular(25),
                   boxShadow: [
                     BoxShadow(
                       color: Colors.black.withOpacity(0.1),
-                      blurRadius: layout.space(10, maxScale: 1.08),
+                      blurRadius: 10,
                       offset: const Offset(0, 0),
                     ),
                   ],
                 ),
-                padding: EdgeInsets.symmetric(horizontal: layout.space(16)),
+                padding: EdgeInsets.symmetric(horizontal: 16),
                 child: Row(
                   children: [
                     Expanded(
@@ -612,7 +585,6 @@ class _NearbyStopsViewState extends State<NearbyStopsView> {
                         _getSelectedDateLabel(),
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
-                          fontSize: layout.font(14),
                           color: hasSelectedDate
                               ? null
                               : Theme.of(context).hintColor,
@@ -620,14 +592,13 @@ class _NearbyStopsViewState extends State<NearbyStopsView> {
                       ),
                     ),
                     Icon(Icons.calendar_today,
-                        size: layout.icon(18),
                         color: Theme.of(context).hintColor),
                   ],
                 ),
               ),
             ),
           ),
-          SizedBox(width: layout.space(8)),
+          SizedBox(width: 8),
           _buildDateArrowButton(
             context: context,
             icon: Icons.chevron_right,
@@ -645,7 +616,6 @@ class _NearbyStopsViewState extends State<NearbyStopsView> {
     required bool enabled,
     required VoidCallback onTap,
   }) {
-    final layout = AppResponsive.of(context);
     return IgnorePointer(
       ignoring: !enabled,
       child: Opacity(
@@ -653,22 +623,21 @@ class _NearbyStopsViewState extends State<NearbyStopsView> {
         child: ScaleButton(
           onTap: onTap,
           child: Container(
-            width: layout.space(40, maxScale: 1.08),
-            height: layout.space(40, maxScale: 1.08),
+            width: 40,
+            height: 40,
             decoration: BoxDecoration(
               color: Theme.of(context).cardColor,
               shape: BoxShape.circle,
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withOpacity(0.1),
-                  blurRadius: layout.space(10, maxScale: 1.08),
+                  blurRadius: 10,
                   offset: const Offset(0, 0),
                 ),
               ],
             ),
             child: Icon(
               icon,
-              size: layout.icon(24),
               color: enabled
                   ? (Theme.of(context).brightness == Brightness.dark
                       ? Colors.redAccent
@@ -793,7 +762,6 @@ class _NearbyStopsViewState extends State<NearbyStopsView> {
   }
 
   Widget _buildScheduleHeader(BuildContext context) {
-    final layout = AppResponsive.of(context);
     return Obx(() {
       final selectedId = viewModel.selectedStationId.value;
       final stationName =
@@ -808,14 +776,14 @@ class _NearbyStopsViewState extends State<NearbyStopsView> {
           Icon(
             Icons.schedule,
             color: shuttleColor,
-            size: layout.icon(22),
+            size: 22,
           ),
-          SizedBox(width: layout.space(8)),
+          SizedBox(width: 8),
           Expanded(
             child: Text(
               '$scheduleTypeName',
               style: TextStyle(
-                fontSize: layout.font(16),
+                fontSize: 16,
                 fontWeight: FontWeight.bold,
                 color: shuttleColor,
               ),
@@ -835,18 +803,18 @@ class _NearbyStopsViewState extends State<NearbyStopsView> {
                     child: Text(
                       stationName,
                       style: TextStyle(
-                        fontSize: layout.font(14),
+                        fontSize: 14,
                         fontWeight: FontWeight.bold,
                       ),
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                  SizedBox(width: layout.space(4, maxScale: 1.05)),
+                  SizedBox(width: 4),
                   Icon(
                     Platform.isIOS
                         ? CupertinoIcons.info_circle_fill
                         : Icons.info_outline,
-                    size: layout.icon(14),
+                    size: 14,
                     color: Colors.grey.shade600,
                   ),
                 ],
@@ -858,7 +826,6 @@ class _NearbyStopsViewState extends State<NearbyStopsView> {
   }
 
   Widget _buildScheduleTable(BuildContext context) {
-    final layout = AppResponsive.of(context);
     final brightness = Theme.of(context).brightness;
     final headerBgColor = brightness == Brightness.dark
         ? Colors.grey.shade800
@@ -878,31 +845,29 @@ class _NearbyStopsViewState extends State<NearbyStopsView> {
             children: [
               Icon(
                 Icons.info_outline,
-                size: layout.icon(48, maxScale: 1.12),
+                size: 48,
                 color: Colors.grey.shade400,
               ),
-              SizedBox(height: layout.space(16)),
+              SizedBox(height: 16),
               Text(
                 '선택한 정류장의 ${viewModel.scheduleTypeName.value.isNotEmpty ? viewModel.scheduleTypeName.value : viewModel.scheduleTypeNames[viewModel.selectedScheduleType.value]} 시간표가 없습니다.',
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  fontSize: layout.font(14),
                   color: Colors.grey.shade600,
                 ),
               ),
               if (viewModel.selectedDate.value.isNotEmpty)
                 Padding(
-                  padding: EdgeInsets.only(top: layout.space(8)),
+                  padding: const EdgeInsets.only(top: 8.0),
                   child: Text(
                     '날짜: ${_formatDate(viewModel.selectedDate.value)}',
                     textAlign: TextAlign.center,
                     style: TextStyle(
-                      fontSize: layout.font(13),
                       color: Colors.grey.shade600,
                     ),
                   ),
                 ),
-              SizedBox(height: layout.space(8)),
+              SizedBox(height: 8),
               TextButton(
                 onPressed: () {
                   HapticFeedback.lightImpact();
@@ -924,11 +889,11 @@ class _NearbyStopsViewState extends State<NearbyStopsView> {
         decoration: BoxDecoration(
           // border: Border.all(color: Colors.grey.shade300),
           color: Theme.of(context).cardColor,
-          borderRadius: BorderRadius.circular(layout.radius(25)),
+          borderRadius: BorderRadius.circular(25),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withOpacity(0.1),
-              blurRadius: layout.space(10, maxScale: 1.08),
+              blurRadius: 10,
               offset: const Offset(0, 0),
             ),
           ],
@@ -940,39 +905,27 @@ class _NearbyStopsViewState extends State<NearbyStopsView> {
               decoration: BoxDecoration(
                 color: headerBgColor,
                 borderRadius: BorderRadius.only(
-                  topLeft: Radius.circular(layout.radius(25)),
-                  topRight: Radius.circular(layout.radius(25)),
+                  topLeft: Radius.circular(25),
+                  topRight: Radius.circular(25),
                 ),
               ),
-              padding: EdgeInsets.symmetric(
-                vertical: layout.space(12),
-                horizontal: layout.space(16),
-              ),
+              padding: EdgeInsets.symmetric(vertical: 12, horizontal: 16),
               child: Row(
                 children: [
                   Expanded(
                     flex: 1,
                     child: Text('번호',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: layout.font(13),
-                        )),
+                        style: TextStyle(fontWeight: FontWeight.bold)),
                   ),
                   Expanded(
                     flex: 4,
                     child: Text('노선',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: layout.font(13),
-                        )),
+                        style: TextStyle(fontWeight: FontWeight.bold)),
                   ),
                   Expanded(
                     flex: 2,
                     child: Text('도착 시간',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: layout.font(13),
-                        )),
+                        style: TextStyle(fontWeight: FontWeight.bold)),
                   ),
                 ],
               ),
@@ -995,7 +948,6 @@ class _NearbyStopsViewState extends State<NearbyStopsView> {
       itemCount: viewModel.filteredSchedules.length,
       separatorBuilder: (context, index) => Divider(height: 1),
       itemBuilder: (context, index) {
-        final layout = AppResponsive.of(context);
         final schedule = viewModel.filteredSchedules[index];
         final routeName = viewModel.getRouteName(schedule.routeId);
 
@@ -1011,24 +963,17 @@ class _NearbyStopsViewState extends State<NearbyStopsView> {
                 ));
           },
           child: Container(
-            padding: EdgeInsets.symmetric(
-              vertical: layout.space(12),
-              horizontal: layout.space(16),
-            ),
+            padding: EdgeInsets.symmetric(vertical: 12, horizontal: 16),
             child: Row(
               children: [
                 Expanded(
                   flex: 1,
-                  child: Text(
-                    '${index + 1}',
-                    style: TextStyle(fontSize: layout.font(14)),
-                  ),
+                  child: Text('${index + 1}'),
                 ),
                 Expanded(
                   flex: 4,
                   child: Text(
                     routeName,
-                    style: TextStyle(fontSize: layout.font(14)),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
@@ -1040,15 +985,14 @@ class _NearbyStopsViewState extends State<NearbyStopsView> {
                       Text(
                         _formatTime(schedule.arrivalTime),
                         style: TextStyle(
-                          fontSize: layout.font(14),
                           fontWeight: FontWeight.bold,
                           color: shuttleColor,
                         ),
                       ),
-                      SizedBox(width: layout.space(4, maxScale: 1.05)),
+                      SizedBox(width: 4),
                       Icon(
                         CupertinoIcons.chevron_right,
-                        size: layout.icon(14),
+                        size: 14,
                         color: Colors.grey,
                       ),
                     ],
@@ -1070,7 +1014,6 @@ class _NearbyStopsViewState extends State<NearbyStopsView> {
         itemCount: viewModel.filteredSchedules.length,
         separatorBuilder: (context, index) => Divider(height: 1),
         itemBuilder: (context, index) {
-          final layout = AppResponsive.of(context);
           final schedule = viewModel.filteredSchedules[index];
           final routeName = viewModel.getRouteName(schedule.routeId);
 
@@ -1086,24 +1029,17 @@ class _NearbyStopsViewState extends State<NearbyStopsView> {
                   ));
             },
             child: Container(
-              padding: EdgeInsets.symmetric(
-                vertical: layout.space(12),
-                horizontal: layout.space(16),
-              ),
+              padding: EdgeInsets.symmetric(vertical: 12, horizontal: 16),
               child: Row(
                 children: [
                   Expanded(
                     flex: 1,
-                    child: Text(
-                      '${index + 1}',
-                      style: TextStyle(fontSize: layout.font(14)),
-                    ),
+                    child: Text('${index + 1}'),
                   ),
                   Expanded(
                     flex: 4,
                     child: Text(
                       routeName,
-                      style: TextStyle(fontSize: layout.font(14)),
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
@@ -1115,15 +1051,14 @@ class _NearbyStopsViewState extends State<NearbyStopsView> {
                         Text(
                           _formatTime(schedule.arrivalTime),
                           style: TextStyle(
-                            fontSize: layout.font(14),
                             fontWeight: FontWeight.bold,
                             color: shuttleColor,
                           ),
                         ),
-                        SizedBox(width: layout.space(4, maxScale: 1.05)),
+                        SizedBox(width: 4),
                         Icon(
                           Icons.arrow_forward_ios,
-                          size: layout.icon(14),
+                          size: 14,
                           color: Colors.grey,
                         ),
                       ],

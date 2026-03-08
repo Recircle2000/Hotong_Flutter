@@ -9,7 +9,6 @@ import '../../utils/bus_times_loader.dart';
 import '../components/emergency_notice_banner.dart';
 import '../components/auto_scroll_text.dart';
 import 'package:tutorial_coach_mark/tutorial_coach_mark.dart';
-import '../../utils/responsive_layout.dart';
 
 class CityBusGroupedView extends StatefulWidget {
   final String? forcedCampus;
@@ -283,34 +282,30 @@ class _CityBusGroupedViewState extends State<CityBusGroupedView> {
     required String description,
     bool isLast = false,
   }) {
-    final layout = AppResponsive.of(context);
-
     return Container(
-      constraints: BoxConstraints(
-        maxWidth: layout.isCompactWidth ? layout.space(300) : 320,
-      ),
+      constraints: const BoxConstraints(maxWidth: 320),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             title,
-            style: TextStyle(
+            style: const TextStyle(
               fontWeight: FontWeight.bold,
               color: Colors.white,
-              fontSize: layout.font(20),
+              fontSize: 20,
             ),
           ),
-          SizedBox(height: layout.space(8)),
+          const SizedBox(height: 8),
           Text(
             description,
-            style: TextStyle(
+            style: const TextStyle(
               color: Colors.white,
-              fontSize: layout.font(15),
+              fontSize: 15,
               height: 1.4,
             ),
           ),
-          SizedBox(height: layout.space(14)),
+          const SizedBox(height: 14),
           Row(
             children: [
               TextButton(
@@ -329,7 +324,7 @@ class _CityBusGroupedViewState extends State<CityBusGroupedView> {
                   backgroundColor: Colors.white,
                   foregroundColor: Colors.black,
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(layout.radius(12)),
+                    borderRadius: BorderRadius.circular(12),
                   ),
                 ),
                 child: Text(isLast ? '완료' : '다음'),
@@ -387,17 +382,13 @@ class _CityBusGroupedViewState extends State<CityBusGroupedView> {
   @override
   Widget build(BuildContext context) {
     final backgroundColor = Theme.of(context).scaffoldBackgroundColor;
-    final layout = AppResponsive.of(context);
 
     return Scaffold(
       backgroundColor: backgroundColor,
       appBar: AppBar(
-        title: Text(
+        title: const Text(
           '시내버스 노선 정보',
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            fontSize: layout.font(20),
-          ),
+          style: TextStyle(fontWeight: FontWeight.bold),
         ),
         centerTitle: true,
         backgroundColor: backgroundColor,
@@ -415,320 +406,292 @@ class _CityBusGroupedViewState extends State<CityBusGroupedView> {
   }
 
   Widget _buildRouteList(String campus) {
-    final layout = AppResponsive.of(context);
     final groupedRoutes =
         campus == '천안' ? groupedRoutesCheonan : groupedRoutesAsan;
 
     return ListView.separated(
-      padding: EdgeInsets.fromLTRB(
-        layout.space(20),
-        layout.space(2),
-        layout.space(20),
-        layout.space(16),
-      ),
+      padding: const EdgeInsets.fromLTRB(20, 2, 20, 16),
       itemCount: groupedRoutes.length,
-      separatorBuilder: (_, __) => SizedBox(height: layout.space(12)),
+      separatorBuilder: (_, __) => const SizedBox(height: 12),
       itemBuilder: (context, groupIdx) {
         final group = groupedRoutes[groupIdx];
-        return AppPageFrame(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Padding(
-                padding: EdgeInsets.only(
-                  left: layout.space(4),
-                  bottom: layout.space(8),
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      padding: EdgeInsets.all(layout.space(8)),
-                      decoration: BoxDecoration(
-                        color: Colors.blue.withOpacity(0.1),
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(
-                        Icons.directions_bus,
-                        color: Colors.blue,
-                        size: layout.icon(20),
-                      ),
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // 메인 그룹 타이틀 (예: 천안아산역 · 지중해마을 방면)
+            Padding(
+              padding: const EdgeInsets.only(left: 4, bottom: 8),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.blue.withOpacity(0.1),
+                      shape: BoxShape.circle,
                     ),
-                    SizedBox(width: layout.space(12)),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            group['title'],
-                            style: TextStyle(
-                              fontSize: layout.font(18),
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          SizedBox(height: layout.space(2)),
-                          Text(
-                            group['subtitle'],
-                            style: TextStyle(
-                              fontSize: layout.font(13),
-                              color: Colors.grey[600],
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Container(
-                decoration: BoxDecoration(
-                  color: Theme.of(context).cardColor,
-                  borderRadius: BorderRadius.circular(layout.radius(25)),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.1),
-                      blurRadius: layout.space(10),
-                      offset: Offset.zero,
-                    ),
-                  ],
-                ),
-                child: Column(
-                  children:
-                      List.generate(group['subGroups'].length, (subGroupIdx) {
-                    final subGroup = group['subGroups'][subGroupIdx];
-                    final isLastSubGroup =
-                        subGroupIdx == group['subGroups'].length - 1;
-
-                    return Column(
+                    child: const Icon(Icons.directions_bus,
+                        color: Colors.blue, size: 20),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // 서브 그룹 헤더 (아캠 출발 / 도착)
-                        Container(
-                          width: double.infinity,
-                          padding: EdgeInsets.symmetric(
-                            horizontal: layout.space(20),
-                            vertical: layout.space(10),
+                        Text(
+                          group['title'],
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
                           ),
-                          decoration: BoxDecoration(
-                            color: subGroupIdx == 0
-                                ? Colors.blue.withOpacity(0.05)
-                                : Colors.orange.withOpacity(0.05),
-                            borderRadius: subGroupIdx == 0
-                                ? BorderRadius.vertical(
-                                    top: Radius.circular(layout.radius(25)))
-                                : (isLastSubGroup && subGroup['routes'].isEmpty
-                                    ? BorderRadius.vertical(
-                                        bottom:
-                                            Radius.circular(layout.radius(25)))
-                                    : BorderRadius.zero),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          group['subtitle'],
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: Colors.grey[600],
+                            fontWeight: FontWeight.w500,
                           ),
-                          child: Row(
-                            children: [
-                              Icon(
-                                subGroup['icon'],
-                                size: layout.icon(16),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            // 서브 그룹들 (출발/도착)
+            Container(
+              decoration: BoxDecoration(
+                color: Theme.of(context).cardColor,
+                borderRadius: BorderRadius.circular(25),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.1),
+                    blurRadius: 10,
+                    offset: const Offset(0, 0),
+                  ),
+                ],
+              ),
+              child: Column(
+                children:
+                    List.generate(group['subGroups'].length, (subGroupIdx) {
+                  final subGroup = group['subGroups'][subGroupIdx];
+                  final isLastSubGroup =
+                      subGroupIdx == group['subGroups'].length - 1;
+
+                  return Column(
+                    children: [
+                      // 서브 그룹 헤더 (아캠 출발 / 도착)
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 20, vertical: 10),
+                        decoration: BoxDecoration(
+                          color: subGroupIdx == 0
+                              ? Colors.blue.withOpacity(0.05)
+                              : Colors.orange.withOpacity(0.05),
+                          borderRadius: subGroupIdx == 0
+                              ? const BorderRadius.vertical(
+                                  top: Radius.circular(25))
+                              : (isLastSubGroup && subGroup['routes'].isEmpty
+                                  ? const BorderRadius.vertical(
+                                      bottom: Radius.circular(25))
+                                  : BorderRadius.zero),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              subGroup['icon'],
+                              size: 16,
+                              color: subGroupIdx == 0
+                                  ? Colors.blue
+                                  : Colors.orange,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              subGroup['title'],
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
                                 color: subGroupIdx == 0
                                     ? Colors.blue
                                     : Colors.orange,
                               ),
-                              SizedBox(width: layout.space(8)),
-                              Text(
-                                subGroup['title'],
-                                style: TextStyle(
-                                  fontSize: layout.font(14),
-                                  fontWeight: FontWeight.bold,
-                                  color: subGroupIdx == 0
-                                      ? Colors.blue
-                                      : Colors.orange,
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      // 노선 리스트
+                      ListView.separated(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        padding: EdgeInsets.zero,
+                        itemCount: subGroup['routes'].length,
+                        separatorBuilder: (_, __) => Divider(
+                          height: 1,
+                          thickness: 1,
+                          color: Colors.grey.withOpacity(0.1),
+                          indent: 20,
+                          endIndent: 20,
+                        ),
+                        itemBuilder: (context, routeIdx) {
+                          final route = subGroup['routes'][routeIdx];
+                          final routeKey = route['routeKey'];
+                          // label에서 번호만 추출
+                          final fullLabel = route['label'] as String;
+                          final splitIndex = fullLabel.indexOf(' (');
+                          final busNumber = splitIndex != -1
+                              ? fullLabel.substring(0, splitIndex)
+                              : fullLabel;
+                          final direction = splitIndex != -1
+                              ? fullLabel.substring(
+                                  splitIndex + 2, fullLabel.length - 1)
+                              : '';
+                          final isFirstExperienceRoute = groupIdx == 0 &&
+                              subGroupIdx == 0 &&
+                              routeIdx == 0;
+
+                          return Obx(() {
+                            final busLocationStatus =
+                                _getBusLocationStatus(routeKey);
+                            final nextDepartureTime =
+                                _getNextDepartureTime(routeKey);
+                            final isOperating = nextDepartureTime != '운행 종료' &&
+                                nextDepartureTime != '로딩...';
+
+                            return InkWell(
+                              key: isFirstExperienceRoute
+                                  ? _firstRouteKey
+                                  : null,
+                              onTap: () {
+                                HapticFeedback.lightImpact();
+                                Get.to(
+                                    () => BusMapView(initialRoute: routeKey));
+                              },
+                              borderRadius: isLastSubGroup &&
+                                      routeIdx == subGroup['routes'].length - 1
+                                  ? const BorderRadius.vertical(
+                                      bottom: Radius.circular(25))
+                                  : BorderRadius.zero,
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 20, vertical: 8),
+                                child: Row(
+                                  children: [
+                                    // 버스 번호 및 방면
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Row(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.baseline,
+                                            textBaseline:
+                                                TextBaseline.alphabetic,
+                                            children: [
+                                              Text(
+                                                busNumber,
+                                                style: const TextStyle(
+                                                  fontSize: 20,
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                              ),
+                                              const SizedBox(width: 4),
+                                              if (direction.isNotEmpty)
+                                                Expanded(
+                                                  child: Text(
+                                                    direction,
+                                                    style: TextStyle(
+                                                      fontSize: 13,
+                                                      color: Colors.grey[600],
+                                                      overflow:
+                                                          TextOverflow.ellipsis,
+                                                    ),
+                                                  ),
+                                                ),
+                                            ],
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Row(
+                                            children: [
+                                              // 버스 위치 상태
+                                              if (busLocationStatus !=
+                                                  '현재 운행 없음') ...[
+                                                const Icon(Icons.location_on,
+                                                    size: 12,
+                                                    color: Colors.blue),
+                                                const SizedBox(width: 4),
+                                                Flexible(
+                                                  child: AutoScrollText(
+                                                    text: busLocationStatus,
+                                                    style: const TextStyle(
+                                                      fontSize: 12,
+                                                      color: Colors.blue,
+                                                      fontWeight:
+                                                          FontWeight.w600,
+                                                    ),
+                                                    height: 16,
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 8),
+                                                Container(
+                                                  width: 1,
+                                                  height: 10,
+                                                  color: Colors.grey[300],
+                                                ),
+                                                const SizedBox(width: 8),
+                                              ],
+                                              // 다음 출발 시간
+                                              Text(
+                                                nextDepartureTime.replaceAll(
+                                                    '출발: ', ''),
+                                                style: TextStyle(
+                                                  fontSize: 13,
+                                                  color: isOperating
+                                                      ? const Color(0xFFE65100)
+                                                      : Colors.grey,
+                                                  fontWeight: isOperating
+                                                      ? FontWeight.bold
+                                                      : FontWeight.normal,
+                                                ),
+                                              ),
+                                              if (isOperating) ...[
+                                                const SizedBox(width: 4),
+                                                const Text(
+                                                  '출발',
+                                                  style: TextStyle(
+                                                      fontSize: 12,
+                                                      color: Colors.grey),
+                                                ),
+                                              ],
+                                            ],
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+
+                                    // 화살표 아이콘
+                                    Icon(
+                                      Icons.arrow_forward_ios,
+                                      size: 16,
+                                      color: Colors.grey[300],
+                                    ),
+                                  ],
                                 ),
                               ),
-                            ],
-                          ),
-                        ),
-
-                        // 노선 리스트
-                        ListView.separated(
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          padding: EdgeInsets.zero,
-                          itemCount: subGroup['routes'].length,
-                          separatorBuilder: (_, __) => Divider(
-                            height: 1,
-                            thickness: 1,
-                            color: Colors.grey.withOpacity(0.1),
-                            indent: layout.space(20),
-                            endIndent: layout.space(20),
-                          ),
-                          itemBuilder: (context, routeIdx) {
-                            final route = subGroup['routes'][routeIdx];
-                            final routeKey = route['routeKey'];
-                            // label에서 번호만 추출
-                            final fullLabel = route['label'] as String;
-                            final splitIndex = fullLabel.indexOf(' (');
-                            final busNumber = splitIndex != -1
-                                ? fullLabel.substring(0, splitIndex)
-                                : fullLabel;
-                            final direction = splitIndex != -1
-                                ? fullLabel.substring(
-                                    splitIndex + 2, fullLabel.length - 1)
-                                : '';
-                            final isFirstExperienceRoute = groupIdx == 0 &&
-                                subGroupIdx == 0 &&
-                                routeIdx == 0;
-
-                            return Obx(() {
-                              final busLocationStatus =
-                                  _getBusLocationStatus(routeKey);
-                              final nextDepartureTime =
-                                  _getNextDepartureTime(routeKey);
-                              final isOperating =
-                                  nextDepartureTime != '운행 종료' &&
-                                      nextDepartureTime != '로딩...';
-
-                              return InkWell(
-                                key: isFirstExperienceRoute
-                                    ? _firstRouteKey
-                                    : null,
-                                onTap: () {
-                                  HapticFeedback.lightImpact();
-                                  Get.to(
-                                      () => BusMapView(initialRoute: routeKey));
-                                },
-                                borderRadius: isLastSubGroup &&
-                                        routeIdx ==
-                                            subGroup['routes'].length - 1
-                                    ? BorderRadius.vertical(
-                                        bottom:
-                                            Radius.circular(layout.radius(25)))
-                                    : BorderRadius.zero,
-                                child: Padding(
-                                  padding: EdgeInsets.symmetric(
-                                    horizontal: layout.space(20),
-                                    vertical: layout.space(8),
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      // 버스 번호 및 방면
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            Row(
-                                              crossAxisAlignment:
-                                                  CrossAxisAlignment.baseline,
-                                              textBaseline:
-                                                  TextBaseline.alphabetic,
-                                              children: [
-                                                Text(
-                                                  busNumber,
-                                                  style: TextStyle(
-                                                    fontSize: layout.font(20),
-                                                    fontWeight: FontWeight.bold,
-                                                  ),
-                                                ),
-                                                SizedBox(
-                                                    width: layout.space(4)),
-                                                if (direction.isNotEmpty)
-                                                  Expanded(
-                                                    child: Text(
-                                                      direction,
-                                                      style: TextStyle(
-                                                        fontSize:
-                                                            layout.font(13),
-                                                        color: Colors.grey[600],
-                                                        overflow: TextOverflow
-                                                            .ellipsis,
-                                                      ),
-                                                    ),
-                                                  ),
-                                              ],
-                                            ),
-                                            SizedBox(height: layout.space(4)),
-                                            Row(
-                                              children: [
-                                                // 버스 위치 상태
-                                                if (busLocationStatus !=
-                                                    '현재 운행 없음') ...[
-                                                  Icon(Icons.location_on,
-                                                      size: layout.icon(12),
-                                                      color: Colors.blue),
-                                                  SizedBox(
-                                                      width: layout.space(4)),
-                                                  Flexible(
-                                                    child: AutoScrollText(
-                                                      text: busLocationStatus,
-                                                      style: TextStyle(
-                                                        fontSize:
-                                                            layout.font(12),
-                                                        color: Colors.blue,
-                                                        fontWeight:
-                                                            FontWeight.w600,
-                                                      ),
-                                                      height: layout.space(16),
-                                                    ),
-                                                  ),
-                                                  SizedBox(
-                                                      width: layout.space(8)),
-                                                  Container(
-                                                    width: layout.border(1),
-                                                    height: layout.space(10),
-                                                    color: Colors.grey[300],
-                                                  ),
-                                                  SizedBox(
-                                                      width: layout.space(8)),
-                                                ],
-                                                // 다음 출발 시간
-                                                Text(
-                                                  nextDepartureTime.replaceAll(
-                                                      '출발: ', ''),
-                                                  style: TextStyle(
-                                                    fontSize: layout.font(13),
-                                                    color: isOperating
-                                                        ? const Color(
-                                                            0xFFE65100)
-                                                        : Colors.grey,
-                                                    fontWeight: isOperating
-                                                        ? FontWeight.bold
-                                                        : FontWeight.normal,
-                                                  ),
-                                                ),
-                                                if (isOperating) ...[
-                                                  SizedBox(
-                                                      width: layout.space(4)),
-                                                  Text(
-                                                    '출발',
-                                                    style: TextStyle(
-                                                      fontSize: layout.font(12),
-                                                      color: Colors.grey,
-                                                    ),
-                                                  ),
-                                                ],
-                                              ],
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-
-                                      // 화살표 아이콘
-                                      Icon(
-                                        Icons.arrow_forward_ios,
-                                        size: layout.icon(16),
-                                        color: Colors.grey[300],
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              );
-                            });
-                          },
-                        ),
-                      ],
-                    );
-                  }),
-                ),
+                            );
+                          });
+                        },
+                      ),
+                    ],
+                  );
+                }),
               ),
-            ],
-          ),
+            ),
+          ],
         );
       },
     );
