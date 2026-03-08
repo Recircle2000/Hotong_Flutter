@@ -1,5 +1,7 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
+import 'package:insta_image_viewer/insta_image_viewer.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../models/emergency_notice_model.dart';
@@ -93,6 +95,13 @@ class EmergencyNoticeDetailView extends StatelessWidget {
                   await launchUrl(uri, mode: LaunchMode.externalApplication);
                 }
               },
+              sizedImageBuilder: (config) {
+                return _EmergencyMarkdownImage(
+                  imageUrl: config.uri.toString(),
+                  width: config.width,
+                  height: config.height,
+                );
+              },
             ),
           ],
         ),
@@ -106,5 +115,181 @@ class EmergencyNoticeDetailView extends StatelessWidget {
         '${value.day.toString().padLeft(2, '0')} '
         '${value.hour.toString().padLeft(2, '0')}:'
         '${value.minute.toString().padLeft(2, '0')}';
+  }
+}
+
+class _EmergencyMarkdownImage extends StatelessWidget {
+  const _EmergencyMarkdownImage({
+    required this.imageUrl,
+    this.width,
+    this.height,
+  });
+
+  final String imageUrl;
+  final double? width;
+  final double? height;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return InstaImageViewer(
+      imageUrl: imageUrl,
+      backgroundColor: Colors.black,
+      backgroundIsTransparent: false,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(16),
+          child: Image.network(
+            imageUrl,
+            width: width,
+            height: height,
+            fit: BoxFit.contain,
+            loadingBuilder: (context, child, loadingProgress) {
+              if (loadingProgress == null) {
+                return child;
+              }
+
+              return _EmergencyImageLoadingPlaceholder(
+                loadingProgress: loadingProgress,
+                minHeight: height ?? 180,
+                backgroundColor: colorScheme.surfaceContainerHighest,
+                textColor: colorScheme.onSurfaceVariant,
+                width: width,
+              );
+            },
+            errorBuilder: (context, error, stackTrace) {
+              return _EmergencyImageErrorPlaceholder(
+                minHeight: height ?? 180,
+                backgroundColor: colorScheme.surfaceContainerHighest,
+                iconColor: colorScheme.error,
+                textColor: colorScheme.onSurfaceVariant,
+                width: width,
+              );
+            },
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _EmergencyImageLoadingPlaceholder extends StatelessWidget {
+  const _EmergencyImageLoadingPlaceholder({
+    required this.loadingProgress,
+    required this.minHeight,
+    required this.backgroundColor,
+    required this.textColor,
+    this.width,
+  });
+
+  final ImageChunkEvent loadingProgress;
+  final double minHeight;
+  final Color backgroundColor;
+  final Color textColor;
+  final double? width;
+
+  double? get _progressValue {
+    final expectedTotalBytes = loadingProgress.expectedTotalBytes;
+    if (expectedTotalBytes == null || expectedTotalBytes == 0) {
+      return null;
+    }
+
+    return loadingProgress.cumulativeBytesLoaded / expectedTotalBytes;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: width ?? double.infinity,
+      constraints: BoxConstraints(minHeight: minHeight),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 28),
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _AdaptiveImageLoadingIndicator(progress: _progressValue),
+          const SizedBox(height: 12),
+          Text(
+            '이미지 불러오는 중',
+            style: Theme.of(
+              context,
+            ).textTheme.bodyMedium?.copyWith(color: textColor),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _EmergencyImageErrorPlaceholder extends StatelessWidget {
+  const _EmergencyImageErrorPlaceholder({
+    required this.minHeight,
+    required this.backgroundColor,
+    required this.iconColor,
+    required this.textColor,
+    this.width,
+  });
+
+  final double minHeight;
+  final Color backgroundColor;
+  final Color iconColor;
+  final Color textColor;
+  final double? width;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: width ?? double.infinity,
+      constraints: BoxConstraints(minHeight: minHeight),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 28),
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.broken_image_outlined, size: 34, color: iconColor),
+          const SizedBox(height: 12),
+          Text(
+            '이미지를 불러올 수 없습니다.',
+            style: Theme.of(
+              context,
+            ).textTheme.bodyMedium?.copyWith(color: textColor),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AdaptiveImageLoadingIndicator extends StatelessWidget {
+  const _AdaptiveImageLoadingIndicator({this.progress});
+
+  final double? progress;
+
+  @override
+  Widget build(BuildContext context) {
+    final platform = Theme.of(context).platform;
+
+    if (platform == TargetPlatform.iOS || platform == TargetPlatform.macOS) {
+      return const CupertinoActivityIndicator(radius: 12);
+    }
+
+    return SizedBox(
+      width: 26,
+      height: 26,
+      child: CircularProgressIndicator(
+        value: progress,
+        strokeWidth: 2.6,
+      ),
+    );
   }
 }
