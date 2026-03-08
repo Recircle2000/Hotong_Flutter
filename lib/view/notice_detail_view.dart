@@ -1,6 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:insta_image_viewer/insta_image_viewer.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../models/notice_model.dart';
@@ -156,10 +157,10 @@ class _NoticeMarkdownImage extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
 
-    return GestureDetector(
-      onTap: () {
-        Get.to(() => ImageFullScreenView(imageUrl: imageUrl));
-      },
+    return InstaImageViewer(
+      imageUrl: imageUrl,
+      backgroundColor: Colors.black,
+      backgroundIsTransparent: false,
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 8),
         child: ClipRRect(
@@ -312,125 +313,6 @@ class _AdaptiveImageLoadingIndicator extends StatelessWidget {
       child: CircularProgressIndicator(
         value: progress,
         strokeWidth: 2.6,
-      ),
-    );
-  }
-}
-
-class ImageFullScreenView extends StatelessWidget {
-  final String imageUrl;
-  const ImageFullScreenView({super.key, required this.imageUrl});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.black,
-      body: Stack(
-        children: [
-          InteractiveViewer(
-            boundaryMargin: EdgeInsets.zero,
-            minScale: 1.0,
-            maxScale: 5.0,
-            child: Center(
-              child: Image.network(
-                imageUrl,
-                fit: BoxFit.contain,
-                loadingBuilder: (context, child, loadingProgress) {
-                  if (loadingProgress == null) {
-                    return child;
-                  }
-
-                  return const FractionallySizedBox(
-                    widthFactor: 0.8,
-                    child: _NoticeImageLoadingContainer(),
-                  );
-                },
-                errorBuilder: (context, error, stackTrace) {
-                  return const FractionallySizedBox(
-                    widthFactor: 0.8,
-                    child: _NoticeImageErrorContainer(),
-                  );
-                },
-              ),
-            ),
-          ),
-          Positioned(
-            top: 40,
-            left: 16,
-            child: IconButton(
-              icon: Icon(Icons.close, color: Colors.white, size: 32),
-              onPressed: () => Get.back(),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _NoticeImageLoadingContainer extends StatelessWidget {
-  const _NoticeImageLoadingContainer();
-
-  @override
-  Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(18),
-      ),
-      child: const Padding(
-        padding: EdgeInsets.symmetric(vertical: 28, horizontal: 24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _AdaptiveImageLoadingIndicator(),
-            SizedBox(height: 12),
-            Text(
-              '이미지 불러오는 중',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _NoticeImageErrorContainer extends StatelessWidget {
-  const _NoticeImageErrorContainer();
-
-  @override
-  Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(18),
-      ),
-      child: const Padding(
-        padding: EdgeInsets.symmetric(vertical: 28, horizontal: 24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.broken_image_outlined,
-              size: 34,
-              color: Colors.white,
-            ),
-            SizedBox(height: 12),
-            Text(
-              '이미지를 불러올 수 없습니다.',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }
