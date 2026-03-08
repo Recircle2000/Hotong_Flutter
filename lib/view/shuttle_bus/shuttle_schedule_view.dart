@@ -9,6 +9,7 @@ import 'package:intl/intl.dart';
 
 import '../../models/shuttle_models.dart';
 import '../../viewmodel/shuttle_viewmodel.dart';
+import '../components/auto_scroll_text.dart';
 import 'naver_map_station_detail_view.dart';
 
 class ShuttleScheduleView extends StatefulWidget {
@@ -236,24 +237,24 @@ class _ShuttleScheduleViewState extends State<ShuttleScheduleView> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
-              crossAxisAlignment: CrossAxisAlignment.end,
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 const Icon(
                   Icons.directions_bus_rounded,
                   color: shuttleColor,
-                  size: 24,
+                  size: 22,
                 ),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: Text(
-                    widget.routeName,
+                  child: AutoScrollText(
+                    text: widget.routeName,
                     style: TextStyle(
                       fontWeight: FontWeight.w800,
                       fontSize: 22,
                       height: 1.1,
                       color: primaryTextColor,
                     ),
-                    overflow: TextOverflow.ellipsis,
+                    height: 28,
                   ),
                 ),
                 const SizedBox(width: 8),
