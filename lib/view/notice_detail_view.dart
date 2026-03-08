@@ -1,10 +1,10 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../models/notice_model.dart';
 import '../viewmodel/notice_viewmodel.dart';
-
 
 class NoticeDetailView extends StatelessWidget {
   final Notice notice;
@@ -16,7 +16,7 @@ class NoticeDetailView extends StatelessWidget {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final noticeViewModel = Get.find<NoticeViewModel>();
-    
+
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
@@ -29,7 +29,11 @@ class NoticeDetailView extends StatelessWidget {
         scrolledUnderElevation: 0,
         backgroundColor: theme.scaffoldBackgroundColor,
         leading: IconButton(
-          icon: Icon(Icons.arrow_back_ios, color: theme.appBarTheme.iconTheme?.color, size: 20),
+          icon: Icon(
+            Icons.arrow_back_ios,
+            color: theme.appBarTheme.iconTheme?.color,
+            size: 20,
+          ),
           onPressed: () => Get.back(),
         ),
       ),
@@ -61,7 +65,11 @@ class NoticeDetailView extends StatelessWidget {
                     const SizedBox(height: 12),
                     Row(
                       children: [
-                        Icon(Icons.access_time, size: 16, color: colorScheme.onSurfaceVariant),
+                        Icon(
+                          Icons.access_time,
+                          size: 16,
+                          color: colorScheme.onSurfaceVariant,
+                        ),
                         const SizedBox(width: 6),
                         Text(
                           notice.createdAt.toLocal().toString().split('.')[0],
@@ -72,13 +80,16 @@ class NoticeDetailView extends StatelessWidget {
                         ),
                         const Spacer(),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 6),
                           decoration: BoxDecoration(
-                            color: noticeViewModel.getNoticeTypeColor(notice.noticeType),
+                            color: noticeViewModel
+                                .getNoticeTypeColor(notice.noticeType),
                             borderRadius: BorderRadius.circular(16),
                           ),
                           child: Text(
-                            noticeViewModel.getNoticeTypeDisplayName(notice.noticeType),
+                            noticeViewModel
+                                .getNoticeTypeDisplayName(notice.noticeType),
                             style: const TextStyle(
                               color: Colors.white,
                               fontSize: 12,
@@ -94,7 +105,7 @@ class NoticeDetailView extends StatelessWidget {
               Divider(
                 height: 1,
                 thickness: 1,
-                color: colorScheme.surfaceVariant,
+                color: colorScheme.surfaceContainerHighest,
               ),
               const SizedBox(height: 24),
               MarkdownBody(
@@ -108,21 +119,199 @@ class NoticeDetailView extends StatelessWidget {
                 ),
                 onTapLink: (text, href, title) async {
                   if (href != null && await canLaunchUrl(Uri.parse(href))) {
-                    await launchUrl(Uri.parse(href), mode: LaunchMode.externalApplication);
+                    await launchUrl(
+                      Uri.parse(href),
+                      mode: LaunchMode.externalApplication,
+                    );
                   }
                 },
-                imageBuilder: (uri, title, alt) {
-                  return GestureDetector(
-                    onTap: () {
-                      Get.to(() => ImageFullScreenView(imageUrl: uri.toString()));
-                    },
-                    child: Image.network(uri.toString()),
+                sizedImageBuilder: (config) {
+                  return _NoticeMarkdownImage(
+                    imageUrl: config.uri.toString(),
+                    width: config.width,
+                    height: config.height,
                   );
                 },
               ),
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _NoticeMarkdownImage extends StatelessWidget {
+  const _NoticeMarkdownImage({
+    required this.imageUrl,
+    this.width,
+    this.height,
+  });
+
+  final String imageUrl;
+  final double? width;
+  final double? height;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return GestureDetector(
+      onTap: () {
+        Get.to(() => ImageFullScreenView(imageUrl: imageUrl));
+      },
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(16),
+          child: Image.network(
+            imageUrl,
+            width: width,
+            height: height,
+            fit: BoxFit.contain,
+            loadingBuilder: (context, child, loadingProgress) {
+              if (loadingProgress == null) {
+                return child;
+              }
+
+              return _NoticeImageLoadingPlaceholder(
+                loadingProgress: loadingProgress,
+                minHeight: height ?? 180,
+                backgroundColor: colorScheme.surfaceContainerHighest,
+                textColor: colorScheme.onSurfaceVariant,
+                width: width,
+              );
+            },
+            errorBuilder: (context, error, stackTrace) {
+              return _NoticeImageErrorPlaceholder(
+                minHeight: height ?? 180,
+                backgroundColor: colorScheme.surfaceContainerHighest,
+                iconColor: colorScheme.error,
+                textColor: colorScheme.onSurfaceVariant,
+                width: width,
+              );
+            },
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _NoticeImageLoadingPlaceholder extends StatelessWidget {
+  const _NoticeImageLoadingPlaceholder({
+    required this.loadingProgress,
+    required this.minHeight,
+    required this.backgroundColor,
+    required this.textColor,
+    this.width,
+  });
+
+  final ImageChunkEvent loadingProgress;
+  final double minHeight;
+  final Color backgroundColor;
+  final Color textColor;
+  final double? width;
+
+  double? get _progressValue {
+    final expectedTotalBytes = loadingProgress.expectedTotalBytes;
+    if (expectedTotalBytes == null || expectedTotalBytes == 0) {
+      return null;
+    }
+
+    return loadingProgress.cumulativeBytesLoaded / expectedTotalBytes;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: width ?? double.infinity,
+      constraints: BoxConstraints(minHeight: minHeight),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 28),
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _AdaptiveImageLoadingIndicator(progress: _progressValue),
+          const SizedBox(height: 12),
+          Text(
+            '이미지 불러오는 중',
+            style: Theme.of(
+              context,
+            ).textTheme.bodyMedium?.copyWith(color: textColor),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _NoticeImageErrorPlaceholder extends StatelessWidget {
+  const _NoticeImageErrorPlaceholder({
+    required this.minHeight,
+    required this.backgroundColor,
+    required this.iconColor,
+    required this.textColor,
+    this.width,
+  });
+
+  final double minHeight;
+  final Color backgroundColor;
+  final Color iconColor;
+  final Color textColor;
+  final double? width;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: width ?? double.infinity,
+      constraints: BoxConstraints(minHeight: minHeight),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 28),
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.broken_image_outlined, size: 34, color: iconColor),
+          const SizedBox(height: 12),
+          Text(
+            '이미지를 불러올 수 없습니다.',
+            style: Theme.of(
+              context,
+            ).textTheme.bodyMedium?.copyWith(color: textColor),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AdaptiveImageLoadingIndicator extends StatelessWidget {
+  const _AdaptiveImageLoadingIndicator({this.progress});
+
+  final double? progress;
+
+  @override
+  Widget build(BuildContext context) {
+    final platform = Theme.of(context).platform;
+
+    if (platform == TargetPlatform.iOS || platform == TargetPlatform.macOS) {
+      return const CupertinoActivityIndicator(radius: 12);
+    }
+
+    return SizedBox(
+      width: 26,
+      height: 26,
+      child: CircularProgressIndicator(
+        value: progress,
+        strokeWidth: 2.6,
       ),
     );
   }
@@ -143,17 +332,105 @@ class ImageFullScreenView extends StatelessWidget {
             minScale: 1.0,
             maxScale: 5.0,
             child: Center(
-              child: Image.network(imageUrl),
+              child: Image.network(
+                imageUrl,
+                fit: BoxFit.contain,
+                loadingBuilder: (context, child, loadingProgress) {
+                  if (loadingProgress == null) {
+                    return child;
+                  }
+
+                  return const FractionallySizedBox(
+                    widthFactor: 0.8,
+                    child: _NoticeImageLoadingContainer(),
+                  );
+                },
+                errorBuilder: (context, error, stackTrace) {
+                  return const FractionallySizedBox(
+                    widthFactor: 0.8,
+                    child: _NoticeImageErrorContainer(),
+                  );
+                },
+              ),
             ),
           ),
           Positioned(
-            top: 40, left: 16,
+            top: 40,
+            left: 16,
             child: IconButton(
               icon: Icon(Icons.close, color: Colors.white, size: 32),
               onPressed: () => Get.back(),
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _NoticeImageLoadingContainer extends StatelessWidget {
+  const _NoticeImageLoadingContainer();
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: const Padding(
+        padding: EdgeInsets.symmetric(vertical: 28, horizontal: 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _AdaptiveImageLoadingIndicator(),
+            SizedBox(height: 12),
+            Text(
+              '이미지 불러오는 중',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _NoticeImageErrorContainer extends StatelessWidget {
+  const _NoticeImageErrorContainer();
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: const Padding(
+        padding: EdgeInsets.symmetric(vertical: 28, horizontal: 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.broken_image_outlined,
+              size: 34,
+              color: Colors.white,
+            ),
+            SizedBox(height: 12),
+            Text(
+              '이미지를 불러올 수 없습니다.',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
