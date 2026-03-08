@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
+import '../../utils/responsive_layout.dart';
 import '../../viewmodel/busmap_viewmodel.dart';
 import 'naver_bus_map_detail_view.dart';
 import 'components/station_list.dart';
@@ -134,6 +135,7 @@ class _BusMapViewState extends State<BusMapView> {
 
   @override
   Widget build(BuildContext context) {
+    final layout = AppResponsive.of(context);
     return Scaffold(
       appBar: AppBar(
         title: Obx(() {
@@ -143,8 +145,8 @@ class _BusMapViewState extends State<BusMapView> {
                 ? '시내버스 위치'
                 : routeDisplayNames[controller.selectedRoute.value] ??
                     controller.selectedRoute.value,
-            style: const TextStyle(
-              fontSize: 18,
+            style: TextStyle(
+              fontSize: layout.font(18),
               fontWeight: FontWeight.w600,
             ),
           );
@@ -163,12 +165,14 @@ class _BusMapViewState extends State<BusMapView> {
                   controller.hasReceivedWebSocketData.value &&
                   controller.markers.isEmpty) {
                 return Container(
-                  margin: const EdgeInsets.symmetric(
-                      horizontal: 16.0, vertical: 8.0),
-                  padding: const EdgeInsets.all(12.0),
+                  margin: EdgeInsets.symmetric(
+                    horizontal: layout.space(16),
+                    vertical: layout.space(8),
+                  ),
+                  padding: EdgeInsets.all(layout.space(12)),
                   decoration: BoxDecoration(
                     color: Colors.orange.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(layout.radius(8)),
                     border: Border.all(
                       color: Colors.orange.withOpacity(0.3),
                       width: 1,
@@ -179,14 +183,14 @@ class _BusMapViewState extends State<BusMapView> {
                       Icon(
                         Icons.info_outline,
                         color: Colors.orange[700],
-                        size: 20,
+                        size: layout.icon(20),
                       ),
-                      const SizedBox(width: 8),
+                      SizedBox(width: layout.space(8)),
                       Expanded(
                         child: Text(
                           '현재 노선에 운행 중인 버스가 없습니다.',
                           style: TextStyle(
-                            fontSize: 13,
+                            fontSize: layout.font(13),
                             color: Colors.orange[700],
                             fontWeight: FontWeight.w500,
                           ),
@@ -211,12 +215,13 @@ class _BusMapViewState extends State<BusMapView> {
             Container(
               decoration: BoxDecoration(
                 color: Theme.of(context).scaffoldBackgroundColor,
-                borderRadius:
-                    const BorderRadius.vertical(top: Radius.circular(25)),
+                borderRadius: BorderRadius.vertical(
+                  top: Radius.circular(layout.radius(25)),
+                ),
                 boxShadow: [
                   BoxShadow(
                     color: Colors.black.withOpacity(0.1),
-                    blurRadius: 10,
+                    blurRadius: layout.space(10, maxScale: 1.08),
                     offset: const Offset(0, -2),
                   ),
                 ],
@@ -224,7 +229,7 @@ class _BusMapViewState extends State<BusMapView> {
               child: SafeArea(
                 top: false,
                 child: Padding(
-                  padding: const EdgeInsets.all(16.0),
+                  padding: EdgeInsets.all(layout.space(16)),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -259,19 +264,24 @@ class _BusMapViewState extends State<BusMapView> {
                                             controller.selectedRoute.value] ??
                                         controller.selectedRoute.value));
                               },
-                              icon: const Icon(Icons.map, size: 20),
-                              label: const Text('운행 지도'),
+                              icon: Icon(Icons.map, size: layout.icon(20)),
+                              label: Text(
+                                '운행 지도',
+                                style: TextStyle(fontSize: layout.font(14)),
+                              ),
                               style: ElevatedButton.styleFrom(
-                                padding:
-                                    const EdgeInsets.symmetric(vertical: 12),
+                                padding: EdgeInsets.symmetric(
+                                  vertical: layout.space(12),
+                                ),
                                 shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(8),
+                                  borderRadius:
+                                      BorderRadius.circular(layout.radius(8)),
                                 ),
                               ),
                             ),
                           ),
 
-                          const SizedBox(width: 12),
+                          SizedBox(width: layout.space(12)),
 
                           // 가까운 정류장 찾기 버튼
                           Expanded(
@@ -281,19 +291,24 @@ class _BusMapViewState extends State<BusMapView> {
                                 LocationHelper.findNearestStationAndScroll(
                                     context, stationScrollController);
                               },
-                              icon: const Icon(Icons.near_me, size: 20),
-                              label: const Text('주변 정류장'),
+                              icon: Icon(Icons.near_me, size: layout.icon(20)),
+                              label: Text(
+                                '주변 정류장',
+                                style: TextStyle(fontSize: layout.font(14)),
+                              ),
                               style: ElevatedButton.styleFrom(
-                                padding:
-                                    const EdgeInsets.symmetric(vertical: 12),
+                                padding: EdgeInsets.symmetric(
+                                  vertical: layout.space(12),
+                                ),
                                 shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(8),
+                                  borderRadius:
+                                      BorderRadius.circular(layout.radius(8)),
                                 ),
                               ),
                             ),
                           ),
 
-                          const SizedBox(width: 12),
+                          SizedBox(width: layout.space(12)),
 
                           // 노선 정보 버튼
                           Expanded(
@@ -302,13 +317,21 @@ class _BusMapViewState extends State<BusMapView> {
                                 HapticFeedback.lightImpact();
                                 _showRouteInfo(context, controller);
                               },
-                              icon: const Icon(Icons.access_time, size: 20),
-                              label: const Text('시간표'),
+                              icon: Icon(
+                                Icons.access_time,
+                                size: layout.icon(20),
+                              ),
+                              label: Text(
+                                '시간표',
+                                style: TextStyle(fontSize: layout.font(14)),
+                              ),
                               style: ElevatedButton.styleFrom(
-                                padding:
-                                    const EdgeInsets.symmetric(vertical: 12),
+                                padding: EdgeInsets.symmetric(
+                                  vertical: layout.space(12),
+                                ),
                                 shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(8),
+                                  borderRadius:
+                                      BorderRadius.circular(layout.radius(8)),
                                 ),
                               ),
                             ),
@@ -329,6 +352,7 @@ class _BusMapViewState extends State<BusMapView> {
   // 노선 간략 정보 배너 위젯
   Widget _buildRouteInfoBanner(BusMapViewModel controller) {
     return Obx(() {
+      final layout = AppResponsive.of(context);
       if (controller.selectedRoute.value.isEmpty ||
           _cachedTimetableData == null) {
         return const SizedBox.shrink();
@@ -344,14 +368,19 @@ class _BusMapViewState extends State<BusMapView> {
 
       return Container(
         width: double.infinity,
-        padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+        padding: EdgeInsets.fromLTRB(
+          layout.space(16),
+          layout.space(4, maxScale: 1.05),
+          layout.space(16),
+          layout.space(8),
+        ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceAround,
           children: [
             Text(
               '운행시간: $firstBus~$lastBus',
               style: TextStyle(
-                fontSize: 12,
+                fontSize: layout.font(12),
                 color: Colors.grey[600],
                 fontWeight: FontWeight.w500,
               ),
@@ -359,14 +388,14 @@ class _BusMapViewState extends State<BusMapView> {
             Text(
               '•',
               style: TextStyle(
-                fontSize: 12,
+                fontSize: layout.font(12),
                 color: Colors.grey[400],
               ),
             ),
             Text(
               '배차간격: $interval',
               style: TextStyle(
-                fontSize: 12,
+                fontSize: layout.font(12),
                 color: Colors.grey[600],
                 fontWeight: FontWeight.w500,
               ),
@@ -378,6 +407,7 @@ class _BusMapViewState extends State<BusMapView> {
   }
 
   void _showRouteInfo(BuildContext context, BusMapViewModel controller) {
+    final layout = AppResponsive.of(context);
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -393,18 +423,19 @@ class _BusMapViewState extends State<BusMapView> {
             child: Container(
               decoration: BoxDecoration(
                 color: Theme.of(context).scaffoldBackgroundColor,
-                borderRadius:
-                    const BorderRadius.vertical(top: Radius.circular(25)),
+                borderRadius: BorderRadius.vertical(
+                  top: Radius.circular(layout.radius(25)),
+                ),
               ),
               child: Column(
                 children: [
                   Container(
-                    margin: const EdgeInsets.symmetric(vertical: 8),
-                    width: 40,
-                    height: 4,
+                    margin: EdgeInsets.symmetric(vertical: layout.space(8)),
+                    width: layout.space(40, maxScale: 1.08),
+                    height: layout.space(4, maxScale: 1.05),
                     decoration: BoxDecoration(
                       color: Colors.grey[300],
-                      borderRadius: BorderRadius.circular(2),
+                      borderRadius: BorderRadius.circular(layout.radius(2)),
                     ),
                   ),
                   Expanded(
@@ -414,7 +445,7 @@ class _BusMapViewState extends State<BusMapView> {
                             child: Column(
                               children: [
                                 Container(
-                                  width: 350,
+                                  width: layout.space(350, maxScale: 1.08),
                                   child: Obx(() =>
                                       CupertinoSlidingSegmentedControl<int>(
                                         children: const {

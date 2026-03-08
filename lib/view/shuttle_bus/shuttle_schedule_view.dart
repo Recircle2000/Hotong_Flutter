@@ -1,4 +1,4 @@
-﻿import 'dart:io' show Platform;
+import 'dart:io' show Platform;
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
@@ -8,6 +8,7 @@ import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 
 import '../../models/shuttle_models.dart';
+import '../../utils/responsive_layout.dart';
 import '../../viewmodel/shuttle_viewmodel.dart';
 import '../components/auto_scroll_text.dart';
 import 'naver_map_station_detail_view.dart';
@@ -29,6 +30,8 @@ class ShuttleScheduleView extends StatefulWidget {
 }
 
 class _ShuttleScheduleViewState extends State<ShuttleScheduleView> {
+  static const shuttleColor = Color(0xFFB83227);
+
   final ShuttleViewModel viewModel = Get.find<ShuttleViewModel>();
   final ScrollController _scheduleScrollController = ScrollController();
   final Map<int, GlobalKey> _scheduleRowKeys = <int, GlobalKey>{};
@@ -45,8 +48,6 @@ class _ShuttleScheduleViewState extends State<ShuttleScheduleView> {
   @override
   void initState() {
     super.initState();
-
-    // 스케줄이 비어있는 경우 데이터 로드
     if (viewModel.schedules.isEmpty) {
       viewModel.fetchSchedules(widget.routeId, widget.date);
     }
@@ -68,7 +69,6 @@ class _ShuttleScheduleViewState extends State<ShuttleScheduleView> {
     Duration delay = Duration.zero,
   }) async {
     if (!mounted) return;
-
     if (scrollToken != _lastScrollToken || _expandedScheduleId != scheduleId) {
       return;
     }
@@ -102,13 +102,11 @@ class _ShuttleScheduleViewState extends State<ShuttleScheduleView> {
           viewport.getOffsetToReveal(rowRenderObject, 0.0).offset;
       final currentOffset = position.pixels;
       final targetOffset = rowTopOffset - topPadding;
+      final clampedTarget = targetOffset
+          .clamp(position.minScrollExtent, position.maxScrollExtent)
+          .toDouble();
 
-      final minOffset = position.minScrollExtent;
-      final maxOffset = position.maxScrollExtent;
-      final clampedTarget = targetOffset.clamp(minOffset, maxOffset).toDouble();
-      final distance = (clampedTarget - currentOffset).abs();
-
-      if (distance < 1.0) return;
+      if ((clampedTarget - currentOffset).abs() < 1.0) return;
 
       await _scheduleScrollController.animateTo(
         clampedTarget,
@@ -124,7 +122,6 @@ class _ShuttleScheduleViewState extends State<ShuttleScheduleView> {
     final requestToken = ++_lastRequestToken;
     final scrollToken = ++_lastScrollToken;
 
-    // 같은 항목 재탭 시 접기
     if (_expandedScheduleId == scheduleId) {
       setState(() {
         _expandedScheduleId = null;
@@ -137,7 +134,6 @@ class _ShuttleScheduleViewState extends State<ShuttleScheduleView> {
     final hasCached = _inlineStopsCache.containsKey(scheduleId);
     final hasNoStops = _noStopsScheduleIds.contains(scheduleId);
 
-    // 다른 항목 펼치기 (동시에 하나만)
     setState(() {
       _expandedScheduleId = scheduleId;
       _highlightedScheduleId = scheduleId;
@@ -154,11 +150,8 @@ class _ShuttleScheduleViewState extends State<ShuttleScheduleView> {
     }
 
     final stops = await viewModel.fetchScheduleStopsForInline(scheduleId);
-    if (!mounted) {
-      return;
-    }
+    if (!mounted) return;
 
-    // 마지막 탭 요청이 아닌 경우 무시
     if (requestToken != _lastRequestToken ||
         _expandedScheduleId != scheduleId) {
       return;
@@ -173,6 +166,7 @@ class _ShuttleScheduleViewState extends State<ShuttleScheduleView> {
         _noStopsScheduleIds.remove(scheduleId);
       }
     });
+
     _scrollExpandedSectionIntoView(
       scheduleId,
       scrollToken: scrollToken,
@@ -182,30 +176,34 @@ class _ShuttleScheduleViewState extends State<ShuttleScheduleView> {
 
   @override
   Widget build(BuildContext context) {
+    final layout = AppResponsive.of(context);
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('운행 시간표'),
+        title: Text(
+          '운행 시간표',
+          style:
+              TextStyle(fontSize: layout.font(20), fontWeight: FontWeight.w700),
+        ),
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // 선택된 노선 정보
-            _buildHeaderInfo(),
-            const SizedBox(height: 20),
-            // 시간표 목록
-            Expanded(
-              child: _buildScheduleList(),
-            ),
-          ],
+      body: AppPageFrame(
+        child: Padding(
+          padding: EdgeInsets.all(layout.space(16)),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildHeaderInfo(context),
+              SizedBox(height: layout.space(20)),
+              Expanded(child: _buildScheduleList(context)),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildHeaderInfo() {
-    const shuttleColor = Color(0xFFB83227);
+  Widget _buildHeaderInfo(BuildContext context) {
+    final layout = AppResponsive.of(context);
     final brightness = Theme.of(context).brightness;
     final backgroundColor = brightness == Brightness.dark
         ? shuttleColor.withOpacity(0.2)
@@ -215,10 +213,10 @@ class _ShuttleScheduleViewState extends State<ShuttleScheduleView> {
     final secondaryTextColor = primaryTextColor.withOpacity(0.78);
 
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.all(layout.space(16)),
       decoration: BoxDecoration(
         color: backgroundColor,
-        borderRadius: BorderRadius.circular(25),
+        borderRadius: BorderRadius.circular(layout.radius(25)),
       ),
       child: Obx(() {
         final scheduleType = viewModel.scheduleTypeName.value.trim();
@@ -232,7 +230,6 @@ class _ShuttleScheduleViewState extends State<ShuttleScheduleView> {
           lastBusTime =
               DateFormat('HH:mm').format(viewModel.schedules.last.startTime);
         }
-        const headerContentLeftInset = 30.0;
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -240,55 +237,55 @@ class _ShuttleScheduleViewState extends State<ShuttleScheduleView> {
             Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                const Icon(
+                Icon(
                   Icons.directions_bus_rounded,
                   color: shuttleColor,
-                  size: 22,
+                  size: layout.icon(22),
                 ),
-                const SizedBox(width: 8),
+                SizedBox(width: layout.space(8)),
                 Expanded(
                   child: AutoScrollText(
                     text: widget.routeName,
                     style: TextStyle(
                       fontWeight: FontWeight.w800,
-                      fontSize: 22,
+                      fontSize: layout.font(22, maxScale: 1.12),
                       height: 1.1,
                       color: primaryTextColor,
                     ),
-                    height: 28,
+                    height: layout.space(28, maxScale: 1.10),
                   ),
                 ),
-                const SizedBox(width: 8),
+                SizedBox(width: layout.space(8)),
                 Text(
                   _formatDateWithoutYear(widget.date),
                   style: TextStyle(
                     fontWeight: FontWeight.w600,
-                    fontSize: 14,
+                    fontSize: layout.font(14),
                     color: secondaryTextColor,
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 10),
+            SizedBox(height: layout.space(10)),
             Padding(
-              padding: const EdgeInsets.only(left: headerContentLeftInset),
+              padding: EdgeInsets.only(left: layout.space(30)),
               child: Text(
                 typeText,
                 style: TextStyle(
                   fontWeight: FontWeight.w700,
-                  fontSize: 15,
+                  fontSize: layout.font(15),
                   color: primaryTextColor,
                 ),
               ),
             ),
-            const SizedBox(height: 8),
+            SizedBox(height: layout.space(8)),
             Padding(
-              padding: const EdgeInsets.only(left: headerContentLeftInset),
+              padding: EdgeInsets.only(left: layout.space(30)),
               child: Text(
                 '첫차 $firstBusTime  ·  막차 $lastBusTime',
                 style: TextStyle(
                   fontWeight: FontWeight.w600,
-                  fontSize: 13,
+                  fontSize: layout.font(13),
                   color: secondaryTextColor,
                 ),
               ),
@@ -303,258 +300,131 @@ class _ShuttleScheduleViewState extends State<ShuttleScheduleView> {
     try {
       final date = DateFormat('yyyy-MM-dd').parseStrict(dateStr);
       return DateFormat('MM월 dd일').format(date);
-    } catch (e) {
+    } catch (_) {
       return dateStr;
     }
   }
 
-  // ignore: unused_element
-  Widget _buildHeaderInfoLegacy() {
-    // 셔틀버스 색상 - 홈 화면과 동일하게 맞춤
-    const shuttleColor = Color(0xFFB83227);
-    final brightness = Theme.of(context).brightness;
-    final backgroundColor = brightness == Brightness.dark
-        ? shuttleColor.withOpacity(0.2)
-        : shuttleColor.withOpacity(0.1);
-
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: backgroundColor,
-        borderRadius: BorderRadius.circular(25),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Icon(
-                Icons.directions_bus,
-                color: shuttleColor,
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  '노선: ${widget.routeName}',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                    color: brightness == Brightness.dark
-                        ? Colors.redAccent
-                        : shuttleColor,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              const Icon(
-                Icons.calendar_today,
-                color: shuttleColor,
-              ),
-              const SizedBox(width: 8),
-              Text(
-                // 날짜 형식 변환 (YYYY-MM-DD -> YYYY년 MM월 DD일)
-                '날짜: ${_formatDate(widget.date)}',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
-                  color: brightness == Brightness.dark
-                      ? Colors.redAccent
-                      : shuttleColor,
-                ),
-              ),
-            ],
-          ),
-          // 요일 타입 정보 표시 (API 응답에서 가져온 경우)
-          Obx(
-            () => viewModel.scheduleTypeName.isNotEmpty
-                ? Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          const Icon(
-                            Icons.event,
-                            color: shuttleColor,
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            '유형: ${viewModel.scheduleTypeName.value}',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                              color: brightness == Brightness.dark
-                                  ? Colors.redAccent
-                                  : shuttleColor,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  )
-                : const SizedBox.shrink(),
-          ),
-          const SizedBox(height: 8),
-          Obx(() {
-            // 첫차와 막차 시간 계산
-            var firstBusTime = '정보 없음';
-            var lastBusTime = '정보 없음';
-
-            // 스케줄이 있는 경우 첫차/막차 정보 설정
-            if (viewModel.schedules.isNotEmpty) {
-              firstBusTime = DateFormat('HH:mm')
-                  .format(viewModel.schedules.first.startTime);
-              lastBusTime = DateFormat('HH:mm')
-                  .format(viewModel.schedules.last.startTime);
-            }
-
-            return Row(
-              children: [
-                const Icon(
-                  Icons.access_time,
-                  color: shuttleColor,
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    '첫차: $firstBusTime  /  막차: $lastBusTime',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                      color: brightness == Brightness.dark
-                          ? Colors.redAccent
-                          : shuttleColor,
-                    ),
-                  ),
-                ),
-              ],
-            );
-          }),
-        ],
-      ),
-    );
-  }
-
-  // 날짜 형식 변환 (YYYY-MM-DD -> YYYY년 MM월 DD일)
-  String _formatDate(String dateStr) {
-    try {
-      final date = DateFormat('yyyy-MM-dd').parse(dateStr);
-      return DateFormat('yyyy년 MM월 dd일').format(date);
-    } catch (e) {
-      return dateStr;
-    }
-  }
-
-  Widget _buildScheduleList() {
+  Widget _buildScheduleList(BuildContext context) {
+    final layout = AppResponsive.of(context);
     final isIOS = Platform.isIOS;
 
-    return Obx(
-      () => viewModel.isLoadingSchedules.value
-          ? const Center(
-              child: CircularProgressIndicator.adaptive(),
-            )
-          : viewModel.schedules.isEmpty
-              ? const Center(
-                  child: Text('선택된 노선과 일자에 해당하는 운행 정보가 없습니다'),
-                )
-              : Container(
-                  clipBehavior: Clip.antiAlias,
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).cardColor,
-                    borderRadius: BorderRadius.circular(25),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.1),
-                        blurRadius: 10,
-                        offset: const Offset(0, 0),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    children: [
-                      // 헤더 행
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            vertical: 12, horizontal: 16),
-                        decoration: BoxDecoration(
-                          color: Theme.of(context).brightness == Brightness.dark
-                              ? Theme.of(context).cardColor.withOpacity(0.5)
-                              : Theme.of(context)
-                                  .scaffoldBackgroundColor
-                                  .withOpacity(0.8),
-                          borderRadius: const BorderRadius.only(
-                            topLeft: Radius.circular(25),
-                            topRight: Radius.circular(25),
-                          ),
-                        ),
-                        child: const Row(
-                          children: [
-                            Expanded(
-                              flex: 1,
-                              child: Text(
-                                '회차',
-                                style: TextStyle(fontWeight: FontWeight.bold),
-                              ),
-                            ),
-                            Expanded(
-                              flex: 2,
-                              child: Text(
-                                '출발 시간',
-                                style: TextStyle(fontWeight: FontWeight.bold),
-                              ),
-                            ),
-                            Expanded(
-                              flex: 1,
-                              child: Align(
-                                alignment: Alignment.centerRight,
-                                child: Text(
-                                  '상세',
-                                  style: TextStyle(fontWeight: FontWeight.bold),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Divider(
-                        height: 1,
-                        thickness: 1,
-                        color: Colors.grey.withOpacity(0.3),
-                      ),
-                      Expanded(
-                        child: Container(
-                          child: ClipRect(
-                            child: isIOS
-                                ? ListView.builder(
-                                    controller: _scheduleScrollController,
-                                    itemCount: viewModel.schedules.length,
-                                    itemBuilder: _buildScheduleItem,
-                                  )
-                                : Scrollbar(
-                                    interactive: true,
-                                    thumbVisibility: true,
-                                    controller: _scheduleScrollController,
-                                    child: ListView.builder(
-                                      controller: _scheduleScrollController,
-                                      itemCount: viewModel.schedules.length,
-                                      itemBuilder: _buildScheduleItem,
-                                    ),
-                                  ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
+    return Obx(() {
+      if (viewModel.isLoadingSchedules.value) {
+        return const Center(child: CircularProgressIndicator.adaptive());
+      }
+
+      if (viewModel.schedules.isEmpty) {
+        return Center(
+          child: Text(
+            '선택된 노선과 일자에 해당하는 운행 정보가 없습니다',
+            style: TextStyle(fontSize: layout.font(14)),
+          ),
+        );
+      }
+
+      return Container(
+        clipBehavior: Clip.antiAlias,
+        decoration: BoxDecoration(
+          color: Theme.of(context).cardColor,
+          borderRadius: BorderRadius.circular(layout.radius(25)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: layout.space(10, maxScale: 1.08),
+              offset: const Offset(0, 0),
+            ),
+          ],
+        ),
+        child: Column(
+          children: [
+            Container(
+              padding: EdgeInsets.symmetric(
+                vertical: layout.space(12),
+                horizontal: layout.space(16),
+              ),
+              decoration: BoxDecoration(
+                color: Theme.of(context).brightness == Brightness.dark
+                    ? Theme.of(context).cardColor.withOpacity(0.5)
+                    : Theme.of(context)
+                        .scaffoldBackgroundColor
+                        .withOpacity(0.8),
+                borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(layout.radius(25)),
+                  topRight: Radius.circular(layout.radius(25)),
                 ),
-    );
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    flex: 1,
+                    child: Text(
+                      '회차',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: layout.font(13),
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    flex: 2,
+                    child: Text(
+                      '출발 시간',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: layout.font(13),
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    flex: 1,
+                    child: Align(
+                      alignment: Alignment.centerRight,
+                      child: Text(
+                        '상세',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: layout.font(13),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Divider(
+              height: 1,
+              thickness: 1,
+              color: Colors.grey.withOpacity(0.3),
+            ),
+            Expanded(
+              child: ClipRect(
+                child: isIOS
+                    ? ListView.builder(
+                        controller: _scheduleScrollController,
+                        itemCount: viewModel.schedules.length,
+                        itemBuilder: _buildScheduleItem,
+                      )
+                    : Scrollbar(
+                        interactive: true,
+                        thumbVisibility: true,
+                        controller: _scheduleScrollController,
+                        child: ListView.builder(
+                          controller: _scheduleScrollController,
+                          itemCount: viewModel.schedules.length,
+                          itemBuilder: _buildScheduleItem,
+                        ),
+                      ),
+              ),
+            ),
+          ],
+        ),
+      );
+    });
   }
 
   Widget _buildScheduleItem(BuildContext context, int index) {
+    final layout = AppResponsive.of(context);
     final schedule = viewModel.schedules[index];
     final isExpanded = _expandedScheduleId == schedule.id;
     final isHighlightActive = _highlightedScheduleId == schedule.id;
@@ -569,10 +439,7 @@ class _ShuttleScheduleViewState extends State<ShuttleScheduleView> {
     return Container(
       decoration: BoxDecoration(
         border: Border(
-          bottom: BorderSide(
-            color: Colors.grey.withOpacity(0.3),
-            width: 1,
-          ),
+          bottom: BorderSide(color: Colors.grey.withOpacity(0.3)),
         ),
       ),
       child: Column(
@@ -586,40 +453,43 @@ class _ShuttleScheduleViewState extends State<ShuttleScheduleView> {
                 color: (isExpanded && isHighlightActive)
                     ? expandedRowColor
                     : Colors.transparent,
-                padding:
-                    const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                padding: EdgeInsets.symmetric(
+                  vertical: layout.space(12),
+                  horizontal: layout.space(16),
+                ),
                 child: Row(
                   children: [
                     Expanded(
                       flex: 1,
-                      child: Text('${schedule.round}'),
+                      child: Text(
+                        '${schedule.round}',
+                        style: TextStyle(fontSize: layout.font(14)),
+                      ),
                     ),
                     Expanded(
                       flex: 2,
                       child: Text(
                         DateFormat('HH:mm').format(schedule.startTime),
-                        style: const TextStyle(fontWeight: FontWeight.bold),
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: layout.font(14),
+                        ),
                       ),
                     ),
                     Expanded(
                       flex: 1,
                       child: Align(
                         alignment: Alignment.centerRight,
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              isExpanded
-                                  ? (Platform.isIOS
-                                      ? CupertinoIcons.chevron_up
-                                      : Icons.keyboard_arrow_up)
-                                  : (Platform.isIOS
-                                      ? CupertinoIcons.chevron_down
-                                      : Icons.keyboard_arrow_down),
-                              size: 18,
-                              color: actionColor,
-                            ),
-                          ],
+                        child: Icon(
+                          isExpanded
+                              ? (Platform.isIOS
+                                  ? CupertinoIcons.chevron_up
+                                  : Icons.keyboard_arrow_up)
+                              : (Platform.isIOS
+                                  ? CupertinoIcons.chevron_down
+                                  : Icons.keyboard_arrow_down),
+                          size: layout.icon(18),
+                          color: actionColor,
                         ),
                       ),
                     ),
@@ -633,7 +503,7 @@ class _ShuttleScheduleViewState extends State<ShuttleScheduleView> {
             curve: Curves.easeOutCubic,
             alignment: Alignment.topCenter,
             child: isExpanded
-                ? _buildInlineStopsSection(schedule.id)
+                ? _buildInlineStopsSection(context, schedule.id)
                 : const SizedBox.shrink(),
           ),
         ],
@@ -641,29 +511,35 @@ class _ShuttleScheduleViewState extends State<ShuttleScheduleView> {
     );
   }
 
-  Widget _buildInlineStopsSection(int scheduleId) {
+  Widget _buildInlineStopsSection(BuildContext context, int scheduleId) {
+    final layout = AppResponsive.of(context);
+
     if (_isInlineLoading && _expandedScheduleId == scheduleId) {
       return _buildInlineCardShell(
+        context,
         child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 14),
+          padding: EdgeInsets.symmetric(
+            vertical: layout.space(14),
+            horizontal: layout.space(14),
+          ),
           child: Row(
             children: [
               SizedBox(
-                width: 18,
-                height: 18,
+                width: layout.space(18, maxScale: 1.10),
+                height: layout.space(18, maxScale: 1.10),
                 child: CircularProgressIndicator.adaptive(
-                  strokeWidth: 2,
+                  strokeWidth: layout.border(2),
                   valueColor: AlwaysStoppedAnimation<Color>(
                     Theme.of(context).colorScheme.primary,
                   ),
                 ),
               ),
-              const SizedBox(width: 10),
+              SizedBox(width: layout.space(10)),
               Text(
                 '상세 정류장 정보를 불러오는 중입니다...',
                 style: TextStyle(
                   color: Theme.of(context).hintColor,
-                  fontSize: 13,
+                  fontSize: layout.font(13),
                 ),
               ),
             ],
@@ -676,23 +552,27 @@ class _ShuttleScheduleViewState extends State<ShuttleScheduleView> {
     final isNoStops = _noStopsScheduleIds.contains(scheduleId);
     if (isNoStops || stops == null || stops.isEmpty) {
       return _buildInlineCardShell(
+        context,
         child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 14),
+          padding: EdgeInsets.symmetric(
+            vertical: layout.space(14),
+            horizontal: layout.space(14),
+          ),
           child: Row(
             children: [
               Icon(
                 Platform.isIOS
                     ? CupertinoIcons.info_circle
                     : Icons.info_outline,
-                size: 16,
+                size: layout.icon(16),
                 color: Theme.of(context).hintColor,
               ),
-              const SizedBox(width: 8),
+              SizedBox(width: layout.space(8)),
               Text(
                 '정류장 정보가 없습니다.',
                 style: TextStyle(
                   color: Theme.of(context).hintColor,
-                  fontSize: 13,
+                  fontSize: layout.font(13),
                 ),
               ),
             ],
@@ -702,47 +582,54 @@ class _ShuttleScheduleViewState extends State<ShuttleScheduleView> {
     }
 
     return _buildInlineCardShell(
+      context,
       child: Column(
         children: [
           Container(
-            padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 14),
+            padding: EdgeInsets.symmetric(
+              vertical: layout.space(10),
+              horizontal: layout.space(14),
+            ),
             decoration: BoxDecoration(
               color: Theme.of(context).brightness == Brightness.dark
                   ? Theme.of(context).colorScheme.primary.withOpacity(0.14)
                   : Theme.of(context).colorScheme.primary.withOpacity(0.08),
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(16),
-                topRight: Radius.circular(16),
+              borderRadius: BorderRadius.only(
+                topLeft: Radius.circular(layout.radius(16)),
+                topRight: Radius.circular(layout.radius(16)),
               ),
             ),
             child: Row(
               children: [
                 Icon(
                   Icons.alt_route,
-                  size: 16,
+                  size: layout.icon(16),
                   color: Theme.of(context).colorScheme.primary,
                 ),
-                const SizedBox(width: 6),
+                SizedBox(width: layout.space(6, maxScale: 1.08)),
                 Text(
                   '상세 정류장 정보',
                   style: TextStyle(
                     fontWeight: FontWeight.w700,
+                    fontSize: layout.font(13),
                     color: Theme.of(context).colorScheme.primary,
                   ),
                 ),
                 const Spacer(),
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: EdgeInsets.symmetric(
+                    horizontal: layout.space(8),
+                    vertical: layout.space(4, maxScale: 1.08),
+                  ),
                   decoration: BoxDecoration(
                     color:
                         Theme.of(context).colorScheme.primary.withOpacity(0.12),
-                    borderRadius: BorderRadius.circular(999),
+                    borderRadius: BorderRadius.circular(layout.radius(999)),
                   ),
                   child: Text(
                     '총 ${stops.length}개',
                     style: TextStyle(
-                      fontSize: 11,
+                      fontSize: layout.font(11),
                       fontWeight: FontWeight.w700,
                       color: Theme.of(context).colorScheme.primary,
                     ),
@@ -757,24 +644,33 @@ class _ShuttleScheduleViewState extends State<ShuttleScheduleView> {
             color: Colors.grey.withOpacity(0.25),
           ),
           Container(
-            padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
+            padding: EdgeInsets.symmetric(
+              vertical: layout.space(10),
+              horizontal: layout.space(16),
+            ),
             color: Theme.of(context).brightness == Brightness.dark
                 ? Theme.of(context).cardColor.withOpacity(0.6)
                 : Theme.of(context).scaffoldBackgroundColor.withOpacity(0.9),
-            child: const Row(
+            child: Row(
               children: [
                 Expanded(
                   flex: 1,
                   child: Text(
                     '순서',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: layout.font(12),
+                    ),
                   ),
                 ),
                 Expanded(
                   flex: 3,
                   child: Text(
                     '정류장',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: layout.font(12),
+                    ),
                   ),
                 ),
                 Expanded(
@@ -783,8 +679,10 @@ class _ShuttleScheduleViewState extends State<ShuttleScheduleView> {
                     alignment: Alignment.centerRight,
                     child: Text(
                       '도착 시간',
-                      style:
-                          TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: layout.font(12),
+                      ),
                     ),
                   ),
                 ),
@@ -800,31 +698,38 @@ class _ShuttleScheduleViewState extends State<ShuttleScheduleView> {
               thickness: 1,
               color: Colors.grey.withOpacity(0.2),
             ),
-            itemBuilder: (context, index) => _buildInlineStopItem(stops[index]),
+            itemBuilder: (context, index) =>
+                _buildInlineStopItem(context, stops[index]),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildInlineCardShell({required Widget child}) {
+  Widget _buildInlineCardShell(BuildContext context, {required Widget child}) {
+    final layout = AppResponsive.of(context);
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+
     return Container(
       width: double.infinity,
-      margin: const EdgeInsets.fromLTRB(12, 4, 12, 12),
+      margin: EdgeInsets.fromLTRB(
+        layout.space(12),
+        layout.space(4, maxScale: 1.05),
+        layout.space(12),
+        layout.space(12),
+      ),
       decoration: BoxDecoration(
         color: isDarkMode
             ? Theme.of(context).colorScheme.surface.withOpacity(0.72)
             : Theme.of(context).colorScheme.surface,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(layout.radius(16)),
         border: Border.all(
           color: Theme.of(context).colorScheme.primary.withOpacity(0.2),
-          width: 1,
         ),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(isDarkMode ? 0.18 : 0.08),
-            blurRadius: 8,
+            blurRadius: layout.space(8, maxScale: 1.08),
             offset: const Offset(0, 2),
           ),
         ],
@@ -834,9 +739,14 @@ class _ShuttleScheduleViewState extends State<ShuttleScheduleView> {
     );
   }
 
-  Widget _buildInlineStopItem(ScheduleStop stop) {
+  Widget _buildInlineStopItem(BuildContext context, ScheduleStop stop) {
+    final layout = AppResponsive.of(context);
+
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
+      padding: EdgeInsets.symmetric(
+        vertical: layout.space(10),
+        horizontal: layout.space(16),
+      ),
       child: Row(
         children: [
           Expanded(
@@ -846,6 +756,7 @@ class _ShuttleScheduleViewState extends State<ShuttleScheduleView> {
               style: TextStyle(
                 color: Theme.of(context).colorScheme.primary,
                 fontWeight: FontWeight.bold,
+                fontSize: layout.font(14),
               ),
             ),
           ),
@@ -856,7 +767,10 @@ class _ShuttleScheduleViewState extends State<ShuttleScheduleView> {
               child: Text(
                 stop.stationName,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontWeight: FontWeight.w500),
+                style: TextStyle(
+                  fontWeight: FontWeight.w500,
+                  fontSize: layout.font(14),
+                ),
               ),
             ),
           ),
@@ -873,15 +787,16 @@ class _ShuttleScheduleViewState extends State<ShuttleScheduleView> {
                       _formatArrivalTime(stop.arrivalTime),
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
+                        fontSize: layout.font(14),
                         color: Theme.of(context).colorScheme.primary,
                       ),
                     ),
-                    const SizedBox(width: 4),
+                    SizedBox(width: layout.space(4, maxScale: 1.05)),
                     Icon(
                       Platform.isIOS
                           ? CupertinoIcons.info_circle_fill
                           : Icons.info_outline,
-                      size: 14,
+                      size: layout.icon(14),
                       color: Colors.grey.shade400,
                     ),
                   ],
@@ -905,12 +820,11 @@ class _ShuttleScheduleViewState extends State<ShuttleScheduleView> {
     HapticFeedback.lightImpact();
     if (stop.stationId != null) {
       Get.to(() => NaverMapStationDetailView(stationId: stop.stationId!));
-    } else {
-      _showNoStationDetailAlert(context);
+      return;
     }
+    _showNoStationDetailAlert(context);
   }
 
-  // 정류장 상세 정보가 없을 때 알림 팝업
   void _showNoStationDetailAlert(BuildContext context) {
     if (Platform.isIOS) {
       showCupertinoDialog(
@@ -926,20 +840,21 @@ class _ShuttleScheduleViewState extends State<ShuttleScheduleView> {
           ],
         ),
       );
-    } else {
-      showDialog(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('정보 없음'),
-          content: const Text('이 정류장의 상세 정보가 없습니다.'),
-          actions: [
-            TextButton(
-              child: const Text('확인'),
-              onPressed: () => Navigator.pop(context),
-            ),
-          ],
-        ),
-      );
+      return;
     }
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('정보 없음'),
+        content: const Text('이 정류장의 상세 정보가 없습니다.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('확인'),
+          ),
+        ],
+      ),
+    );
   }
 }

@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_naver_map/flutter_naver_map.dart';
 import 'package:get/get.dart';
 
+import '../../utils/responsive_layout.dart';
 import '../../viewmodel/busmap_viewmodel.dart';
 import '../../viewmodel/settings_viewmodel.dart';
 
@@ -350,6 +351,7 @@ class _NaverBusMapDetailViewState extends State<NaverBusMapDetailView> {
   }
 
   void _showStationInfo(_StationMetadata? station, int index) {
+    final layout = AppResponsive.of(context);
     Get.dialog(
       AlertDialog(
         title: Text(station?.name ?? '정류장'),
@@ -358,9 +360,9 @@ class _NaverBusMapDetailViewState extends State<NaverBusMapDetailView> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text('정류장 ID: ${station?.nodeId ?? "없음"}'),
-            const SizedBox(height: 8),
+            SizedBox(height: layout.space(8)),
             Text('정류장 번호: ${station?.nodeNo ?? "없음"}'),
-            const SizedBox(height: 8),
+            SizedBox(height: layout.space(8)),
             Text('정류장 순서: ${station?.nodeOrd ?? "${index + 1}"}'),
           ],
         ),
@@ -374,13 +376,19 @@ class _NaverBusMapDetailViewState extends State<NaverBusMapDetailView> {
   @override
   Widget build(BuildContext context) {
     _syncOverlayTheme();
+    final layout = AppResponsive.of(context);
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.routeName),
+        title: Text(
+          widget.routeName,
+          style:
+              TextStyle(fontSize: layout.font(20), fontWeight: FontWeight.w700),
+        ),
         leading: IconButton(
           icon: Icon(
             Platform.isIOS ? Icons.arrow_back_ios : Icons.arrow_back,
+            size: layout.icon(24),
           ),
           onPressed: () => Get.back(),
         ),

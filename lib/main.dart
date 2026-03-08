@@ -9,6 +9,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'viewmodel/settings_viewmodel.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:hsro/utils/bus_times_loader.dart';
+import 'utils/responsive_layout.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -51,6 +52,16 @@ class MyApp extends StatelessWidget {
     final routeObserver = Get.find<RouteObserver<PageRoute>>();
 
     return GetMaterialApp(
+      builder: (context, child) {
+        final mediaQuery = AppResponsive.normalizedMediaQuery(
+          MediaQuery.of(context),
+        );
+
+        return MediaQuery(
+          data: mediaQuery,
+          child: child ?? const SizedBox.shrink(),
+        );
+      },
       localizationsDelegates: const [
         GlobalMaterialLocalizations.delegate,
         GlobalWidgetsLocalizations.delegate,

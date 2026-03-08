@@ -2,6 +2,7 @@ import 'dart:io' show Platform;
 
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../utils/responsive_layout.dart';
 import '../shuttle_bus/shuttle_route_selection_view.dart';
 import '../components/scale_button.dart';
 
@@ -12,14 +13,16 @@ class ShuttleGuideView extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDarkMode = theme.brightness == Brightness.dark;
+    final layout = AppResponsive.of(context);
     const shuttleThemeColor = Color(0xFFB83227);
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
-        title: const Text(
+        title: Text(
           '셔틀버스 탑승 가이드',
           style: TextStyle(
+            fontSize: layout.font(20),
             fontWeight: FontWeight.bold,
           ),
         ),
@@ -32,33 +35,32 @@ class ShuttleGuideView extends StatelessWidget {
           child: Icon(
             Platform.isIOS ? Icons.arrow_back_ios : Icons.arrow_back,
             color: theme.iconTheme.color,
+            size: layout.icon(24),
           ),
         ),
       ),
       body: Stack(
         children: [
-          ListView(
-            padding: const EdgeInsets.fromLTRB(20, 24, 20, 100),
-            children: [
-              // 안내 사항
-              _buildInfoBox(isDarkMode, shuttleThemeColor),
-              const SizedBox(height: 24),
-
-              // 셔틀버스 요금 안내
-              _buildShuttleFareBox(isDarkMode, shuttleThemeColor),
-              const SizedBox(height: 24),
-
-              // 학교 자체 버스
-              _buildUniversityBusSection(isDarkMode, shuttleThemeColor),
-              const SizedBox(height: 24),
-
-              // 관광 버스
-              _buildTouristBusSection(isDarkMode, shuttleThemeColor),
-              const SizedBox(height: 24),
-
-              // 목적지 확인 방법
-              _buildDestinationCheckSection(shuttleThemeColor),
-            ],
+          AppPageFrame(
+            child: ListView(
+              padding: EdgeInsets.fromLTRB(
+                layout.space(20),
+                layout.space(24),
+                layout.space(20),
+                layout.space(100, maxScale: 1.10),
+              ),
+              children: [
+                _buildInfoBox(isDarkMode, shuttleThemeColor),
+                SizedBox(height: layout.space(24)),
+                _buildShuttleFareBox(isDarkMode, shuttleThemeColor),
+                SizedBox(height: layout.space(24)),
+                _buildUniversityBusSection(isDarkMode, shuttleThemeColor),
+                SizedBox(height: layout.space(24)),
+                _buildTouristBusSection(isDarkMode, shuttleThemeColor),
+                SizedBox(height: layout.space(24)),
+                _buildDestinationCheckSection(shuttleThemeColor),
+              ],
+            ),
           ),
 
           // 하단 버튼
@@ -67,7 +69,12 @@ class ShuttleGuideView extends StatelessWidget {
             right: 0,
             bottom: 0,
             child: Container(
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+              padding: EdgeInsets.fromLTRB(
+                layout.space(20),
+                layout.space(16),
+                layout.space(20),
+                layout.space(32),
+              ),
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.bottomCenter,
@@ -83,27 +90,31 @@ class ShuttleGuideView extends StatelessWidget {
               child: ScaleButton(
                 onTap: () => Get.to(() => ShuttleRouteSelectionView()),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  padding: EdgeInsets.symmetric(vertical: layout.space(16)),
                   decoration: BoxDecoration(
                     color: shuttleThemeColor,
-                    borderRadius: BorderRadius.circular(25),
+                    borderRadius: BorderRadius.circular(layout.radius(25)),
                     boxShadow: [
                       BoxShadow(
                         color: shuttleThemeColor.withOpacity(0.4),
-                        blurRadius: 4,
+                        blurRadius: layout.space(4, maxScale: 1.08),
                         offset: const Offset(0, 2),
                       ),
                     ],
                   ),
-                  child: const Row(
+                  child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.search, color: Colors.white),
-                      SizedBox(width: 8),
+                      Icon(
+                        Icons.search,
+                        color: Colors.white,
+                        size: layout.icon(20),
+                      ),
+                      SizedBox(width: layout.space(8)),
                       Text(
                         '셔틀버스 조회하러 가기',
                         style: TextStyle(
-                          fontSize: 18,
+                          fontSize: layout.font(18),
                           fontWeight: FontWeight.bold,
                           color: Colors.white,
                         ),
@@ -120,15 +131,16 @@ class ShuttleGuideView extends StatelessWidget {
   }
 
   Widget _buildInfoBox(bool isDarkMode, Color primaryColor) {
+    final layout = AppResponsive.of(Get.context!);
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.all(layout.space(16)),
       decoration: BoxDecoration(
         color: Theme.of(Get.context!).cardColor,
-        borderRadius: BorderRadius.circular(25),
+        borderRadius: BorderRadius.circular(layout.radius(25)),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.1),
-            blurRadius: 10,
+            blurRadius: layout.space(10, maxScale: 1.08),
             offset: const Offset(0, 0),
           ),
         ],
@@ -137,23 +149,27 @@ class ShuttleGuideView extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            padding: const EdgeInsets.all(8),
+            padding: EdgeInsets.all(layout.space(8)),
             decoration: BoxDecoration(
               color: primaryColor.withOpacity(0.1),
               shape: BoxShape.circle,
             ),
-            child: Icon(Icons.info_outline, color: primaryColor, size: 24),
+            child: Icon(
+              Icons.info_outline,
+              color: primaryColor,
+              size: layout.icon(24),
+            ),
           ),
-          const SizedBox(width: 12),
+          SizedBox(width: layout.space(12)),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const SizedBox(height: 4),
+                SizedBox(height: layout.space(4, maxScale: 1.05)),
                 RichText(
                   text: TextSpan(
                     style: TextStyle(
-                      fontSize: 12,
+                      fontSize: layout.font(12),
                       height: 1.5,
                       color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
                     ),
@@ -185,16 +201,17 @@ class ShuttleGuideView extends StatelessWidget {
   }
 
   Widget _buildShuttleFareBox(bool isDarkMode, Color primaryColor) {
+    final layout = AppResponsive.of(Get.context!);
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.all(layout.space(16)),
       decoration: BoxDecoration(
         color: Theme.of(Get.context!).cardColor,
-        borderRadius: BorderRadius.circular(25),
+        borderRadius: BorderRadius.circular(layout.radius(25)),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.1),
-            blurRadius: 10,
+            blurRadius: layout.space(10, maxScale: 1.08),
             offset: const Offset(0, 0),
           ),
         ],
@@ -202,27 +219,34 @@ class ShuttleGuideView extends StatelessWidget {
       child: Row(
         children: [
           Container(
-            padding: const EdgeInsets.all(10),
+            padding: EdgeInsets.all(layout.space(10)),
             decoration: BoxDecoration(
               color: primaryColor.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(layout.radius(12)),
             ),
-            child: Icon(Icons.local_atm_rounded, color: primaryColor, size: 24),
+            child: Icon(
+              Icons.local_atm_rounded,
+              color: primaryColor,
+              size: layout.icon(24),
+            ),
           ),
-          const SizedBox(width: 12),
+          SizedBox(width: layout.space(12)),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
+                Text(
                   '셔틀버스 요금',
-                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                  style: TextStyle(
+                    fontSize: layout.font(15),
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
-                const SizedBox(height: 6),
+                SizedBox(height: layout.space(6, maxScale: 1.08)),
                 RichText(
                   text: TextSpan(
                     style: TextStyle(
-                      fontSize: 13,
+                      fontSize: layout.font(13),
                       color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
                     ),
                     children: const [
@@ -247,36 +271,47 @@ class ShuttleGuideView extends StatelessWidget {
   }
 
   Widget _buildUniversityBusSection(bool isDarkMode, Color primaryColor) {
+    final layout = AppResponsive.of(Get.context!);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           children: [
-            Icon(Icons.directions_bus, color: primaryColor, size: 20),
-            const SizedBox(width: 8),
-            const Text(
+            Icon(
+              Icons.directions_bus,
+              color: primaryColor,
+              size: layout.icon(20),
+            ),
+            SizedBox(width: layout.space(8)),
+            Text(
               '학교 버스',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              style: TextStyle(
+                fontSize: layout.font(18),
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ],
         ),
-        const Padding(
-          padding: EdgeInsets.only(left: 28, top: 4),
+        Padding(
+          padding: EdgeInsets.only(
+            left: layout.space(28),
+            top: layout.space(4, maxScale: 1.05),
+          ),
           child: Text(
             '호서대 랩핑 적용된 버스',
-            style: TextStyle(fontSize: 14, color: Colors.grey),
+            style: TextStyle(fontSize: layout.font(14), color: Colors.grey),
           ),
         ),
-        const SizedBox(height: 12),
+        SizedBox(height: layout.space(12)),
         Container(
           width: double.infinity,
           decoration: BoxDecoration(
             color: Theme.of(Get.context!).cardColor,
-            borderRadius: BorderRadius.circular(25),
+            borderRadius: BorderRadius.circular(layout.radius(25)),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withOpacity(0.1),
-                blurRadius: 10,
+                blurRadius: layout.space(10, maxScale: 1.08),
                 offset: const Offset(0, 0),
               ),
             ],
@@ -292,29 +327,31 @@ class ShuttleGuideView extends StatelessWidget {
               //   ),
               // ),
               Padding(
-                padding: const EdgeInsets.symmetric(vertical: 32),
+                padding: EdgeInsets.symmetric(vertical: layout.space(32)),
                 child: Column(
                   children: [
                     ClipRRect(
-                      borderRadius: BorderRadius.circular(16),
+                      borderRadius: BorderRadius.circular(layout.radius(16)),
                       child: Image.asset(
                         'assets/tutorial_illustration/shttule_boarding_schoolbus.png',
-                        width: 180,
+                        width: layout.space(180, maxScale: 1.10),
                         fit: BoxFit.contain,
                       ),
                     ),
-                    const SizedBox(height: 16),
-                    const Text(
+                    SizedBox(height: layout.space(16)),
+                    Text(
                       '탑승 시 태그',
-                      style:
-                          TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      style: TextStyle(
+                        fontSize: layout.font(16),
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
-                    const SizedBox(height: 4),
+                    SizedBox(height: layout.space(4, maxScale: 1.05)),
                     Text(
                       '버스 내부에 있는 단말기에\n교통카드를 태그하세요.',
                       textAlign: TextAlign.center,
                       style: TextStyle(
-                        fontSize: 12,
+                        fontSize: layout.font(12),
                         color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
                         height: 1.5,
                       ),
@@ -330,27 +367,34 @@ class ShuttleGuideView extends StatelessWidget {
   }
 
   Widget _buildTouristBusSection(bool isDarkMode, Color primaryColor) {
+    final layout = AppResponsive.of(Get.context!);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           children: [
-            Icon(Icons.tour, color: primaryColor, size: 20),
-            const SizedBox(width: 8),
-            const Text(
+            Icon(Icons.tour, color: primaryColor, size: layout.icon(20)),
+            SizedBox(width: layout.space(8)),
+            Text(
               '관광 버스',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              style: TextStyle(
+                fontSize: layout.font(18),
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ],
         ),
-        const Padding(
-          padding: EdgeInsets.only(left: 28, top: 4),
+        Padding(
+          padding: EdgeInsets.only(
+            left: layout.space(28),
+            top: layout.space(4, maxScale: 1.05),
+          ),
           child: Text(
             '여행사 관광버스',
-            style: TextStyle(fontSize: 14, color: Colors.grey),
+            style: TextStyle(fontSize: layout.font(14), color: Colors.grey),
           ),
         ),
-        const SizedBox(height: 16),
+        SizedBox(height: layout.space(16)),
 
         // Case 1: 학교에서 탑승
         _buildTouristStepCard(
@@ -368,7 +412,7 @@ class ShuttleGuideView extends StatelessWidget {
           headerColor: const Color(0xFF374151),
         ),
 
-        const SizedBox(height: 16),
+        SizedBox(height: layout.space(16)),
 
         // Case 2: 학교 외 정류장에서 탑승
         _buildTouristStepCard(
@@ -402,32 +446,36 @@ class ShuttleGuideView extends StatelessWidget {
     required bool isImageLeft,
     required Color headerColor,
   }) {
+    final layout = AppResponsive.of(Get.context!);
     final imageWidget = Expanded(
       flex: 3,
       child: Column(
         children: [
           SizedBox(
             width: double.infinity,
-            height: 140,
+            height: layout.space(140, maxScale: 1.10),
             child: ClipRRect(
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(layout.radius(16)),
               child: Image.asset(
                 imagePath,
                 fit: BoxFit.cover,
               ),
             ),
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: layout.space(12)),
           Text(
             imageLabel,
             textAlign: TextAlign.center,
-            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: layout.font(13),
+            ),
           ),
           Text(
             imageDesc,
             textAlign: TextAlign.center,
             style: TextStyle(
-                fontSize: 10,
+                fontSize: layout.font(10),
                 color: isDarkMode ? Colors.grey[500] : Colors.grey[600]),
           ),
         ],
@@ -440,24 +488,27 @@ class ShuttleGuideView extends StatelessWidget {
         children: [
           SizedBox(
             width: double.infinity,
-            height: 140,
+            height: layout.space(140, maxScale: 1.10),
             child: Icon(
               nextStepIcon,
-              size: 50,
+              size: layout.icon(50, maxScale: 1.12),
               color: isDarkMode ? Colors.grey[600] : Colors.grey[400],
             ),
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: layout.space(12)),
           Text(
             nextStepLabel,
             textAlign: TextAlign.center,
-            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: layout.font(13),
+            ),
           ),
           Text(
             nextStepDesc,
             textAlign: TextAlign.center,
             style: TextStyle(
-                fontSize: 10,
+                fontSize: layout.font(10),
                 color: isDarkMode ? Colors.grey[500] : Colors.grey[600]),
           ),
         ],
@@ -468,11 +519,11 @@ class ShuttleGuideView extends StatelessWidget {
       width: double.infinity,
       decoration: BoxDecoration(
         color: Theme.of(Get.context!).cardColor,
-        borderRadius: BorderRadius.circular(25),
+        borderRadius: BorderRadius.circular(layout.radius(25)),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.1),
-            blurRadius: 10,
+            blurRadius: layout.space(10, maxScale: 1.08),
             offset: const Offset(0, 0),
           ),
         ],
@@ -482,21 +533,29 @@ class ShuttleGuideView extends StatelessWidget {
         children: [
           Container(
             width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            padding: EdgeInsets.symmetric(
+              horizontal: layout.space(20),
+              vertical: layout.space(12),
+            ),
             decoration: BoxDecoration(
-              borderRadius:
-                  const BorderRadius.vertical(top: Radius.circular(25)),
+              borderRadius: BorderRadius.vertical(
+                top: Radius.circular(layout.radius(25)),
+              ),
               color: headerColor,
             ),
             child: Row(
               children: [
-                const Icon(Icons.info_outline, color: Colors.white, size: 16),
-                const SizedBox(width: 8),
+                Icon(
+                  Icons.info_outline,
+                  color: Colors.white,
+                  size: layout.icon(16),
+                ),
+                SizedBox(width: layout.space(8)),
                 Text(
                   title,
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: Colors.white,
-                    fontSize: 14,
+                    fontSize: layout.font(14),
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -504,15 +563,17 @@ class ShuttleGuideView extends StatelessWidget {
             ),
           ),
           Padding(
-            padding: const EdgeInsets.all(16),
+            padding: EdgeInsets.all(layout.space(16)),
             child: Row(
               children: isImageLeft
                   ? [
                       imageWidget,
                       Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        padding: EdgeInsets.symmetric(
+                          horizontal: layout.space(8),
+                        ),
                         child: Icon(Icons.east_rounded,
-                            size: 18,
+                            size: layout.icon(18),
                             color: isDarkMode
                                 ? Colors.grey[800]
                                 : Colors.grey[200]),
@@ -522,9 +583,11 @@ class ShuttleGuideView extends StatelessWidget {
                   : [
                       infoWidget,
                       Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        padding: EdgeInsets.symmetric(
+                          horizontal: layout.space(8),
+                        ),
                         child: Icon(Icons.east_rounded,
-                            size: 18,
+                            size: layout.icon(18),
                             color: isDarkMode
                                 ? Colors.grey[800]
                                 : Colors.grey[200]),
@@ -539,16 +602,17 @@ class ShuttleGuideView extends StatelessWidget {
   }
 
   Widget _buildDestinationCheckSection(Color primaryColor) {
+    final layout = AppResponsive.of(Get.context!);
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(20),
+      padding: EdgeInsets.all(layout.space(20)),
       decoration: BoxDecoration(
         color: const Color(0xFFB83227),
-        borderRadius: BorderRadius.circular(25),
+        borderRadius: BorderRadius.circular(layout.radius(25)),
         boxShadow: [
           BoxShadow(
             color: primaryColor.withOpacity(0.3),
-            blurRadius: 10,
+            blurRadius: layout.space(10, maxScale: 1.08),
             offset: const Offset(0, 4),
           ),
         ],
@@ -556,30 +620,34 @@ class ShuttleGuideView extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(Icons.signpost_rounded, color: Colors.white, size: 32),
-          const SizedBox(width: 16),
+          Icon(
+            Icons.signpost_rounded,
+            color: Colors.white,
+            size: layout.icon(32),
+          ),
+          SizedBox(width: layout.space(16)),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
+                Text(
                   '목적지 확인 방법',
                   style: TextStyle(
                     color: Colors.white,
-                    fontSize: 18,
+                    fontSize: layout.font(18),
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                const SizedBox(height: 8),
+                SizedBox(height: layout.space(8)),
                 RichText(
-                  text: const TextSpan(
+                  text: TextSpan(
                     style: TextStyle(
                       color: Colors.white,
-                      fontSize: 13,
+                      fontSize: layout.font(13),
                       height: 1.5,
                       fontFamily: 'Noto Sans KR',
                     ),
-                    children: [
+                    children: const [
                       TextSpan(text: '버스 전면 유리창 '),
                       TextSpan(
                         text: '좌측 하단',
@@ -592,10 +660,10 @@ class ShuttleGuideView extends StatelessWidget {
                     ],
                   ),
                 ),
-                const SizedBox(height: 12),
+                SizedBox(height: layout.space(12)),
                 Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
+                  spacing: layout.space(8),
+                  runSpacing: layout.space(8),
                   children: [
                     _buildChip('아산캠퍼스'),
                     _buildChip('천안캠퍼스'),
@@ -612,17 +680,21 @@ class ShuttleGuideView extends StatelessWidget {
   }
 
   Widget _buildChip(String label) {
+    final layout = AppResponsive.of(Get.context!);
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      padding: EdgeInsets.symmetric(
+        horizontal: layout.space(10),
+        vertical: layout.space(4, maxScale: 1.05),
+      ),
       decoration: BoxDecoration(
         color: Colors.white.withOpacity(0.2),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(layout.radius(8)),
       ),
       child: Text(
         label,
-        style: const TextStyle(
+        style: TextStyle(
           color: Colors.white,
-          fontSize: 12,
+          fontSize: layout.font(12),
           fontWeight: FontWeight.w500,
         ),
       ),

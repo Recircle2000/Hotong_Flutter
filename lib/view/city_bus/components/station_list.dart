@@ -1,15 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../viewmodel/busmap_viewmodel.dart';
+import '../../../utils/responsive_layout.dart';
 import 'station_item.dart';
 
 /// 정류장 목록 표시하는 컴포넌트
 class StationList extends StatelessWidget {
   final Map<String, String> routeDisplayNames;
   final ScrollController scrollController;
-  
+
   const StationList({
-    Key? key, 
+    Key? key,
     required this.routeDisplayNames,
     required this.scrollController,
   }) : super(key: key);
@@ -17,7 +18,8 @@ class StationList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final controller = Get.find<BusMapViewModel>();
-    
+    final layout = AppResponsive.of(context);
+
     return Obx(() {
       final currentPositions = controller.currentPositions;
       final totalStations = controller.stationMarkers.length;
@@ -29,10 +31,11 @@ class StationList extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               const CircularProgressIndicator.adaptive(),
-              const SizedBox(height: 16),
+              SizedBox(height: layout.space(16)),
               Text(
                 '${routeDisplayNames[controller.selectedRoute.value] ?? controller.selectedRoute.value}\n정류장 정보를 불러오는 중입니다...',
                 textAlign: TextAlign.center,
+                style: TextStyle(fontSize: layout.font(14)),
               ),
             ],
           ),
@@ -40,7 +43,12 @@ class StationList extends StatelessWidget {
       }
 
       if (controller.stationNames.isEmpty) {
-        return const Center(child: Text('정류장 정보가 없습니다.'));
+        return Center(
+          child: Text(
+            '정류장 정보가 없습니다.',
+            style: TextStyle(fontSize: layout.font(14)),
+          ),
+        );
       }
 
       return ListView.builder(
@@ -67,4 +75,4 @@ class StationList extends StatelessWidget {
       );
     });
   }
-} 
+}

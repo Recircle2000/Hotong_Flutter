@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:flutter_naver_map/flutter_naver_map.dart';
 import 'package:geolocator/geolocator.dart';
+import '../../utils/responsive_layout.dart';
 import '../../viewmodel/settings_viewmodel.dart';
 import '../city_bus/grouped_bus_view.dart';
 import '../components/scale_button.dart';
@@ -82,6 +83,7 @@ class _CityBusGuideViewState extends State<CityBusGuideView> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDarkMode = theme.brightness == Brightness.dark;
+    final layout = AppResponsive.of(context);
     const primaryColor = Colors.blue; // HomeView 스타일의 파란색
 
     return Scaffold(
@@ -90,6 +92,7 @@ class _CityBusGuideViewState extends State<CityBusGuideView> {
         title: Text(
           _selectedCampusIndex == 0 ? '천안캠퍼스 시내버스' : '아산캠퍼스 시내버스',
           style: TextStyle(
+            fontSize: layout.font(20),
             fontWeight: FontWeight.bold,
             color: isDarkMode ? Colors.white : Colors.black87,
           ),
@@ -102,54 +105,62 @@ class _CityBusGuideViewState extends State<CityBusGuideView> {
           child: Icon(
             Platform.isIOS ? Icons.arrow_back_ios : Icons.arrow_back,
             color: isDarkMode ? Colors.white : Colors.black87,
+            size: layout.icon(24),
           ),
         ),
       ),
       body: Stack(
         children: [
-          ListView(
-            padding: const EdgeInsets.fromLTRB(20, 20, 20, 100),
-            children: [
-              // 캠퍼스 선택 토글 (천안/아산)
-              _buildCampusToggle(isDarkMode, primaryColor),
-              const SizedBox(height: 24),
-
-              // 섹션 제목 (시내버스 핵심 정리)
-              Row(
-                children: [
-                  const SizedBox(width: 8),
-                  Text(
-                    _selectedCampusIndex == 0 ? '천안시 시내버스' : '아산시 시내버스',
-                    style: const TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ],
+          AppPageFrame(
+            child: ListView(
+              padding: EdgeInsets.fromLTRB(
+                layout.space(20),
+                layout.space(20),
+                layout.space(20),
+                layout.space(100, maxScale: 1.10),
               ),
-              const SizedBox(height: 20),
+              children: [
+                // 캠퍼스 선택 토글 (천안/아산)
+                _buildCampusToggle(isDarkMode, primaryColor),
+                SizedBox(height: layout.space(24)),
 
-              // 시내버스 정보 카드
-              if (_selectedCampusIndex == 0)
-                _buildCheonanContent(isDarkMode, primaryColor)
-              else
-                _buildAsanContent(isDarkMode, primaryColor),
+                // 섹션 제목 (시내버스 핵심 정리)
+                Row(
+                  children: [
+                    SizedBox(width: layout.space(8)),
+                    Text(
+                      _selectedCampusIndex == 0 ? '천안시 시내버스' : '아산시 시내버스',
+                      style: TextStyle(
+                        fontSize: layout.font(20),
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+                SizedBox(height: layout.space(20)),
 
-              const SizedBox(height: 24),
+                // 시내버스 정보 카드
+                if (_selectedCampusIndex == 0)
+                  _buildCheonanContent(isDarkMode, primaryColor)
+                else
+                  _buildAsanContent(isDarkMode, primaryColor),
 
-              // 시내버스 요금 안내
-              _buildCityBusFareCard(isDarkMode, primaryColor),
+                SizedBox(height: layout.space(24)),
 
-              const SizedBox(height: 32),
+                // 시내버스 요금 안내
+                _buildCityBusFareCard(isDarkMode, primaryColor),
 
-              // 정류장 지도
-              _buildMapSection(isDarkMode),
+                SizedBox(height: layout.space(32)),
 
-              const SizedBox(height: 32),
+                // 정류장 지도
+                _buildMapSection(isDarkMode),
 
-              // 환승 혜택 카드
-              _buildTransferBenefitSection(isDarkMode, primaryColor),
-            ],
+                SizedBox(height: layout.space(32)),
+
+                // 환승 혜택 카드
+                _buildTransferBenefitSection(isDarkMode, primaryColor),
+              ],
+            ),
           ),
 
           // 하단 고정 버튼 (실시간 버스 위치 확인)
@@ -158,7 +169,12 @@ class _CityBusGuideViewState extends State<CityBusGuideView> {
             right: 0,
             bottom: 0,
             child: Container(
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+              padding: EdgeInsets.fromLTRB(
+                layout.space(20),
+                layout.space(16),
+                layout.space(20),
+                layout.space(32),
+              ),
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.bottomCenter,
@@ -176,27 +192,31 @@ class _CityBusGuideViewState extends State<CityBusGuideView> {
                       forcedCampus: _selectedCampusIndex == 0 ? '천안' : '아산',
                     )),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  padding: EdgeInsets.symmetric(vertical: layout.space(16)),
                   decoration: BoxDecoration(
                     color: primaryColor,
-                    borderRadius: BorderRadius.circular(25),
+                    borderRadius: BorderRadius.circular(layout.radius(25)),
                     boxShadow: [
                       BoxShadow(
                         color: primaryColor.withOpacity(0.4),
-                        blurRadius: 8,
+                        blurRadius: layout.space(8, maxScale: 1.08),
                         offset: const Offset(0, 4),
                       ),
                     ],
                   ),
-                  child: const Row(
+                  child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.place_rounded, color: Colors.white),
-                      SizedBox(width: 8),
+                      Icon(
+                        Icons.place_rounded,
+                        color: Colors.white,
+                        size: layout.icon(20),
+                      ),
+                      SizedBox(width: layout.space(8)),
                       Text(
                         '자세한 정보 확인',
                         style: TextStyle(
-                          fontSize: 18,
+                          fontSize: layout.font(18),
                           fontWeight: FontWeight.bold,
                           color: Colors.white,
                         ),
@@ -214,13 +234,14 @@ class _CityBusGuideViewState extends State<CityBusGuideView> {
 
   /// 캠퍼스 선택 토글 위젯 빌더
   Widget _buildCampusToggle(bool isDarkMode, Color primaryColor) {
+    final layout = AppResponsive.of(context);
     return Container(
-      padding: const EdgeInsets.all(6),
+      padding: EdgeInsets.all(layout.space(6, maxScale: 1.05)),
       decoration: BoxDecoration(
         color: isDarkMode
             ? Colors.white.withOpacity(0.05)
             : Colors.black.withOpacity(0.05),
-        borderRadius: BorderRadius.circular(25),
+        borderRadius: BorderRadius.circular(layout.radius(25)),
       ),
       child: Row(
         children: [
@@ -261,21 +282,22 @@ class _CityBusGuideViewState extends State<CityBusGuideView> {
     required Color primaryColor,
     required VoidCallback onTap,
   }) {
+    final layout = AppResponsive.of(context);
     return ScaleButton(
       onTap: onTap,
       child: Container(
         width: double.infinity,
-        padding: const EdgeInsets.symmetric(vertical: 10),
+        padding: EdgeInsets.symmetric(vertical: layout.space(10)),
         decoration: BoxDecoration(
           color: isSelected
               ? (isDarkMode ? Colors.grey[700] : Colors.white)
               : Colors.transparent,
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(layout.radius(20)),
           boxShadow: isSelected
               ? [
                   BoxShadow(
                     color: Colors.black.withOpacity(0.1),
-                    blurRadius: 10,
+                    blurRadius: layout.space(10, maxScale: 1.08),
                     offset: const Offset(0, 0),
                   ),
                 ]
@@ -285,7 +307,7 @@ class _CityBusGuideViewState extends State<CityBusGuideView> {
           title,
           textAlign: TextAlign.center,
           style: TextStyle(
-            fontSize: 14,
+            fontSize: layout.font(14),
             fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
             color: isSelected
                 ? (isDarkMode ? Colors.white : primaryColor)
@@ -298,6 +320,7 @@ class _CityBusGuideViewState extends State<CityBusGuideView> {
 
   /// 천안캠퍼스 시내버스 정보 콘텐츠 빌더
   Widget _buildCheonanContent(bool isDarkMode, Color primaryColor) {
+    final layout = AppResponsive.of(context);
     return Column(
       children: [
         IntrinsicHeight(
@@ -313,7 +336,7 @@ class _CityBusGuideViewState extends State<CityBusGuideView> {
                   description: '차암2통 방면',
                 ),
               ),
-              const SizedBox(width: 16),
+              SizedBox(width: layout.space(16)),
               Expanded(
                 child: _buildInfoCard(
                   isDarkMode,
@@ -327,7 +350,7 @@ class _CityBusGuideViewState extends State<CityBusGuideView> {
             ],
           ),
         ),
-        const SizedBox(height: 24),
+        SizedBox(height: layout.space(24)),
         _buildGlowCard(isDarkMode, primaryColor),
       ],
     );
@@ -335,6 +358,7 @@ class _CityBusGuideViewState extends State<CityBusGuideView> {
 
   /// 아산캠퍼스 시내버스 정보 콘텐츠 빌더
   Widget _buildAsanContent(bool isDarkMode, Color primaryColor) {
+    final layout = AppResponsive.of(context);
     return Column(
       children: [
         _buildInfoCard(
@@ -347,7 +371,7 @@ class _CityBusGuideViewState extends State<CityBusGuideView> {
           description: '배방역 - 지중해마을 경유\n약 50분 소요',
           fullWidth: true,
         ),
-        const SizedBox(height: 16),
+        SizedBox(height: layout.space(16)),
         _buildInfoCard(
           isDarkMode,
           primaryColor,
@@ -357,7 +381,7 @@ class _CityBusGuideViewState extends State<CityBusGuideView> {
           description: '천안아산역까지 평균 25분 소요\n탕정역-지중해마을 종점',
           fullWidth: true,
         ),
-        const SizedBox(height: 16),
+        SizedBox(height: layout.space(16)),
         _buildInfoCard(
           isDarkMode,
           primaryColor,
@@ -373,19 +397,20 @@ class _CityBusGuideViewState extends State<CityBusGuideView> {
 
   /// 시내버스 요금 안내 카드
   Widget _buildCityBusFareCard(bool isDarkMode, Color primaryColor) {
+    final layout = AppResponsive.of(context);
     final labelColor = isDarkMode ? Colors.grey[400] : Colors.grey[600];
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(20),
+      padding: EdgeInsets.all(layout.space(20)),
       decoration: BoxDecoration(
         color: Theme.of(context).cardColor,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(layout.radius(20)),
         border: Border.all(color: primaryColor.withOpacity(0.2)),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.08),
-            blurRadius: 10,
+            blurRadius: layout.space(10, maxScale: 1.08),
             offset: const Offset(0, 0),
           ),
         ],
@@ -395,23 +420,33 @@ class _CityBusGuideViewState extends State<CityBusGuideView> {
         children: [
           Row(
             children: [
-              Icon(Icons.payments_rounded, color: primaryColor, size: 20),
-              const SizedBox(width: 8),
-              const Text(
+              Icon(
+                Icons.payments_rounded,
+                color: primaryColor,
+                size: layout.icon(20),
+              ),
+              SizedBox(width: layout.space(8)),
+              Text(
                 '시내버스 요금 안내',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                style: TextStyle(
+                  fontSize: layout.font(16),
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ],
           ),
-          const SizedBox(height: 14),
+          SizedBox(height: layout.space(14)),
           Container(
             width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            padding: EdgeInsets.symmetric(
+              horizontal: layout.space(14),
+              vertical: layout.space(12),
+            ),
             decoration: BoxDecoration(
               color: isDarkMode
                   ? primaryColor.withOpacity(0.2)
                   : primaryColor.withOpacity(0.08),
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: BorderRadius.circular(layout.radius(14)),
             ),
             child: Row(
               children: [
@@ -488,16 +523,17 @@ class _CityBusGuideViewState extends State<CityBusGuideView> {
     required String description,
     bool fullWidth = false,
   }) {
+    final layout = AppResponsive.of(context);
     return Container(
       width: fullWidth ? double.infinity : null,
-      padding: const EdgeInsets.all(20),
+      padding: EdgeInsets.all(layout.space(20)),
       decoration: BoxDecoration(
         color: Theme.of(context).cardColor,
-        borderRadius: BorderRadius.circular(25),
+        borderRadius: BorderRadius.circular(layout.radius(25)),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.1),
-            blurRadius: 10,
+            blurRadius: layout.space(10, maxScale: 1.08),
             offset: const Offset(0, 0),
           ),
         ],
@@ -513,44 +549,45 @@ class _CityBusGuideViewState extends State<CityBusGuideView> {
                 Text(
                   numberPrev,
                   style: TextStyle(
-                    fontSize: 16,
+                    fontSize: layout.font(16),
                     fontWeight: FontWeight.bold,
                     color: primaryColor,
                   ),
                 ),
-              if (numberPrev != null) const SizedBox(width: 4),
+              if (numberPrev != null)
+                SizedBox(width: layout.space(4, maxScale: 1.05)),
               Text(
                 number,
                 style: TextStyle(
-                  fontSize: 32,
+                  fontSize: layout.font(32, maxScale: 1.10),
                   fontWeight: FontWeight.w900,
                   color: primaryColor,
                   height: 1.0,
                 ),
               ),
-              const SizedBox(width: 2),
+              SizedBox(width: layout.space(2, maxScale: 1.05)),
               Text(
                 numberSuffix,
                 style: TextStyle(
-                  fontSize: 16,
+                  fontSize: layout.font(16),
                   fontWeight: FontWeight.bold,
                   color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 10),
+          SizedBox(height: layout.space(10)),
           Text(
             title,
-            style: const TextStyle(
-              fontSize: 16,
+            style: TextStyle(
+              fontSize: layout.font(16),
               fontWeight: FontWeight.bold,
             ),
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: layout.space(12)),
           Container(
             width: double.infinity,
-            padding: const EdgeInsets.only(top: 12),
+            padding: EdgeInsets.only(top: layout.space(12)),
             decoration: BoxDecoration(
               border: Border(
                 top: BorderSide(
@@ -561,7 +598,7 @@ class _CityBusGuideViewState extends State<CityBusGuideView> {
             child: Text(
               description,
               style: TextStyle(
-                fontSize: 12,
+                fontSize: layout.font(12),
                 color: isDarkMode ? Colors.grey[400] : Colors.grey[500],
                 fontWeight: FontWeight.w500,
                 height: 1.5,
@@ -575,16 +612,17 @@ class _CityBusGuideViewState extends State<CityBusGuideView> {
 
   /// 터미널행 버스 강조 카드 위젯 빌더 (천안캠퍼스)
   Widget _buildGlowCard(bool isDarkMode, Color primaryColor) {
+    final layout = AppResponsive.of(context);
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(24),
+      padding: EdgeInsets.all(layout.space(24)),
       decoration: BoxDecoration(
         color: Theme.of(context).cardColor,
-        borderRadius: BorderRadius.circular(25),
+        borderRadius: BorderRadius.circular(layout.radius(25)),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.1),
-            blurRadius: 10,
+            blurRadius: layout.space(10, maxScale: 1.08),
             offset: const Offset(0, 0),
           ),
         ],
@@ -592,10 +630,13 @@ class _CityBusGuideViewState extends State<CityBusGuideView> {
       child: Column(
         children: [
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            padding: EdgeInsets.symmetric(
+              horizontal: layout.space(12),
+              vertical: layout.space(6, maxScale: 1.05),
+            ),
             decoration: BoxDecoration(
               color: isDarkMode ? Colors.grey[800] : Colors.white,
-              borderRadius: BorderRadius.circular(50),
+              borderRadius: BorderRadius.circular(layout.radius(50)),
               border: Border.all(
                 color: isDarkMode ? Colors.grey[700]! : Colors.grey[200]!,
               ),
@@ -603,12 +644,16 @@ class _CityBusGuideViewState extends State<CityBusGuideView> {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(Icons.star_rounded, color: Colors.amber, size: 18),
-                const SizedBox(width: 4),
+                Icon(
+                  Icons.star_rounded,
+                  color: Colors.amber,
+                  size: layout.icon(18),
+                ),
+                SizedBox(width: layout.space(4, maxScale: 1.05)),
                 Text(
                   '천안종합터미널',
                   style: TextStyle(
-                    fontSize: 12,
+                    fontSize: layout.font(12),
                     fontWeight: FontWeight.bold,
                     color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
                   ),
@@ -616,11 +661,11 @@ class _CityBusGuideViewState extends State<CityBusGuideView> {
               ],
             ),
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: layout.space(16)),
           RichText(
             text: TextSpan(
               style: TextStyle(
-                fontSize: 18,
+                fontSize: layout.font(18),
                 fontWeight: FontWeight.bold,
                 color: isDarkMode ? Colors.white : Colors.black87,
                 fontFamily: 'Noto Sans KR',
@@ -649,6 +694,7 @@ class _CityBusGuideViewState extends State<CityBusGuideView> {
 
   /// 정류장 지도 위젯 빌더
   Widget _buildMapSection(bool isDarkMode) {
+    final layout = AppResponsive.of(context);
     final targetLoc = _selectedCampusIndex == 0 ? _cheonanLoc : _asanLoc;
 
     return Column(
@@ -656,32 +702,32 @@ class _CityBusGuideViewState extends State<CityBusGuideView> {
         Row(
           children: [
             //const Text('📍', style: TextStyle(fontSize: 24)),
-            const SizedBox(width: 8),
-            const Text(
+            SizedBox(width: layout.space(8)),
+            Text(
               '정류장 위치',
               style: TextStyle(
-                fontSize: 20,
+                fontSize: layout.font(20),
                 fontWeight: FontWeight.bold,
               ),
             ),
           ],
         ),
-        const SizedBox(height: 16),
+        SizedBox(height: layout.space(16)),
         Container(
           width: double.infinity,
-          height: 300,
+          height: layout.space(300, maxScale: 1.12),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(25),
+            borderRadius: BorderRadius.circular(layout.radius(25)),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withOpacity(0.1),
-                blurRadius: 10,
+                blurRadius: layout.space(10, maxScale: 1.08),
                 offset: const Offset(0, 0),
               ),
             ],
           ),
           child: ClipRRect(
-            borderRadius: BorderRadius.circular(25),
+            borderRadius: BorderRadius.circular(layout.radius(25)),
             child: Stack(
               children: [
                 NaverMap(
@@ -722,30 +768,30 @@ class _CityBusGuideViewState extends State<CityBusGuideView> {
                 ),
                 // 정류장 위치 보기 버튼 (및 내 위치 버튼)
                 Positioned(
-                  right: 10,
-                  bottom: 50, // 네이버 로고 높이 고려
+                  right: layout.space(10),
+                  bottom: layout.space(50, maxScale: 1.08),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Container(
                         decoration: BoxDecoration(
                           color: Theme.of(context).cardColor.withOpacity(1),
-                          borderRadius: BorderRadius.circular(3),
+                          borderRadius: BorderRadius.circular(layout.radius(3)),
                           boxShadow: [
                             BoxShadow(
                               color: Colors.black.withOpacity(0.2),
-                              blurRadius: 4,
+                              blurRadius: layout.space(4, maxScale: 1.08),
                               offset: const Offset(0, 2),
                             ),
                           ],
                         ),
                         child: ScaleButton(
                           child: Padding(
-                            padding: const EdgeInsets.all(8.0),
-                            child: const Icon(
+                            padding: EdgeInsets.all(layout.space(8)),
+                            child: Icon(
                               Icons.my_location,
                               color: Colors.blue,
-                              size: 24,
+                              size: layout.icon(24),
                             ),
                           ),
                           onTap: () {
@@ -756,26 +802,26 @@ class _CityBusGuideViewState extends State<CityBusGuideView> {
                           },
                         ),
                       ),
-                      const SizedBox(height: 8),
+                      SizedBox(height: layout.space(8)),
                       Container(
                         decoration: BoxDecoration(
                           color: Theme.of(context).cardColor.withOpacity(1),
-                          borderRadius: BorderRadius.circular(3),
+                          borderRadius: BorderRadius.circular(layout.radius(3)),
                           boxShadow: [
                             BoxShadow(
                               color: Colors.black.withOpacity(0.2),
-                              blurRadius: 4,
+                              blurRadius: layout.space(4, maxScale: 1.08),
                               offset: const Offset(0, 2),
                             ),
                           ],
                         ),
                         child: ScaleButton(
                           child: Padding(
-                            padding: const EdgeInsets.all(8.0),
-                            child: const Icon(
+                            padding: EdgeInsets.all(layout.space(8)),
+                            child: Icon(
                               Icons.directions_bus,
                               color: Colors.blue,
-                              size: 24,
+                              size: layout.icon(24),
                             ),
                           ),
                           onTap: () => _moveMapToCampus(_selectedCampusIndex),
@@ -794,12 +840,13 @@ class _CityBusGuideViewState extends State<CityBusGuideView> {
 
   /// 환승 혜택 안내 섹션 위젯 빌더
   Widget _buildTransferBenefitSection(bool isDarkMode, Color primaryColor) {
+    final layout = AppResponsive.of(context);
     final isCheonan = _selectedCampusIndex == 0;
 
     return Container(
-      padding: const EdgeInsets.all(24),
+      padding: EdgeInsets.all(layout.space(24)),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(layout.radius(20)),
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
@@ -811,7 +858,7 @@ class _CityBusGuideViewState extends State<CityBusGuideView> {
         boxShadow: [
           BoxShadow(
             color: primaryColor.withOpacity(0.3),
-            blurRadius: 10,
+            blurRadius: layout.space(10, maxScale: 1.08),
             offset: const Offset(0, 4),
           ),
         ],
@@ -820,48 +867,53 @@ class _CityBusGuideViewState extends State<CityBusGuideView> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            padding: const EdgeInsets.all(10),
+            padding: EdgeInsets.all(layout.space(10)),
             decoration: BoxDecoration(
               color: Colors.white.withOpacity(0.2),
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(layout.radius(12)),
             ),
-            child: const Icon(Icons.currency_exchange,
-                color: Colors.white, size: 28),
+            child: Icon(
+              Icons.currency_exchange,
+              color: Colors.white,
+              size: layout.icon(28),
+            ),
           ),
-          const SizedBox(width: 16),
+          SizedBox(width: layout.space(16)),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
                   children: [
-                    const Text(
+                    Text(
                       '환승 혜택 안내',
                       style: TextStyle(
                         color: Colors.white,
-                        fontSize: 16,
+                        fontSize: layout.font(16),
                         fontWeight: FontWeight.bold,
                       ),
                     ),
-                    const SizedBox(width: 8),
+                    SizedBox(width: layout.space(8)),
                     Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 2),
+                      padding: EdgeInsets.symmetric(
+                        horizontal: layout.space(8),
+                        vertical: layout.space(2, maxScale: 1.05),
+                      ),
                       decoration: BoxDecoration(
                         color: Colors.white.withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(10),
+                        borderRadius: BorderRadius.circular(layout.radius(10)),
                       ),
-                      child: const Text(
+                      child: Text(
                         '1호선',
                         style: TextStyle(
                             color: Colors.white,
-                            fontSize: 10,
+                            fontSize: layout.font(10),
                             fontWeight: FontWeight.bold),
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 8),
+                SizedBox(height: layout.space(8)),
                 if (isCheonan) ...[
                   RichText(
                     text: const TextSpan(
@@ -883,20 +935,23 @@ class _CityBusGuideViewState extends State<CityBusGuideView> {
                       ],
                     ),
                   ),
-                  const SizedBox(height: 12),
+                  SizedBox(height: layout.space(12)),
                   Container(
-                    padding: const EdgeInsets.all(12),
+                    padding: EdgeInsets.all(layout.space(12)),
                     decoration: BoxDecoration(
                       color: Colors.black.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(layout.radius(12)),
                       border: Border.all(color: Colors.white.withOpacity(0.1)),
                     ),
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Icon(Icons.info_outline,
-                            color: Colors.amberAccent, size: 16),
-                        const SizedBox(width: 8),
+                        Icon(
+                          Icons.info_outline,
+                          color: Colors.amberAccent,
+                          size: layout.icon(16),
+                        ),
+                        SizedBox(width: layout.space(8)),
                         const Expanded(
                           child: Text(
                             '수도권 전철 1호선 평택역~신창역 구간에서 승하차 시 혜택 적용',

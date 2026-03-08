@@ -12,6 +12,7 @@ import 'settings_view.dart';
 import 'components/upcoming_departures_widget.dart';
 import 'components/auto_scroll_text.dart';
 import '../utils/platform_utils.dart';
+import '../utils/responsive_layout.dart';
 import 'city_bus/grouped_bus_view.dart';
 import 'subway/subway_view.dart';
 import 'package:hsro/view/components/scale_button.dart';
@@ -298,30 +299,34 @@ class _HomeViewState extends State<HomeView> {
     required String description,
     bool isLast = false,
   }) {
+    final layout = AppResponsive.of(context);
+
     return Container(
-      constraints: const BoxConstraints(maxWidth: 320),
+      constraints: BoxConstraints(
+        maxWidth: layout.isCompactWidth ? layout.space(300) : 320,
+      ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             title,
-            style: const TextStyle(
+            style: TextStyle(
               fontWeight: FontWeight.bold,
               color: Colors.white,
-              fontSize: 20,
+              fontSize: layout.font(20),
             ),
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: layout.space(8)),
           Text(
             description,
-            style: const TextStyle(
+            style: TextStyle(
               color: Colors.white,
-              fontSize: 15,
+              fontSize: layout.font(15),
               height: 1.4,
             ),
           ),
-          const SizedBox(height: 14),
+          SizedBox(height: layout.space(14)),
           Row(
             children: [
               TextButton(
@@ -344,7 +349,7 @@ class _HomeViewState extends State<HomeView> {
                   backgroundColor: Colors.white,
                   foregroundColor: Colors.black,
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(layout.radius(12)),
                   ),
                 ),
                 child: Text(isLast ? '셔틀버스 이동' : '다음'),
@@ -366,6 +371,7 @@ class _HomeViewState extends State<HomeView> {
   Widget build(BuildContext context) {
     // 다크모드 감지
     final backgroundColor = Theme.of(context).scaffoldBackgroundColor;
+    final layout = AppResponsive.of(context);
 
     return WillPopScope(
       // 뒤로가기 처리
@@ -418,7 +424,7 @@ class _HomeViewState extends State<HomeView> {
           ),
           centerTitle: true,
           leading: IconButton(
-            icon: const Icon(Icons.menu_outlined, size: 24),
+            icon: Icon(Icons.menu_outlined, size: layout.icon(24)),
             onPressed: () {
               HapticFeedback.lightImpact();
               _scaffoldKey.currentState?.openDrawer();
@@ -431,20 +437,22 @@ class _HomeViewState extends State<HomeView> {
               final isDark = Theme.of(context).brightness == Brightness.dark;
 
               return Padding(
-                padding: const EdgeInsets.only(right: 20),
+                padding: EdgeInsets.only(right: layout.space(20)),
                 child: Center(
                   child: Container(
-                    padding: const EdgeInsets.all(3),
+                    padding: EdgeInsets.all(
+                      layout.space(3, minScale: 1, maxScale: 1.05),
+                    ),
                     decoration: BoxDecoration(
                       color: isDark
                           ? Colors.white.withOpacity(0.05)
                           : Colors.black.withOpacity(0.05),
-                      borderRadius: BorderRadius.circular(20),
+                      borderRadius: BorderRadius.circular(layout.radius(20)),
                       border: Border.all(
                         color: isDark
                             ? Colors.white.withOpacity(0.1)
                             : Colors.black.withOpacity(0.1),
-                        width: 1,
+                        width: layout.border(1),
                       ),
                     ),
                     child: Row(
@@ -470,244 +478,235 @@ class _HomeViewState extends State<HomeView> {
         body: SingleChildScrollView(
           controller: _homeScrollController,
           physics: const BouncingScrollPhysics(),
-          child: Column(
-            children: [
-              // 공지사항
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 20, 20, 10),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text(
-                      '공지사항',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    GestureDetector(
-                      onTap: () {
-                        HapticFeedback.lightImpact();
-                        noticeViewModel.fetchAllNotices();
-                        Get.to(() => const NoticeListView());
-                      },
-                      child: Text(
-                        '전체보기',
+          child: AppPageFrame(
+            child: Column(
+              children: [
+                Padding(
+                  padding: EdgeInsets.fromLTRB(
+                    layout.space(20),
+                    layout.space(20),
+                    layout.space(20),
+                    layout.space(10),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        '공지사항',
                         style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey[600],
-                          fontWeight: FontWeight.w500,
+                          fontSize: layout.font(20),
+                          fontWeight: FontWeight.bold,
                         ),
                       ),
-                    ),
-                  ],
+                      GestureDetector(
+                        onTap: () {
+                          HapticFeedback.lightImpact();
+                          noticeViewModel.fetchAllNotices();
+                          Get.to(() => const NoticeListView());
+                        },
+                        child: Text(
+                          '전체보기',
+                          style: TextStyle(
+                            fontSize: layout.font(14),
+                            color: Colors.grey[600],
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: Container(
+                Padding(
+                  padding: EdgeInsets.symmetric(horizontal: layout.space(20)),
                   child: ScaleButton(
                     onTap: () {
-                      //HapticFeedback.lightImpact();
                       final notice = noticeViewModel.notice.value;
                       if (notice != null) {
                         Get.to(() => NoticeDetailView(notice: notice));
                       } else {
                         noticeViewModel.fetchLatestNotice();
-                        Get.to(
-                            () => const NoticeListView()); // 데이터 없을 땐 리스트로 이동
+                        Get.to(() => const NoticeListView());
                       }
                     },
                     child: Container(
                       decoration: BoxDecoration(
                         color: Theme.of(context).cardColor,
-                        borderRadius: BorderRadius.circular(25),
+                        borderRadius: BorderRadius.circular(layout.radius(25)),
                         boxShadow: [
                           BoxShadow(
                             color: Colors.black.withOpacity(0.1),
-                            blurRadius: 10,
-                            offset: const Offset(0, 0),
+                            blurRadius: layout.space(10),
+                            offset: Offset.zero,
                           ),
                         ],
                       ),
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 10),
+                      padding: EdgeInsets.symmetric(
+                        horizontal: layout.space(10),
+                        vertical: layout.space(10),
+                      ),
                       child: Row(
                         children: [
                           Container(
-                            padding: const EdgeInsets.all(5),
+                            padding: EdgeInsets.all(layout.space(5)),
                             decoration: BoxDecoration(
                               color: Colors.redAccent.withOpacity(0.1),
                               shape: BoxShape.circle,
                             ),
-                            child: const Icon(
+                            child: Icon(
                               Icons.campaign,
                               color: Colors.redAccent,
-                              size: 20,
+                              size: layout.icon(20),
                             ),
                           ),
-                          const SizedBox(width: 12),
+                          SizedBox(width: layout.space(12)),
                           Expanded(
                             child: Obx(() {
                               if (noticeViewModel.isLoading.value) {
-                                return const Text(
+                                return Text(
                                   '서버에 연결 중...',
                                   style: TextStyle(
-                                      fontSize: 14, color: Colors.grey),
+                                    fontSize: layout.font(14),
+                                    color: Colors.grey,
+                                  ),
                                 );
                               }
 
                               final notice = noticeViewModel.notice.value;
                               return AutoScrollText(
                                 text: notice?.title ?? '새로운 공지사항이 없습니다',
-                                style: const TextStyle(
-                                  fontSize: 14,
-                                  //fontWeight: FontWeight.w600,
+                                style: TextStyle(
+                                  fontSize: layout.font(14),
                                 ),
                                 scrollDuration: const Duration(seconds: 5),
                               );
                             }),
                           ),
-                          const SizedBox(width: 5),
-                          const Icon(
+                          SizedBox(width: layout.space(5)),
+                          Icon(
                             Icons.arrow_forward_ios,
-                            size: 14,
+                            size: layout.icon(14),
                             color: Colors.grey,
                           ),
-                          //const SizedBox(width: 15),
                         ],
                       ),
                     ),
                   ),
                 ),
-              ),
-              const SizedBox(height: 12),
-              // 곧 출발 섹션
-              Container(
-                key: _upcomingWidgetKey,
-                child: UpcomingDeparturesWidget(),
-              ),
-
-              // const SizedBox(height: 16),
-              // 메뉴
-              Container(
-                key: _transportMenuGroupKey,
-                child: Column(
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
-                      child: Column(
-                        children: [
-                          Row(
-                            children: [
-                              Expanded(
-                                child: Container(
-                                  child: _buildMenuCard(
-                                    context,
-                                    title: '셔틀버스',
-                                    icon: Icons.airport_shuttle,
-                                    color: Color(0xFFB83227),
-                                    onTap: () {
-                                      //HapticFeedback.mediumImpact(); // 햅틱 피드백
-                                      Get.to(() => ShuttleRouteSelectionView());
-                                    },
-                                  ),
-                                ),
+                SizedBox(height: layout.space(12)),
+                Container(
+                  key: _upcomingWidgetKey,
+                  child: UpcomingDeparturesWidget(),
+                ),
+                Container(
+                  key: _transportMenuGroupKey,
+                  child: Column(
+                    children: [
+                      Padding(
+                        padding:
+                            EdgeInsets.symmetric(horizontal: layout.space(20)),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: _buildMenuCard(
+                                context,
+                                title: '셔틀버스',
+                                icon: Icons.airport_shuttle,
+                                color: const Color(0xFFB83227),
+                                onTap: () {
+                                  Get.to(() => ShuttleRouteSelectionView());
+                                },
                               ),
-                              const SizedBox(width: 16),
-                              Expanded(
-                                child: Container(
-                                  child: _buildMenuCard(
-                                    context,
-                                    title: '시내버스',
-                                    icon: Icons.directions_bus,
-                                    color: Colors.blue,
-                                    onTap: () {
-                                      //HapticFeedback.mediumImpact(); // 햅틱 피드백
-                                      Get.to(() => CityBusGroupedView());
-                                    },
-                                  ),
-                                ),
+                            ),
+                            SizedBox(width: layout.space(16)),
+                            Expanded(
+                              child: _buildMenuCard(
+                                context,
+                                title: '시내버스',
+                                icon: Icons.directions_bus,
+                                color: Colors.blue,
+                                onTap: () {
+                                  Get.to(() => CityBusGroupedView());
+                                },
                               ),
-                            ],
-                          ),
-                        ],
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 12),
-                    // 지하철 메뉴
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
-                      child: Container(
+                      SizedBox(height: layout.space(12)),
+                      Padding(
+                        padding:
+                            EdgeInsets.symmetric(horizontal: layout.space(20)),
                         child: _buildMenuCard(
                           context,
                           title: '지하철',
                           icon: Icons.subway_outlined,
-                          color: const Color(0xFF0052A4), // 1호선 색상
+                          color: const Color(0xFF0052A4),
                           onTap: () {
-                            //HapticFeedback.mediumImpact();
                             final settingsViewModel =
                                 Get.find<SettingsViewModel>();
                             Get.to(() => SubwayView(
                                 stationName: settingsViewModel
                                     .selectedSubwayStation.value));
                           },
-                          height: 80, // 높이를 줄여서 표시
-                          isHorizontal: true, // 가로 배치 모드
+                          height: 80,
+                          isHorizontal: true,
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-
-              const SizedBox(height: 12),
-
-              // 면책 문구
-              Padding(
-                padding: const EdgeInsets.only(bottom: 20, left: 20, right: 20),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    const Icon(
-                      Icons.info_outline,
-                      size: 14,
-                      color: Colors.grey,
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        PlatformUtils.shortDisclaimer,
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: Colors.grey.shade600,
-                          height: 1.4,
+                SizedBox(height: layout.space(12)),
+                Padding(
+                  padding: EdgeInsets.only(
+                    bottom: layout.space(20),
+                    left: layout.space(20),
+                    right: layout.space(20),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.info_outline,
+                        size: layout.icon(14),
+                        color: Colors.grey,
+                      ),
+                      SizedBox(width: layout.space(8)),
+                      Expanded(
+                        child: Text(
+                          PlatformUtils.shortDisclaimer,
+                          style: TextStyle(
+                            fontSize: layout.font(11),
+                            color: Colors.grey.shade600,
+                            height: 1.4,
+                          ),
                         ),
                       ),
-                    ),
-                    TextButton(
-                      onPressed: () {
-                        HapticFeedback.lightImpact();
-                        PlatformUtils.showPlatformDisclaimerDialog(context);
-                      },
-                      style: TextButton.styleFrom(
-                        minimumSize: Size.zero,
-                        padding:
-                            EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      ),
-                      child: Text(
-                        '자세히 보기',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: Colors.blue.shade700,
+                      TextButton(
+                        onPressed: () {
+                          HapticFeedback.lightImpact();
+                          PlatformUtils.showPlatformDisclaimerDialog(context);
+                        },
+                        style: TextButton.styleFrom(
+                          minimumSize: Size.zero,
+                          padding: EdgeInsets.symmetric(
+                            horizontal: layout.space(8),
+                            vertical: layout.space(4),
+                          ),
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        ),
+                        child: Text(
+                          '자세히 보기',
+                          style: TextStyle(
+                            fontSize: layout.font(11),
+                            color: Colors.blue.shade700,
+                          ),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -723,69 +722,87 @@ class _HomeViewState extends State<HomeView> {
     double? height,
     bool isHorizontal = false,
   }) {
+    final layout = AppResponsive.of(context);
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
     final cardColor = Theme.of(context).cardColor;
     final textColor = isDarkMode ? Colors.white : Colors.black87;
+    final cardHeight = layout.space(
+      height ?? 180,
+      minScale: 0.94,
+      maxScale: 1.14,
+    );
+    final cardPadding = layout.space(isHorizontal ? 14 : 16);
+    final iconPadding = layout.space(isHorizontal ? 8 : 20);
+    final iconSize = layout.icon(isHorizontal ? 32 : 48, maxScale: 1.12);
+    final titleSize = layout.font(isHorizontal ? 17 : 20, maxScale: 1.12);
+    final subtitleSize = layout.font(isHorizontal ? 11 : 12, maxScale: 1.10);
+    final subtitleGap = layout.space(isHorizontal ? 2 : 4);
 
     return ScaleButton(
       onTap: onTap,
       child: Container(
-        height: height ?? 180,
+        height: cardHeight,
         decoration: BoxDecoration(
           color: cardColor,
-          borderRadius: BorderRadius.circular(25),
+          borderRadius: BorderRadius.circular(layout.radius(25)),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withOpacity(0.1),
-              blurRadius: 10,
-              offset: const Offset(0, 0),
+              blurRadius: layout.space(10),
+              offset: Offset.zero,
             ),
           ],
         ),
         child: Container(
-          padding: const EdgeInsets.all(16),
+          padding: EdgeInsets.all(cardPadding),
           child: isHorizontal
               ? Row(
                   children: [
                     Container(
-                      padding: EdgeInsets.all(isHorizontal ? 8 : 16),
+                      padding: EdgeInsets.all(iconPadding),
                       decoration: BoxDecoration(
                         color: color.withOpacity(0.1),
                         shape: BoxShape.circle,
                       ),
                       child: Icon(
                         icon,
-                        size: 32,
+                        size: iconSize,
                         color: color,
                       ),
                     ),
-                    const SizedBox(width: 20),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          title,
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: textColor,
+                    SizedBox(width: layout.space(20)),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: titleSize,
+                              fontWeight: FontWeight.bold,
+                              color: textColor,
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          '실시간 도착 정보 / 시간표',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey[600],
+                          SizedBox(height: subtitleGap),
+                          Text(
+                            '실시간 도착 정보 / 시간표',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: subtitleSize,
+                              color: Colors.grey[600],
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                    const Spacer(),
                     Icon(
                       Icons.arrow_forward_ios,
-                      size: 16,
+                      size: layout.icon(16),
                       color: Colors.grey[400],
                     ),
                   ],
@@ -794,22 +811,22 @@ class _HomeViewState extends State<HomeView> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Container(
-                      padding: const EdgeInsets.all(20),
+                      padding: EdgeInsets.all(iconPadding),
                       decoration: BoxDecoration(
                         color: color.withOpacity(0.1),
                         shape: BoxShape.circle,
                       ),
                       child: Icon(
                         icon,
-                        size: 48,
+                        size: iconSize,
                         color: color,
                       ),
                     ),
-                    const SizedBox(height: 24),
+                    SizedBox(height: layout.space(24)),
                     Text(
                       title,
                       style: TextStyle(
-                        fontSize: 20,
+                        fontSize: titleSize,
                         fontWeight: FontWeight.bold,
                         color: textColor,
                       ),

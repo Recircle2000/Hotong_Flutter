@@ -11,6 +11,7 @@ import 'nearby_stops_view.dart'; // 가까운 정류장 찾기 화면 임포트
 import '../components/scale_button.dart';
 import '../components/emergency_notice_banner.dart';
 import 'package:tutorial_coach_mark/tutorial_coach_mark.dart';
+import '../../utils/responsive_layout.dart';
 
 class ShuttleRouteSelectionView extends StatefulWidget {
   final bool startExperienceTour;
@@ -65,9 +66,17 @@ class _ShuttleRouteSelectionViewState extends State<ShuttleRouteSelectionView> {
 
   @override
   Widget build(BuildContext context) {
+    final layout = AppResponsive.of(context);
+
     return Scaffold(
       appBar: AppBar(
-        title: Text('셔틀버스 노선 선택'),
+        title: Text(
+          '셔틀버스 노선 선택',
+          style: TextStyle(
+            fontSize: layout.font(20),
+            fontWeight: FontWeight.bold,
+          ),
+        ),
       ),
       body: SafeArea(
         child: Column(
@@ -78,173 +87,179 @@ class _ShuttleRouteSelectionViewState extends State<ShuttleRouteSelectionView> {
             Expanded(
               child: SingleChildScrollView(
                 controller: _scrollController,
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildSelectionArea(context),
+                child: AppPageFrame(
+                  child: Padding(
+                    padding: EdgeInsets.all(layout.space(16)),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildSelectionArea(context),
+                        SizedBox(height: layout.space(32)),
+                        Center(
+                          child: ScaleButton(
+                            onTap: () {
+                              // 노선과 운행일자가 모두 선택되었는지 확인
+                              if (viewModel.selectedRouteId.value == -1) {
+                                Get.snackbar(
+                                  '알림',
+                                  '노선을 선택해주세요',
+                                  snackPosition: SnackPosition.BOTTOM,
+                                );
+                                return;
+                              }
 
-                      SizedBox(height: 32),
+                              if (viewModel.selectedDate.value.isEmpty) {
+                                Get.snackbar(
+                                  '알림',
+                                  '운행 날짜를 선택해주세요',
+                                  snackPosition: SnackPosition.BOTTOM,
+                                );
+                                return;
+                              }
 
-                      // 검색 버튼
-                      Center(
-                        child: ScaleButton(
-                          onTap: () {
-                            // 노선과 운행일자가 모두 선택되었는지 확인
-                            if (viewModel.selectedRouteId.value == -1) {
-                              Get.snackbar(
-                                '알림',
-                                '노선을 선택해주세요',
-                                snackPosition: SnackPosition.BOTTOM,
-                              );
-                              return;
-                            }
+                              try {
+                                // 날짜 포맷 변환
+                                DateFormat('yyyy-MM-dd')
+                                    .parse(viewModel.selectedDate.value);
 
-                            if (viewModel.selectedDate.value.isEmpty) {
-                              Get.snackbar(
-                                '알림',
-                                '운행 날짜를 선택해주세요',
-                                snackPosition: SnackPosition.BOTTOM,
-                              );
-                              return;
-                            }
-
-                            try {
-                              // 날짜 포맷 변환
-                              DateFormat('yyyy-MM-dd')
-                                  .parse(viewModel.selectedDate.value);
-
-                              // 조회 버튼을 누를 때만 API를 호출하도록 변경
-                              viewModel
-                                  .fetchSchedules(
-                                      viewModel.selectedRouteId.value,
-                                      viewModel.selectedDate.value)
-                                  .then((success) {
-                                if (!success) {
-                                  // 404 에러: 해당 날짜에 운행하는 셔틀 노선이 없음
-                                  _showNoScheduleAlert(context);
-                                } else {
-                                  // API 호출 성공 또는 더미 데이터로 대체된 경우
-                                  Get.to(() => ShuttleScheduleView(
-                                        routeId:
-                                            viewModel.selectedRouteId.value,
-                                        date: viewModel.selectedDate.value,
-                                        routeName: _getSelectedRouteName(),
-                                      ));
-                                }
-                              });
-                            } catch (e) {
-                              print('날짜 포맷 변환 오류: $e');
-                              // 에러가 발생해도 기본 API 호출은 계속 진행
-                              viewModel
-                                  .fetchSchedules(
-                                      viewModel.selectedRouteId.value,
-                                      viewModel.selectedDate.value)
-                                  .then((success) {
-                                if (!success) {
-                                  _showNoScheduleAlert(context);
-                                } else {
-                                  Get.to(() => ShuttleScheduleView(
-                                        routeId:
-                                            viewModel.selectedRouteId.value,
-                                        date: viewModel.selectedDate.value,
-                                        routeName: _getSelectedRouteName(),
-                                      ));
-                                }
-                              });
-                            }
-                          },
-                          child: Container(
-                            padding: EdgeInsets.symmetric(
-                                horizontal: 50, vertical: 15),
-                            decoration: BoxDecoration(
-                              color: shuttleColor,
-                              borderRadius: BorderRadius.circular(20),
-                              boxShadow: [
-                                BoxShadow(
+                                // 조회 버튼을 누를 때만 API를 호출하도록 변경
+                                viewModel
+                                    .fetchSchedules(
+                                        viewModel.selectedRouteId.value,
+                                        viewModel.selectedDate.value)
+                                    .then((success) {
+                                  if (!success) {
+                                    // 404 에러: 해당 날짜에 운행하는 셔틀 노선이 없음
+                                    _showNoScheduleAlert(context);
+                                  } else {
+                                    // API 호출 성공 또는 더미 데이터로 대체된 경우
+                                    Get.to(() => ShuttleScheduleView(
+                                          routeId:
+                                              viewModel.selectedRouteId.value,
+                                          date: viewModel.selectedDate.value,
+                                          routeName: _getSelectedRouteName(),
+                                        ));
+                                  }
+                                });
+                              } catch (e) {
+                                print('날짜 포맷 변환 오류: $e');
+                                // 에러가 발생해도 기본 API 호출은 계속 진행
+                                viewModel
+                                    .fetchSchedules(
+                                        viewModel.selectedRouteId.value,
+                                        viewModel.selectedDate.value)
+                                    .then((success) {
+                                  if (!success) {
+                                    _showNoScheduleAlert(context);
+                                  } else {
+                                    Get.to(() => ShuttleScheduleView(
+                                          routeId:
+                                              viewModel.selectedRouteId.value,
+                                          date: viewModel.selectedDate.value,
+                                          routeName: _getSelectedRouteName(),
+                                        ));
+                                  }
+                                });
+                              }
+                            },
+                            child: Container(
+                              padding: EdgeInsets.symmetric(
+                                horizontal: layout.space(50, maxScale: 1.12),
+                                vertical: layout.space(15),
+                              ),
+                              decoration: BoxDecoration(
+                                color: shuttleColor,
+                                borderRadius:
+                                    BorderRadius.circular(layout.radius(20)),
+                                boxShadow: [
+                                  BoxShadow(
                                     color: Colors.black.withOpacity(0.2),
-                                    blurRadius: 5,
-                                    offset: Offset(0, 3))
-                              ],
-                            ),
-                            child: Text(
-                              '시간표 조회',
-                              style: TextStyle(
-                                  fontSize: 16,
+                                    blurRadius: layout.space(5),
+                                    offset: Offset(0, layout.space(3)),
+                                  )
+                                ],
+                              ),
+                              child: Text(
+                                '시간표 조회',
+                                style: TextStyle(
+                                  fontSize: layout.font(16),
                                   fontWeight: FontWeight.bold,
-                                  color: Colors.white),
-                            ),
-                          ),
-                        ),
-                      ),
-
-                      SizedBox(height: 24),
-
-                      // 구분선 추가
-                      Divider(
-                        color: shuttleColor.withOpacity(0.3),
-                        thickness: 1.5,
-                      ),
-
-                      SizedBox(height: 24),
-
-                      // 가까운 정류장 찾기 버튼
-                      Center(
-                        child: Column(
-                          children: [
-                            Container(
-                              key: _nearbyButtonKey,
-                              child: ScaleButton(
-                                onTap: () {
-                                  Get.to(() => NearbyStopsView());
-                                },
-                                child: Container(
-                                  padding: EdgeInsets.symmetric(
-                                      horizontal: 40, vertical: 15),
-                                  decoration: BoxDecoration(
-                                    color: Colors.green.shade700,
-                                    borderRadius: BorderRadius.circular(20),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: Colors.black.withOpacity(0.2),
-                                        blurRadius: 5,
-                                        offset: Offset(0, 3),
-                                      )
-                                    ],
-                                  ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Icon(Icons.location_on,
-                                          color: Colors.white),
-                                      SizedBox(width: 8),
-                                      Text(
-                                        '정류장별 시간표 간편 조회',
-                                        style: TextStyle(
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.bold,
-                                          color: Colors.white,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
+                                  color: Colors.white,
                                 ),
                               ),
                             ),
-                            SizedBox(height: 8),
-                            Text(
-                              '(주변 정류장 검색)',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Theme.of(context).hintColor,
-                              ),
-                            ),
-                          ],
+                          ),
                         ),
-                      ),
-                    ],
+                        SizedBox(height: layout.space(24)),
+                        Divider(
+                          color: shuttleColor.withOpacity(0.3),
+                          thickness: layout.border(1.5),
+                        ),
+                        SizedBox(height: layout.space(24)),
+                        Center(
+                          child: Column(
+                            children: [
+                              Container(
+                                key: _nearbyButtonKey,
+                                child: ScaleButton(
+                                  onTap: () {
+                                    Get.to(() => NearbyStopsView());
+                                  },
+                                  child: Container(
+                                    padding: EdgeInsets.symmetric(
+                                      horizontal:
+                                          layout.space(40, maxScale: 1.12),
+                                      vertical: layout.space(15),
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: Colors.green.shade700,
+                                      borderRadius: BorderRadius.circular(
+                                        layout.radius(20),
+                                      ),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Colors.black.withOpacity(0.2),
+                                          blurRadius: layout.space(5),
+                                          offset: Offset(0, layout.space(3)),
+                                        )
+                                      ],
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(
+                                          Icons.location_on,
+                                          color: Colors.white,
+                                          size: layout.icon(24),
+                                        ),
+                                        SizedBox(width: layout.space(8)),
+                                        Text(
+                                          '정류장별 시간표 간편 조회',
+                                          style: TextStyle(
+                                            fontSize: layout.font(16),
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.white,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              SizedBox(height: layout.space(8)),
+                              Text(
+                                '(주변 정류장 검색)',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  fontSize: layout.font(12),
+                                  color: Theme.of(context).hintColor,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -323,30 +338,34 @@ class _ShuttleRouteSelectionViewState extends State<ShuttleRouteSelectionView> {
     required String description,
     bool isLast = false,
   }) {
+    final layout = AppResponsive.of(context);
+
     return Container(
-      constraints: const BoxConstraints(maxWidth: 320),
+      constraints: BoxConstraints(
+        maxWidth: layout.isCompactWidth ? layout.space(300) : 320,
+      ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             title,
-            style: const TextStyle(
+            style: TextStyle(
               fontWeight: FontWeight.bold,
               color: Colors.white,
-              fontSize: 20,
+              fontSize: layout.font(20),
             ),
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: layout.space(8)),
           Text(
             description,
-            style: const TextStyle(
+            style: TextStyle(
               color: Colors.white,
-              fontSize: 15,
+              fontSize: layout.font(15),
               height: 1.4,
             ),
           ),
-          const SizedBox(height: 14),
+          SizedBox(height: layout.space(14)),
           Row(
             children: [
               TextButton(
@@ -365,10 +384,10 @@ class _ShuttleRouteSelectionViewState extends State<ShuttleRouteSelectionView> {
                   backgroundColor: Colors.white,
                   foregroundColor: Colors.black,
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(layout.radius(12)),
                   ),
                 ),
-                child: Text('다음'),
+                child: Text(isLast ? '완료' : '다음'),
               ),
             ],
           ),
@@ -390,17 +409,21 @@ class _ShuttleRouteSelectionViewState extends State<ShuttleRouteSelectionView> {
   }
 
   Widget _buildSelectionArea(BuildContext context) {
+    final layout = AppResponsive.of(context);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // 현재 운행 상태 정보 카드 추가
         _buildCurrentTimeInfo(context),
-
-        SizedBox(height: 24),
-
-        Text('노선 선택',
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-        SizedBox(height: 12),
+        SizedBox(height: layout.space(24)),
+        Text(
+          '노선 선택',
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: layout.font(16),
+          ),
+        ),
+        SizedBox(height: layout.space(12)),
 
         // 로딩 인디케이터를 플랫폼별로 표시
         Obx(
@@ -410,8 +433,7 @@ class _ShuttleRouteSelectionViewState extends State<ShuttleRouteSelectionView> {
                   ? Text('사용 가능한 노선이 없습니다')
                   : _buildRouteSelector(context),
         ),
-
-        SizedBox(height: 20),
+        SizedBox(height: layout.space(20)),
         _buildScheduleTypeSelector(context),
       ],
     );
@@ -444,6 +466,7 @@ class _ShuttleRouteSelectionViewState extends State<ShuttleRouteSelectionView> {
       ),
       initialData: DateTime.now(),
       builder: (context, snapshot) {
+        final layout = AppResponsive.of(context);
         final now = snapshot.data ?? DateTime.now();
         final dayOfWeek = _getDayOfWeekString(now);
         final timeString = DateFormat('HH:mm').format(now);
@@ -455,10 +478,10 @@ class _ShuttleRouteSelectionViewState extends State<ShuttleRouteSelectionView> {
             brightness == Brightness.dark ? Colors.redAccent : shuttleColor;
 
         return Container(
-          padding: const EdgeInsets.all(16),
+          padding: EdgeInsets.all(layout.space(16)),
           decoration: BoxDecoration(
             color: backgroundColor,
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(layout.radius(20)),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -466,30 +489,30 @@ class _ShuttleRouteSelectionViewState extends State<ShuttleRouteSelectionView> {
               Row(
                 children: [
                   Text(
-                '${DateFormat('MM월 dd일').format(now)} ($dayOfWeek)',
-                style: TextStyle(
-                  fontWeight: FontWeight.w600,
-                  fontSize: 17,
-                  color: titleColor.withOpacity(0.85),
-                ),
-              ),
+                    '${DateFormat('MM월 dd일').format(now)} ($dayOfWeek)',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: layout.font(17),
+                      color: titleColor.withOpacity(0.85),
+                    ),
+                  ),
                   const Spacer(),
                   Text(
                     timeString,
                     style: TextStyle(
                       fontWeight: FontWeight.w700,
-                      fontSize: 17,
+                      fontSize: layout.font(17),
                       color: titleColor,
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 10),
+              SizedBox(height: layout.space(10)),
               Text(
                 '노선과 운행 날짜를 선택해 시간표를 조회하세요.',
                 style: TextStyle(
                   color: Theme.of(context).hintColor,
-                  fontSize: 13,
+                  fontSize: layout.font(13),
                 ),
               ),
             ],
@@ -508,41 +531,53 @@ class _ShuttleRouteSelectionViewState extends State<ShuttleRouteSelectionView> {
   }
 
   Widget _buildIOSRouteSelector(BuildContext context) {
+    final layout = AppResponsive.of(context);
     return ScaleButton(
       onTap: () => _showIOSRoutePicker(context),
       child: Container(
-        height: 50,
+        height: layout.space(50),
         decoration: BoxDecoration(
-          // border: Border.all(color: Theme.of(context).dividerColor),
           color: Theme.of(context).cardColor,
-          borderRadius: BorderRadius.circular(25),
+          borderRadius: BorderRadius.circular(layout.radius(25)),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withOpacity(0.1),
-              blurRadius: 10,
-              offset: const Offset(0, 0),
+              blurRadius: layout.space(10),
+              offset: Offset.zero,
             ),
           ],
         ),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16.0),
+          padding: EdgeInsets.symmetric(horizontal: layout.space(16)),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Obx(() {
                 if (viewModel.selectedRouteId.value == -1) {
-                  return Text('노선을 선택하세요',
-                      style: TextStyle(color: Theme.of(context).hintColor));
+                  return Text(
+                    '노선을 선택하세요',
+                    style: TextStyle(
+                      color: Theme.of(context).hintColor,
+                      fontSize: layout.font(14),
+                    ),
+                  );
                 } else {
                   final selectedRoute = viewModel.routes.firstWhere(
                     (route) => route.id == viewModel.selectedRouteId.value,
                     orElse: () => ShuttleRoute(
                         id: -1, routeName: '알 수 없음', direction: ''),
                   );
-                  return Text('${selectedRoute.routeName}');
+                  return Text(
+                    '${selectedRoute.routeName}',
+                    style: TextStyle(fontSize: layout.font(14)),
+                  );
                 }
               }),
-              Icon(Icons.arrow_drop_down, color: Theme.of(context).hintColor),
+              Icon(
+                Icons.arrow_drop_down,
+                color: Theme.of(context).hintColor,
+                size: layout.icon(24),
+              ),
             ],
           ),
         ),
@@ -572,12 +607,12 @@ class _ShuttleRouteSelectionViewState extends State<ShuttleRouteSelectionView> {
     showCupertinoModalPopup(
       context: context,
       builder: (context) => Container(
-        height: 250,
+        height: AppResponsive.of(context).space(250, maxScale: 1.08),
         color: CupertinoColors.systemBackground.resolveFrom(context),
         child: Column(
           children: [
             Container(
-              height: 50,
+              height: AppResponsive.of(context).space(50),
               color: CupertinoColors.systemGrey5.resolveFrom(context),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -611,7 +646,9 @@ class _ShuttleRouteSelectionViewState extends State<ShuttleRouteSelectionView> {
                   return Center(
                     child: Text(
                       '${route.routeName}',
-                      style: TextStyle(fontSize: 16),
+                      style: TextStyle(
+                        fontSize: AppResponsive.of(context).font(16),
+                      ),
                     ),
                   );
                 }).toList(),
@@ -624,31 +661,34 @@ class _ShuttleRouteSelectionViewState extends State<ShuttleRouteSelectionView> {
   }
 
   Widget _buildAndroidRouteSelector() {
+    final context = Get.context!;
+    final layout = AppResponsive.of(context);
     return Container(
-      height: 50,
+      height: layout.space(50),
       decoration: BoxDecoration(
-        // border: Border.all(color: Theme.of(Get.context!).dividerColor),
-        color: Theme.of(Get.context!).cardColor,
-        borderRadius: BorderRadius.circular(25),
+        color: Theme.of(context).cardColor,
+        borderRadius: BorderRadius.circular(layout.radius(25)),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.1),
-            blurRadius: 10,
-            offset: const Offset(0, 0),
+            blurRadius: layout.space(10),
+            offset: Offset.zero,
           ),
         ],
       ),
-      padding: EdgeInsets.symmetric(horizontal: 16),
+      padding: EdgeInsets.symmetric(horizontal: layout.space(16)),
       child: Obx(() {
         return DropdownButton<int>(
           value: viewModel.selectedRouteId.value != -1
               ? viewModel.selectedRouteId.value
               : null,
-          hint: Text('노선을 선택하세요'),
+          hint: Text(
+            '노선을 선택하세요',
+            style: TextStyle(fontSize: layout.font(14)),
+          ),
           isExpanded: true,
           underline: SizedBox(), // 밑줄 제거
-          icon: Icon(Icons.arrow_drop_down,
-              color: Theme.of(Get.context!).hintColor),
+          icon: Icon(Icons.arrow_drop_down, color: Theme.of(context).hintColor),
           onChanged: (int? value) {
             if (value != null) {
               viewModel.selectRoute(value);
@@ -657,7 +697,10 @@ class _ShuttleRouteSelectionViewState extends State<ShuttleRouteSelectionView> {
           items: viewModel.routes.map<DropdownMenuItem<int>>((route) {
             return DropdownMenuItem<int>(
               value: route.id,
-              child: Text('${route.routeName}'),
+              child: Text(
+                '${route.routeName}',
+                style: TextStyle(fontSize: layout.font(14)),
+              ),
             );
           }).toList(),
         );
@@ -674,22 +717,23 @@ class _ShuttleRouteSelectionViewState extends State<ShuttleRouteSelectionView> {
   }
 
   Widget _buildIOSDateSelector(BuildContext context) {
+    final layout = AppResponsive.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           '탑승일',
           style: TextStyle(
-            fontSize: 16,
+            fontSize: layout.font(16),
             fontWeight: FontWeight.bold,
           ),
         ),
-        SizedBox(height: 12),
+        SizedBox(height: layout.space(12)),
         _buildDateSelectorWithArrows(
           context,
           onTapDatePicker: () => _showIOSDatePicker(context),
         ),
-        SizedBox(height: 8),
+        SizedBox(height: layout.space(8)),
         _buildScheduleTypeInfoText(context),
       ],
     );
@@ -704,12 +748,12 @@ class _ShuttleRouteSelectionViewState extends State<ShuttleRouteSelectionView> {
     showCupertinoModalPopup(
       context: context,
       builder: (context) => Container(
-        height: 250,
+        height: AppResponsive.of(context).space(250, maxScale: 1.08),
         color: CupertinoColors.systemBackground.resolveFrom(context),
         child: Column(
           children: [
             Container(
-              height: 50,
+              height: AppResponsive.of(context).space(50),
               color: CupertinoColors.systemGrey5.resolveFrom(context),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -748,28 +792,30 @@ class _ShuttleRouteSelectionViewState extends State<ShuttleRouteSelectionView> {
   }
 
   Widget _buildAndroidDateSelector(BuildContext context) {
+    final layout = AppResponsive.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           '탑승일',
           style: TextStyle(
-            fontSize: 16,
+            fontSize: layout.font(16),
             fontWeight: FontWeight.bold,
           ),
         ),
-        SizedBox(height: 12),
+        SizedBox(height: layout.space(12)),
         _buildDateSelectorWithArrows(
           context,
           onTapDatePicker: () => _showAndroidDatePicker(context),
         ),
-        SizedBox(height: 8),
+        SizedBox(height: layout.space(8)),
         _buildScheduleTypeInfoText(context),
       ],
     );
   }
 
   Widget _buildScheduleTypeInfoText(BuildContext context) {
+    final layout = AppResponsive.of(context);
     return Obx(() {
       if (viewModel.selectedDate.value.isEmpty) {
         return SizedBox.shrink();
@@ -788,17 +834,17 @@ class _ShuttleRouteSelectionViewState extends State<ShuttleRouteSelectionView> {
           Text(
             '운행 유형: $scheduleTypeName',
             style: TextStyle(
-              fontSize: 14,
+              fontSize: layout.font(14),
               fontWeight: FontWeight.w600,
               color: Theme.of(context).brightness == Brightness.dark
                   ? Colors.redAccent
                   : shuttleColor,
             ),
           ),
-          SizedBox(width: 8),
+          SizedBox(width: layout.space(8)),
           SizedBox(
-            width: 14,
-            height: 14,
+            width: layout.space(14),
+            height: layout.space(14),
             child: Opacity(
               opacity: isLoading ? 1 : 0,
               child: _buildPlatformLoadingIndicator(
@@ -818,6 +864,7 @@ class _ShuttleRouteSelectionViewState extends State<ShuttleRouteSelectionView> {
     required VoidCallback onTapDatePicker,
   }) {
     return Obx(() {
+      final layout = AppResponsive.of(context);
       final selectedDate = _getSelectedDateOrToday();
       final minimumDate = _getMinimumSelectableDate();
       final maximumDate = _getMaximumSelectableDate();
@@ -833,24 +880,24 @@ class _ShuttleRouteSelectionViewState extends State<ShuttleRouteSelectionView> {
             enabled: canMovePrevious,
             onTap: () => _moveSelectedDateBy(-1),
           ),
-          SizedBox(width: 8),
+          SizedBox(width: layout.space(8)),
           Expanded(
             child: ScaleButton(
               onTap: onTapDatePicker,
               child: Container(
-                height: 50,
+                height: layout.space(50),
                 decoration: BoxDecoration(
                   color: Theme.of(context).cardColor,
-                  borderRadius: BorderRadius.circular(25),
+                  borderRadius: BorderRadius.circular(layout.radius(25)),
                   boxShadow: [
                     BoxShadow(
                       color: Colors.black.withOpacity(0.1),
-                      blurRadius: 10,
-                      offset: const Offset(0, 0),
+                      blurRadius: layout.space(10),
+                      offset: Offset.zero,
                     ),
                   ],
                 ),
-                padding: EdgeInsets.symmetric(horizontal: 16),
+                padding: EdgeInsets.symmetric(horizontal: layout.space(16)),
                 child: Row(
                   children: [
                     Expanded(
@@ -858,20 +905,24 @@ class _ShuttleRouteSelectionViewState extends State<ShuttleRouteSelectionView> {
                         _getSelectedDateLabel(),
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
+                          fontSize: layout.font(14),
                           color: hasSelectedDate
                               ? null
                               : Theme.of(context).hintColor,
                         ),
                       ),
                     ),
-                    Icon(Icons.calendar_today,
-                        color: Theme.of(context).hintColor),
+                    Icon(
+                      Icons.calendar_today,
+                      color: Theme.of(context).hintColor,
+                      size: layout.icon(18),
+                    ),
                   ],
                 ),
               ),
             ),
           ),
-          SizedBox(width: 8),
+          SizedBox(width: layout.space(8)),
           _buildDateArrowButton(
             context: context,
             icon: Icons.chevron_right,
@@ -889,6 +940,7 @@ class _ShuttleRouteSelectionViewState extends State<ShuttleRouteSelectionView> {
     required bool enabled,
     required VoidCallback onTap,
   }) {
+    final layout = AppResponsive.of(context);
     return IgnorePointer(
       ignoring: !enabled,
       child: Opacity(
@@ -896,21 +948,22 @@ class _ShuttleRouteSelectionViewState extends State<ShuttleRouteSelectionView> {
         child: ScaleButton(
           onTap: onTap,
           child: Container(
-            width: 40,
-            height: 40,
+            width: layout.space(40),
+            height: layout.space(40),
             decoration: BoxDecoration(
               color: Theme.of(context).cardColor,
               shape: BoxShape.circle,
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withOpacity(0.1),
-                  blurRadius: 10,
-                  offset: const Offset(0, 0),
+                  blurRadius: layout.space(10),
+                  offset: Offset.zero,
                 ),
               ],
             ),
             child: Icon(
               icon,
+              size: layout.icon(24),
               color: enabled
                   ? (Theme.of(context).brightness == Brightness.dark
                       ? Colors.redAccent
