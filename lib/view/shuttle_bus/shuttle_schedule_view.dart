@@ -232,6 +232,7 @@ class _ShuttleScheduleViewState extends State<ShuttleScheduleView> {
           lastBusTime =
               DateFormat('HH:mm').format(viewModel.schedules.last.startTime);
         }
+        const headerContentLeftInset = 30.0;
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -269,32 +270,28 @@ class _ShuttleScheduleViewState extends State<ShuttleScheduleView> {
               ],
             ),
             const SizedBox(height: 10),
-            Text(
-              typeText,
-              style: TextStyle(
-                fontWeight: FontWeight.w700,
-                fontSize: 15,
-                color: primaryTextColor,
+            Padding(
+              padding: const EdgeInsets.only(left: headerContentLeftInset),
+              child: Text(
+                typeText,
+                style: TextStyle(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 15,
+                  color: primaryTextColor,
+                ),
               ),
             ),
             const SizedBox(height: 8),
-            Row(
-              children: [
-                Icon(
-                  Icons.access_time_rounded,
-                  size: 15,
+            Padding(
+              padding: const EdgeInsets.only(left: headerContentLeftInset),
+              child: Text(
+                '첫차 $firstBusTime  ·  막차 $lastBusTime',
+                style: TextStyle(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 13,
                   color: secondaryTextColor,
                 ),
-                const SizedBox(width: 6),
-                Text(
-                  '첫차 $firstBusTime  ·  막차 $lastBusTime',
-                  style: TextStyle(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 13,
-                    color: secondaryTextColor,
-                  ),
-                ),
-              ],
+              ),
             ),
           ],
         );
