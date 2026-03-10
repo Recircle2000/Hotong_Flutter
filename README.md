@@ -1,17 +1,11 @@
-# 호통 (hsro)
+# 호통
 
 호서대학교 통학 이동 정보를 한곳에서 보는 비공식 Flutter 앱입니다.  
 셔틀버스, 시내버스, 지하철(1호선) 정보를 통합해 제공합니다.
 
-![호통 스크린샷](flutter_01.png)
-
-## 프로젝트 개요
-
-- 앱 이름: `호통`
-- 패키지: `hsro`
-- 현재 앱 버전: `1.1.3+55`
-- 주요 타겟: `Android`, `iOS`
-- 상태 관리: `GetX`
+| 앱 화면 |
+|--------|
+| <img src="flutter_01.png" width="300"> |
 
 ## 주요 기능
 
@@ -68,42 +62,7 @@ assets/
   Holiday/               # 공휴일 데이터
   icons/
 ```
-
-## 시작하기
-
-### 1) 요구사항
-- Flutter SDK 설치
-- Dart SDK `>= 3.6.1 < 4.0.0` (`pubspec.yaml` 기준)
-- iOS 빌드 시 Xcode/CocoaPods, Android 빌드 시 Android Studio SDK
-
-### 2) 의존성 설치
-```bash
-flutter pub get
-```
-
-### 3) 환경 변수 파일 설정
-앱은 `assets/.env` 파일을 읽습니다.
-
-```dotenv
-NAVER_MAP_CLIENT_ID=YOUR_NAVER_MAP_CLIENT_ID
-BASE_URL=https://YOUR_BACKEND_BASE_URL
-APPLE_APP_ID=YOUR_APPLE_APP_ID
-PLAY_STORE_ID=YOUR_PLAY_STORE_ID
-```
-
-키 설명:
-
-- `NAVER_MAP_CLIENT_ID`: 네이버 지도 SDK 인증 키
-- `BASE_URL`: 백엔드 API 베이스 URL (예: `https://example.com`)
-- `APPLE_APP_ID`: 앱스토어 업데이트 체크용 앱 ID
-- `PLAY_STORE_ID`: 플레이스토어 업데이트 체크용 패키지 ID
-
-### 4) 실행
-```bash
-flutter run
-```
-
-## 백엔드 연동 포인트
+## 백엔드 [깃허브 링크](https://github.com/Recircle2000/Hotong_Fastapi)
 
 `BASE_URL` 기준으로 아래 엔드포인트를 사용합니다.
 
@@ -113,18 +72,11 @@ flutter run
 - 시내버스: `/buses`, WebSocket `/ws/bus`
 - 지하철: `/subway/schedule`, WebSocket `/subway/ws`
 
-## 데이터 소스 메모
+## 데이터 소스
 
 - 시내버스 경로/정류장: 앱 내 에셋(JSON)
 - 시내버스 시간표: `assets/bus_times/bus_times.json` 기본 사용
 - 앱 시작 시 `BusTimesLoader`가 버전 API를 조회해 최신 파일로 교체 가능
-
-## 개발 명령어
-
-```bash
-flutter analyze
-flutter test
-```
 
 ## 참고
 
