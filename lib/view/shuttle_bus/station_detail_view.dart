@@ -5,12 +5,13 @@ import 'dart:io' show Platform;
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:insta_image_viewer/insta_image_viewer.dart';
 import '../../viewmodel/shuttle_viewmodel.dart';
 import '../../models/shuttle_models.dart';
 
 class StationDetailView extends StatefulWidget {
   final int stationId;
-  
+
   const StationDetailView({
     Key? key,
     required this.stationId,
@@ -28,7 +29,7 @@ class _StationDetailViewState extends State<StationDetailView> {
   final Rx<Position?> currentPosition = Rx<Position?>(null);
   final RxBool showMyLocation = false.obs;
   MapController? mapController;
-  
+
   @override
   void initState() {
     super.initState();
@@ -36,13 +37,13 @@ class _StationDetailViewState extends State<StationDetailView> {
     mapController = MapController();
     _requestLocationPermission();
   }
-  
+
   @override
   void dispose() {
     mapController = null;
     super.dispose();
   }
-  
+
   // 위치 권한 요청
   Future<void> _requestLocationPermission() async {
     try {
@@ -90,10 +91,10 @@ class _StationDetailViewState extends State<StationDetailView> {
         );
         return;
       }
-      
+
       // 권한이 허용된 경우 위치 가져오기
       _getCurrentLocation();
-      
+
       // 위치 변경 리스너 설정 (실시간 업데이트)
       Geolocator.getPositionStream(
         locationSettings: LocationSettings(
@@ -107,7 +108,7 @@ class _StationDetailViewState extends State<StationDetailView> {
       print('위치 권한 확인 중 오류 발생: $e');
     }
   }
-  
+
   // 현재 위치 가져오기
   Future<void> _getCurrentLocation() async {
     isLoadingLocation.value = true;
@@ -116,7 +117,7 @@ class _StationDetailViewState extends State<StationDetailView> {
         desiredAccuracy: LocationAccuracy.high,
       );
       currentPosition.value = position;
-      
+
       // 내 위치가 표시 모드이면 지도 이동
       if (showMyLocation.value && mapController != null) {
         mapController!.move(
@@ -138,26 +139,29 @@ class _StationDetailViewState extends State<StationDetailView> {
       isLoadingLocation.value = false;
     }
   }
-  
+
   Future<void> _loadStationDetail() async {
     isLoading.value = true;
     final result = await viewModel.fetchStationDetail(widget.stationId);
     station.value = result;
     isLoading.value = false;
   }
-  
+
   // 지도 중심 전환
   void _toggleMapCenter() {
-    if (currentPosition.value == null || station.value == null || mapController == null) {
+    if (currentPosition.value == null ||
+        station.value == null ||
+        mapController == null) {
       return;
     }
-    
+
     showMyLocation.toggle();
-    
+
     if (showMyLocation.value) {
       // 내 위치로 지도 이동
       mapController!.move(
-        LatLng(currentPosition.value!.latitude, currentPosition.value!.longitude),
+        LatLng(
+            currentPosition.value!.latitude, currentPosition.value!.longitude),
         mapController!.camera.zoom,
       );
     } else {
@@ -168,11 +172,9 @@ class _StationDetailViewState extends State<StationDetailView> {
       );
     }
   }
-  
+
   @override
   Widget build(BuildContext context) {
-    final brightness = Theme.of(context).brightness;
-    
     return Scaffold(
       appBar: AppBar(
         title: Text('정류장 정보'),
@@ -183,7 +185,7 @@ class _StationDetailViewState extends State<StationDetailView> {
             child: CircularProgressIndicator.adaptive(),
           );
         }
-        
+
         if (station.value == null) {
           return Center(
             child: Column(
@@ -202,7 +204,7 @@ class _StationDetailViewState extends State<StationDetailView> {
             ),
           );
         }
-        
+
         return SingleChildScrollView(
           padding: EdgeInsets.all(16),
           child: Column(
@@ -221,7 +223,7 @@ class _StationDetailViewState extends State<StationDetailView> {
       }),
     );
   }
-  
+
   Widget _buildRetryButton() {
     if (Platform.isIOS) {
       return CupertinoButton(
@@ -240,10 +242,10 @@ class _StationDetailViewState extends State<StationDetailView> {
       );
     }
   }
-  
+
   Widget _buildStationHeader() {
     final stationInfo = station.value!;
-    
+
     return Container(
       width: double.infinity,
       padding: EdgeInsets.all(16),
@@ -270,11 +272,11 @@ class _StationDetailViewState extends State<StationDetailView> {
       ),
     );
   }
-  
+
   Widget _buildStationDescription() {
     final stationInfo = station.value!;
     final description = stationInfo.description ?? '정류장 설명이 없습니다.';
-    
+
     return Container(
       width: double.infinity,
       padding: EdgeInsets.all(16),
@@ -308,10 +310,10 @@ class _StationDetailViewState extends State<StationDetailView> {
       ),
     );
   }
-  
+
   Widget _buildMapSection() {
     final stationInfo = station.value!;
-    
+
     return Container(
       width: double.infinity,
       height: 300,
@@ -329,12 +331,15 @@ class _StationDetailViewState extends State<StationDetailView> {
             FlutterMap(
               mapController: mapController,
               options: MapOptions(
-                initialCenter: LatLng(stationInfo.latitude, stationInfo.longitude),
+                initialCenter:
+                    LatLng(stationInfo.latitude, stationInfo.longitude),
                 initialZoom: 15,
                 minZoom: 13,
                 maxZoom: 18,
                 interactionOptions: const InteractionOptions(
-                  flags: InteractiveFlag.pinchZoom | InteractiveFlag.doubleTapZoom | InteractiveFlag.drag,
+                  flags: InteractiveFlag.pinchZoom |
+                      InteractiveFlag.doubleTapZoom |
+                      InteractiveFlag.drag,
                 ),
               ),
               children: [
@@ -347,7 +352,8 @@ class _StationDetailViewState extends State<StationDetailView> {
                   markers: [
                     // 정류장 마커
                     Marker(
-                      point: LatLng(stationInfo.latitude, stationInfo.longitude),
+                      point:
+                          LatLng(stationInfo.latitude, stationInfo.longitude),
                       width: 40,
                       height: 40,
                       child: Transform.translate(
@@ -414,11 +420,11 @@ class _StationDetailViewState extends State<StationDetailView> {
                   child: IconButton(
                     icon: Icon(
                       showMyLocation.value
-                        ? Icons.directions_bus
-                        : Icons.my_location,
+                          ? Icons.directions_bus
+                          : Icons.my_location,
                       color: showMyLocation.value
-                        ? Theme.of(context).colorScheme.primary
-                        : Colors.blue,
+                          ? Theme.of(context).colorScheme.primary
+                          : Colors.blue,
                       size: 24,
                     ),
                     onPressed: _toggleMapCenter,
@@ -431,118 +437,79 @@ class _StationDetailViewState extends State<StationDetailView> {
       ),
     );
   }
-  
+
   Widget _buildImageButton() {
     final stationInfo = station.value!;
     final hasImage = stationInfo.imageUrl != null;
     final brightness = Theme.of(context).brightness;
-    
-    if (Platform.isIOS) {
-      return CupertinoButton(
-        padding: EdgeInsets.zero,
-        child: Container(
-          width: double.infinity,
-          padding: EdgeInsets.symmetric(vertical: 14),
-          decoration: BoxDecoration(
-            color: hasImage
-                ? (brightness == Brightness.dark
-                    ? Colors.blue.withOpacity(0.3)
-                    : Colors.blue.withOpacity(0.1))
-                : (brightness == Brightness.dark
-                    ? Colors.grey.withOpacity(0.3)
-                    : Colors.grey.withOpacity(0.1)),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: hasImage
-                  ? (brightness == Brightness.dark
-                      ? Colors.blue.withOpacity(0.5)
-                      : Colors.blue.withOpacity(0.3))
-                  : (brightness == Brightness.dark
-                      ? Colors.grey.withOpacity(0.5)
-                      : Colors.grey.withOpacity(0.3)),
-              width: 1,
+    final accentColor = hasImage
+        ? (brightness == Brightness.dark ? Colors.blue : Colors.blue.shade700)
+        : Colors.grey;
+    final backgroundColor = hasImage
+        ? (brightness == Brightness.dark
+            ? Colors.blue.withOpacity(0.2)
+            : Colors.blue.withOpacity(0.1))
+        : (brightness == Brightness.dark
+            ? Colors.grey.withOpacity(0.2)
+            : Colors.grey.withOpacity(0.1));
+    final borderColor = hasImage
+        ? (brightness == Brightness.dark
+            ? Colors.blue.withOpacity(0.5)
+            : Colors.blue.withOpacity(0.3))
+        : (brightness == Brightness.dark
+            ? Colors.grey.withOpacity(0.5)
+            : Colors.grey.withOpacity(0.3));
+
+    final buttonChild = Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 14),
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: borderColor,
+          width: 1,
+        ),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            hasImage ? Icons.photo : Icons.photo_library_outlined,
+            color: accentColor,
+          ),
+          const SizedBox(width: 8),
+          Text(
+            '정류장 사진 보기',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: accentColor,
             ),
           ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                hasImage ? CupertinoIcons.photo : CupertinoIcons.photo_fill_on_rectangle_fill,
-                color: hasImage
-                    ? (brightness == Brightness.dark ? Colors.blue : Colors.blue.shade700)
-                    : Colors.grey,
-              ),
-              SizedBox(width: 8),
-              Text(
-                '정류장 사진 보기',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: hasImage
-                      ? (brightness == Brightness.dark ? Colors.blue : Colors.blue.shade700)
-                      : Colors.grey,
-                ),
-              ),
-            ],
-          ),
+        ],
+      ),
+    );
+
+    if (!hasImage) {
+      return Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: _showNoImageAlert,
+          child: buttonChild,
         ),
-        onPressed: hasImage ? () => _showImageViewer(stationInfo.imageUrl!) : _showNoImageAlert,
-      );
-    } else {
-      return ElevatedButton(
-        style: ElevatedButton.styleFrom(
-          backgroundColor: hasImage
-              ? (brightness == Brightness.dark
-                  ? Colors.blue.withOpacity(0.2)
-                  : Colors.blue.withOpacity(0.1))
-              : (brightness == Brightness.dark
-                  ? Colors.grey.withOpacity(0.2)
-                  : Colors.grey.withOpacity(0.1)),
-          foregroundColor: hasImage
-              ? (brightness == Brightness.dark ? Colors.blue : Colors.blue.shade700)
-              : Colors.grey,
-          padding: EdgeInsets.symmetric(vertical: 14),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-            side: BorderSide(
-              color: hasImage
-                  ? (brightness == Brightness.dark
-                      ? Colors.blue.withOpacity(0.5)
-                      : Colors.blue.withOpacity(0.3))
-                  : (brightness == Brightness.dark
-                      ? Colors.grey.withOpacity(0.5)
-                      : Colors.grey.withOpacity(0.3)),
-              width: 1,
-            ),
-          ),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              hasImage ? Icons.photo : Icons.photo_library_outlined,
-              color: hasImage
-                  ? (brightness == Brightness.dark ? Colors.blue : Colors.blue.shade700)
-                  : Colors.grey,
-            ),
-            SizedBox(width: 8),
-            Text(
-              '정류장 사진 보기',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: hasImage
-                    ? (brightness == Brightness.dark ? Colors.blue : Colors.blue.shade700)
-                    : Colors.grey,
-              ),
-            ),
-          ],
-        ),
-        onPressed: hasImage ? () => _showImageViewer(stationInfo.imageUrl!) : _showNoImageAlert,
       );
     }
+
+    return InstaImageViewer(
+      imageUrl: stationInfo.imageUrl!,
+      backgroundColor: Colors.black,
+      backgroundIsTransparent: false,
+      child: buttonChild,
+    );
   }
-  
+
   void _showNoImageAlert() {
     if (Platform.isIOS) {
       showCupertinoDialog(
@@ -574,148 +541,4 @@ class _StationDetailViewState extends State<StationDetailView> {
       );
     }
   }
-  
-  void _showImageViewer(String imageUrl) {
-    final brightness = Theme.of(context).brightness;
-    
-    if (Platform.isIOS) {
-      showCupertinoModalPopup(
-        context: context,
-        builder: (context) => Container(
-          color: brightness == Brightness.dark ? Colors.black : Colors.white,
-          child: SafeArea(
-            child: Column(
-              children: [
-                Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        '정류장 사진',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      CupertinoButton(
-                        padding: EdgeInsets.zero,
-                        child: Icon(CupertinoIcons.xmark),
-                        onPressed: () => Navigator.pop(context),
-                      ),
-                    ],
-                  ),
-                ),
-                Expanded(
-                  child: InteractiveViewer(
-                    child: Image.network(
-                      imageUrl,
-                      fit: BoxFit.contain,
-                      loadingBuilder: (context, child, loadingProgress) {
-                        if (loadingProgress == null) return child;
-                        return Center(
-                          child: CupertinoActivityIndicator(),
-                        );
-                      },
-                      errorBuilder: (context, error, stackTrace) {
-                        return Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                CupertinoIcons.exclamationmark_circle,
-                                size: 50,
-                                color: Colors.red,
-                              ),
-                              SizedBox(height: 16),
-                              Text('이미지를 불러올 수 없습니다.'),
-                            ],
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      );
-    } else {
-      showDialog(
-        context: context,
-        builder: (context) => Dialog(
-          backgroundColor: brightness == Brightness.dark ? Colors.black : Colors.white,
-          insetPadding: EdgeInsets.all(16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Padding(
-                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      '정류장 사진',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    IconButton(
-                      icon: Icon(Icons.close),
-                      onPressed: () => Navigator.pop(context),
-                    ),
-                  ],
-                ),
-              ),
-              Container(
-                constraints: BoxConstraints(
-                  maxHeight: MediaQuery.of(context).size.height * 0.7,
-                ),
-                child: InteractiveViewer(
-                  child: Image.network(
-                    imageUrl,
-                    fit: BoxFit.contain,
-                    loadingBuilder: (context, child, loadingProgress) {
-                      if (loadingProgress == null) return child;
-                      return Container(
-                        height: 300,
-                        child: Center(
-                          child: CircularProgressIndicator.adaptive(
-                            value: loadingProgress.expectedTotalBytes != null
-                                ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
-                                : null,
-                          ),
-                        ),
-                      );
-                    },
-                    errorBuilder: (context, error, stackTrace) {
-                      return Container(
-                        height: 300,
-                        child: Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.error_outline,
-                                size: 50,
-                                color: Colors.red,
-                              ),
-                              SizedBox(height: 16),
-                              Text('이미지를 불러올 수 없습니다.'),
-                            ],
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-  }
-} 
+}

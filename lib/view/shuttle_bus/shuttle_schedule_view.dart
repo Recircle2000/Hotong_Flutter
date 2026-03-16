@@ -9,6 +9,7 @@ import 'package:intl/intl.dart';
 
 import '../../models/shuttle_models.dart';
 import '../../viewmodel/shuttle_viewmodel.dart';
+import '../components/auto_scroll_text.dart';
 import 'naver_map_station_detail_view.dart';
 
 class ShuttleScheduleView extends StatefulWidget {
@@ -268,29 +269,30 @@ class _ShuttleScheduleViewState extends State<ShuttleScheduleView> {
           lastBusTime =
               DateFormat('HH:mm').format(viewModel.schedules.last.startTime);
         }
+        const headerContentLeftInset = 30.0;
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
-              crossAxisAlignment: CrossAxisAlignment.end,
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 const Icon(
                   Icons.directions_bus_rounded,
                   color: shuttleColor,
-                  size: 24,
+                  size: 22,
                 ),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: Text(
-                    widget.routeName,
+                  child: AutoScrollText(
+                    text: widget.routeName,
                     style: TextStyle(
                       fontWeight: FontWeight.w800,
                       fontSize: 22,
                       height: 1.1,
                       color: primaryTextColor,
                     ),
-                    overflow: TextOverflow.ellipsis,
+                    height: 28,
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -305,32 +307,28 @@ class _ShuttleScheduleViewState extends State<ShuttleScheduleView> {
               ],
             ),
             const SizedBox(height: 10),
-            Text(
-              typeText,
-              style: TextStyle(
-                fontWeight: FontWeight.w700,
-                fontSize: 15,
-                color: primaryTextColor,
+            Padding(
+              padding: const EdgeInsets.only(left: headerContentLeftInset),
+              child: Text(
+                typeText,
+                style: TextStyle(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 15,
+                  color: primaryTextColor,
+                ),
               ),
             ),
             const SizedBox(height: 8),
-            Row(
-              children: [
-                Icon(
-                  Icons.access_time_rounded,
-                  size: 15,
+            Padding(
+              padding: const EdgeInsets.only(left: headerContentLeftInset),
+              child: Text(
+                '첫차 $firstBusTime  ·  막차 $lastBusTime',
+                style: TextStyle(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 13,
                   color: secondaryTextColor,
                 ),
-                const SizedBox(width: 6),
-                Text(
-                  '첫차 $firstBusTime  ·  막차 $lastBusTime',
-                  style: TextStyle(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 13,
-                    color: secondaryTextColor,
-                  ),
-                ),
-              ],
+              ),
             ),
           ],
         );
