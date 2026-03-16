@@ -1,4 +1,4 @@
-﻿import 'dart:io' show Platform;
+import 'dart:io' show Platform;
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
@@ -32,6 +32,7 @@ class _ShuttleScheduleViewState extends State<ShuttleScheduleView> {
   final ShuttleViewModel viewModel = Get.find<ShuttleViewModel>();
   final ScrollController _scheduleScrollController = ScrollController();
   final Map<int, GlobalKey> _scheduleRowKeys = <int, GlobalKey>{};
+  final Map<int, Alignment> _rowSizeAlignments = <int, Alignment>{};
 
   int? _expandedScheduleId;
   int? _highlightedScheduleId;
@@ -60,6 +61,26 @@ class _ShuttleScheduleViewState extends State<ShuttleScheduleView> {
 
   GlobalKey _getScheduleRowKey(int scheduleId) {
     return _scheduleRowKeys.putIfAbsent(scheduleId, () => GlobalKey());
+  }
+
+  Alignment _resolveCollapseAlignment(int scheduleId) {
+    final rowContext = _scheduleRowKeys[scheduleId]?.currentContext;
+    if (rowContext == null) {
+      return Alignment.topCenter;
+    }
+
+    final rowRenderObject = rowContext.findRenderObject();
+    if (rowRenderObject is! RenderBox) {
+      return Alignment.topCenter;
+    }
+
+    final rowTopY = rowRenderObject.localToGlobal(Offset.zero).dy;
+    final rowCenterY = rowTopY + (rowRenderObject.size.height / 2);
+    final screenCenterY = MediaQuery.of(context).size.height / 2;
+    final isInLowerHalf = rowCenterY >= screenCenterY;
+
+    // 하단에 가까울수록 위에서 닫히도록(=bottom 고정), 상단은 아래에서 닫히도록(=top 고정)
+    return isInLowerHalf ? Alignment.bottomCenter : Alignment.topCenter;
   }
 
   Future<void> _scrollExpandedSectionIntoView(
@@ -123,10 +144,13 @@ class _ShuttleScheduleViewState extends State<ShuttleScheduleView> {
     final scheduleId = schedule.id;
     final requestToken = ++_lastRequestToken;
     final scrollToken = ++_lastScrollToken;
+    final previousExpandedId = _expandedScheduleId;
 
     // 같은 항목 재탭 시 접기
     if (_expandedScheduleId == scheduleId) {
+      final collapseAlignment = _resolveCollapseAlignment(scheduleId);
       setState(() {
+        _rowSizeAlignments[scheduleId] = collapseAlignment;
         _expandedScheduleId = null;
         _highlightedScheduleId = null;
         _isInlineLoading = false;
@@ -138,7 +162,20 @@ class _ShuttleScheduleViewState extends State<ShuttleScheduleView> {
     final hasNoStops = _noStopsScheduleIds.contains(scheduleId);
 
     // 다른 항목 펼치기 (동시에 하나만)
+    final previousCollapseAlignment =
+        previousExpandedId != null && previousExpandedId != scheduleId
+            ? _resolveCollapseAlignment(previousExpandedId)
+            : null;
+
     setState(() {
+      if (previousExpandedId != null &&
+          previousExpandedId != scheduleId &&
+          previousCollapseAlignment != null) {
+        _rowSizeAlignments[previousExpandedId] = previousCollapseAlignment;
+      }
+
+      // 새로 펼칠 행은 위에서 아래로 열리도록 고정
+      _rowSizeAlignments[scheduleId] = Alignment.topCenter;
       _expandedScheduleId = scheduleId;
       _highlightedScheduleId = scheduleId;
       _isInlineLoading = !hasCached && !hasNoStops;
@@ -557,6 +594,8 @@ class _ShuttleScheduleViewState extends State<ShuttleScheduleView> {
   Widget _buildScheduleItem(BuildContext context, int index) {
     final schedule = viewModel.schedules[index];
     final isExpanded = _expandedScheduleId == schedule.id;
+    final animatedSizeAlignment =
+        _rowSizeAlignments[schedule.id] ?? Alignment.topCenter;
     final isHighlightActive = _highlightedScheduleId == schedule.id;
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
     final expandedRowColor = isDarkMode
@@ -631,7 +670,7 @@ class _ShuttleScheduleViewState extends State<ShuttleScheduleView> {
           AnimatedSize(
             duration: const Duration(milliseconds: 220),
             curve: Curves.easeOutCubic,
-            alignment: Alignment.topCenter,
+            alignment: animatedSizeAlignment,
             child: isExpanded
                 ? _buildInlineStopsSection(schedule.id)
                 : const SizedBox.shrink(),
