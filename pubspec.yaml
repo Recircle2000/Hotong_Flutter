@@ -106,8 +106,6 @@ flutter:
     - assets/bus_routes/
     - assets/bus_stops/
     - assets/bus_times/
-    - assets/shuttle_routes/
-    - assets/shuttle_stops/
     - assets/icons/
     - assets/
     - assets/.env
