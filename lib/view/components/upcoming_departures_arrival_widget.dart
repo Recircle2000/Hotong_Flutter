@@ -282,11 +282,10 @@ class _UpcomingDeparturesArrivalWidgetState
 
     switch (viewModel.branchMode.value) {
       case ArrivalBranchMode.asanLocationArrival:
+      case ArrivalBranchMode.cheonanLocationArrival:
         return preferredStopName != null
             ? '$preferredStopName 정류장 기준'
             : '현재 위치 기반 주변 정류장 도착 정보';
-      case ArrivalBranchMode.cheonanLocationArrival:
-        return '천안 위치기반 분기 준비 중';
       case ArrivalBranchMode.fallbackDefaultWidget:
         return '캠퍼스 내부로 인식되어 기본 위젯 사용';
       case ArrivalBranchMode.noNearbyStop:
@@ -334,7 +333,7 @@ class _UpcomingDeparturesArrivalWidgetState
 
   Widget _buildCompactShuttleItem(
     BuildContext context,
-    AsanShuttleArrival arrival,
+    LocationShuttleArrival arrival,
   ) {
     final bool isDarkMode = Theme.of(context).brightness == Brightness.dark;
 
@@ -400,7 +399,7 @@ class _UpcomingDeparturesArrivalWidgetState
                       Row(
                         children: [
                           Text(
-                            '${arrival.arrivalTime.hour.toString().padLeft(2, '0')}:${arrival.arrivalTime.minute.toString().padLeft(2, '0')} 예상',
+                            '${arrival.arrivalTime.hour.toString().padLeft(2, '0')}:${arrival.arrivalTime.minute.toString().padLeft(2, '0')} 예정',
                             style: TextStyle(
                               fontSize: 10,
                               color: Colors.grey[600],
@@ -428,9 +427,8 @@ class _UpcomingDeparturesArrivalWidgetState
                   padding:
                       const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   decoration: BoxDecoration(
-                    color:
-                        _getMinuteBadgeColor(arrival.minutesLeft)
-                            .withValues(alpha: 0.1),
+                    color: _getMinuteBadgeColor(arrival.minutesLeft)
+                        .withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(15),
                   ),
                   child: Text(
@@ -452,10 +450,16 @@ class _UpcomingDeparturesArrivalWidgetState
 
   Widget _buildCompactBusItem(
     BuildContext context,
-    AsanRealtimeBusArrival arrival,
+    LocationBusArrival arrival,
   ) {
     final bool isDarkMode = Theme.of(context).brightness == Brightness.dark;
-    final Color badgeColor = _getStopsAwayColor(arrival.stopsAway);
+    final bool isScheduled = arrival.kind == LocationBusArrivalKind.scheduled;
+    final Color badgeColor = isScheduled
+        ? _getMinuteBadgeColor(arrival.minutesLeft ?? 0)
+        : _getStopsAwayColor(arrival.stopsAway ?? 0);
+    final String subtitle = isScheduled
+        ? '${_formatTime(arrival.departureTime!)} 출발'
+        : '현재 ${arrival.currentNodeName}';
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 6),
@@ -464,7 +468,7 @@ class _UpcomingDeparturesArrivalWidgetState
           Get.to(
             () => BusMapView(
               initialRoute: arrival.routeKey,
-              initialDestination: '호서대학교',
+              initialDestination: arrival.targetStopName,
             ),
             binding: BindingsBuilder(() {
               if (!Get.isRegistered<BusMapViewModel>()) {
@@ -515,7 +519,7 @@ class _UpcomingDeparturesArrivalWidgetState
                         ),
                       ),
                       Text(
-                        '현재 ${arrival.currentNodeName}',
+                        subtitle,
                         style: TextStyle(
                           fontSize: 10,
                           color: Colors.grey[600],
@@ -548,6 +552,12 @@ class _UpcomingDeparturesArrivalWidgetState
         ),
       ),
     );
+  }
+
+  String _formatTime(DateTime dateTime) {
+    final String hour = dateTime.hour.toString().padLeft(2, '0');
+    final String minute = dateTime.minute.toString().padLeft(2, '0');
+    return '$hour:$minute';
   }
 
   Color _getMinuteBadgeColor(int minutes) {

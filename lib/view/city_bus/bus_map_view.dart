@@ -480,6 +480,13 @@ class _BusMapViewState extends State<BusMapView> {
   }
 
   String? _findMappedRoute(String routeName, {String? destination}) {
+    if (routeDisplayNames.containsKey(routeName)) {
+      return routeName;
+    }
+
+    final String baseRouteName =
+        routeName.contains('_') ? routeName.split('_').first : routeName;
+
     // 목적지 정보가 있는 경우 상행/하행 구분
     if (destination != null) {
       // 목적지를 기반으로 상행/하행 판단
@@ -487,7 +494,7 @@ class _BusMapViewState extends State<BusMapView> {
 
       // 해당 노선의 상행/하행 키 찾기
       String targetSuffix = isUpDirection ? "_UP" : "_DOWN";
-      String targetKey = "${routeName}${targetSuffix}";
+      String targetKey = "${baseRouteName}${targetSuffix}";
 
       if (routeDisplayNames.containsKey(targetKey)) {
         return targetKey;
@@ -496,7 +503,7 @@ class _BusMapViewState extends State<BusMapView> {
 
     // 목적지 정보가 없거나 매칭되지 않는 경우 기존 로직 사용
     for (String key in routeDisplayNames.keys) {
-      if (key.startsWith(routeName)) {
+      if (key.startsWith(baseRouteName)) {
         return key;
       }
     }
