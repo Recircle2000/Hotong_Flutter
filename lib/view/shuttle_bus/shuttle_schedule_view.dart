@@ -40,8 +40,7 @@ class _ShuttleScheduleViewState extends State<ShuttleScheduleView> {
   final Map<int, List<ScheduleStop>> _inlineStopsCache =
       <int, List<ScheduleStop>>{};
   final Set<int> _noStopsScheduleIds = <int>{};
-  int _lastRequestToken = 0;
-  int _lastScrollToken = 0;
+
 
   @override
   void initState() {
@@ -61,6 +60,11 @@ class _ShuttleScheduleViewState extends State<ShuttleScheduleView> {
 
   GlobalKey _getScheduleRowKey(int scheduleId) {
     return _scheduleRowKeys.putIfAbsent(scheduleId, () => GlobalKey());
+  }
+
+  /// 스케줄 ID로 리스트 내 인덱스 조회
+  int _getScheduleIndex(int scheduleId) {
+    return viewModel.schedules.indexWhere((s) => s.id == scheduleId);
   }
 
   Alignment _resolveCollapseAlignment(int scheduleId) {
@@ -83,67 +87,57 @@ class _ShuttleScheduleViewState extends State<ShuttleScheduleView> {
     return isInLowerHalf ? Alignment.bottomCenter : Alignment.topCenter;
   }
 
-  Future<void> _scrollExpandedSectionIntoView(
-    int scheduleId, {
-    required int scrollToken,
-    Duration delay = Duration.zero,
-  }) async {
-    if (!mounted) return;
+  /// 펼쳐진 항목이 화면 밖이면 부드럽게 스크롤하여 보여주기
+  void _ensureExpandedVisible(int scheduleId) {
+    if (!mounted || !_scheduleScrollController.hasClients) return;
+    if (_expandedScheduleId != scheduleId) return;
 
-    if (scrollToken != _lastScrollToken || _expandedScheduleId != scheduleId) {
-      return;
+    final rowContext = _scheduleRowKeys[scheduleId]?.currentContext;
+    if (rowContext == null) return;
+
+    final rb = rowContext.findRenderObject() as RenderBox?;
+    if (rb == null || !rb.attached) return;
+
+    final position = _scheduleScrollController.position;
+    final viewportHeight = position.viewportDimension;
+
+    // 항목의 화면 상 위치 계산
+    final rowScreenTop = rb.localToGlobal(Offset.zero).dy;
+    final rowHeight = rb.size.height;
+    final rowScreenBottom = rowScreenTop + rowHeight;
+
+    // 뷰포트의 화면 상 위치 계산 (AppBar 등 제외)
+    final scrollRb = position.context.storageContext.findRenderObject() as RenderBox?;
+    final viewportScreenTop = scrollRb?.localToGlobal(Offset.zero).dy ?? 0.0;
+    final viewportScreenBottom = viewportScreenTop + viewportHeight;
+
+    double scrollDelta = 0.0;
+
+    // 항목 하단이 뷰포트 아래로 넘치면 → 아래로 스크롤
+    if (rowScreenBottom > viewportScreenBottom) {
+      scrollDelta = rowScreenBottom - viewportScreenBottom + 16.0;
     }
 
-    if (delay > Duration.zero) {
-      await Future<void>.delayed(delay);
-      if (!mounted) return;
-      if (scrollToken != _lastScrollToken ||
-          _expandedScheduleId != scheduleId) {
-        return;
-      }
+    // 항목 상단이 뷰포트 위로 넘치면 → 위로 스크롤 (상단 우선)
+    if (rowScreenTop + scrollDelta < viewportScreenTop) {
+      scrollDelta = -(viewportScreenTop - rowScreenTop) - 8.0;
     }
 
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      if (!mounted || !_scheduleScrollController.hasClients) return;
-      if (scrollToken != _lastScrollToken ||
-          _expandedScheduleId != scheduleId) {
-        return;
-      }
+    if (scrollDelta.abs() < 1.0) return;
 
-      final rowContext = _scheduleRowKeys[scheduleId]?.currentContext;
-      if (rowContext == null) return;
+    final targetOffset = (position.pixels + scrollDelta)
+        .clamp(position.minScrollExtent, position.maxScrollExtent);
 
-      const topPadding = 8.0;
-      final position = _scheduleScrollController.position;
-      final rowRenderObject = rowContext.findRenderObject();
-      if (rowRenderObject == null) return;
-
-      final viewport = RenderAbstractViewport.of(rowRenderObject);
-      final rowTopOffset =
-          viewport.getOffsetToReveal(rowRenderObject, 0.0).offset;
-      final currentOffset = position.pixels;
-      final targetOffset = rowTopOffset - topPadding;
-
-      final minOffset = position.minScrollExtent;
-      final maxOffset = position.maxScrollExtent;
-      final clampedTarget = targetOffset.clamp(minOffset, maxOffset).toDouble();
-      final distance = (clampedTarget - currentOffset).abs();
-
-      if (distance < 1.0) return;
-
-      await _scheduleScrollController.animateTo(
-        clampedTarget,
-        duration: const Duration(milliseconds: 180),
-        curve: Curves.easeOutCubic,
-      );
-    });
+    _scheduleScrollController.animateTo(
+      targetOffset,
+      duration: const Duration(milliseconds: 250),
+      curve: Curves.easeOutCubic,
+    );
   }
 
   Future<void> _onScheduleTap(Schedule schedule) async {
     HapticFeedback.lightImpact();
     final scheduleId = schedule.id;
-    final requestToken = ++_lastRequestToken;
-    final scrollToken = ++_lastScrollToken;
     final previousExpandedId = _expandedScheduleId;
 
     // 같은 항목 재탭 시 접기
@@ -161,16 +155,29 @@ class _ShuttleScheduleViewState extends State<ShuttleScheduleView> {
     final hasCached = _inlineStopsCache.containsKey(scheduleId);
     final hasNoStops = _noStopsScheduleIds.contains(scheduleId);
 
-    // 다른 항목 펼치기 (동시에 하나만)
-    final previousCollapseAlignment =
-        previousExpandedId != null && previousExpandedId != scheduleId
-            ? _resolveCollapseAlignment(previousExpandedId)
-            : null;
+    // ── 항목 전환: 닫히는 방향을 새로 탭한 항목의 상대 위치에 맞춤 ──
+    // 새 항목이 아래 → 이전 항목이 아래로 접힘 (bottomCenter)
+    // 새 항목이 위 → 이전 항목이 위로 접힘 (topCenter)
+    Alignment previousCollapseAlignment = Alignment.topCenter;
+    if (previousExpandedId != null && previousExpandedId != scheduleId) {
+      final prevIndex = _getScheduleIndex(previousExpandedId);
+      final newIndex = _getScheduleIndex(scheduleId);
+      previousCollapseAlignment = (newIndex > prevIndex)
+          ? Alignment.bottomCenter  // 아래쪽 클릭 → 위 항목이 아래로 닫힘
+          : Alignment.topCenter;    // 위쪽 클릭 → 아래 항목이 위로 닫힘
+    }
+
+    // setState 직전에 탭한 항목의 화면 Y 위치 기록 (바운스 방지용)
+    double? tappedRowScreenY;
+    final tappedRb = _scheduleRowKeys[scheduleId]
+        ?.currentContext
+        ?.findRenderObject() as RenderBox?;
+    if (tappedRb != null && tappedRb.attached) {
+      tappedRowScreenY = tappedRb.localToGlobal(Offset.zero).dy;
+    }
 
     setState(() {
-      if (previousExpandedId != null &&
-          previousExpandedId != scheduleId &&
-          previousCollapseAlignment != null) {
+      if (previousExpandedId != null && previousExpandedId != scheduleId) {
         _rowSizeAlignments[previousExpandedId] = previousCollapseAlignment;
       }
 
@@ -181,12 +188,36 @@ class _ShuttleScheduleViewState extends State<ShuttleScheduleView> {
       _isInlineLoading = !hasCached && !hasNoStops;
     });
 
+    // 1프레임 후: 탭한 항목이 이전 위치에서 벗어났으면 jumpTo로 즉시 보정 (바운스 방지)
+    if (tappedRowScreenY != null && previousExpandedId != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || !_scheduleScrollController.hasClients) return;
+        if (_expandedScheduleId != scheduleId) return;
+
+        final rb = _scheduleRowKeys[scheduleId]
+            ?.currentContext
+            ?.findRenderObject() as RenderBox?;
+        if (rb == null || !rb.attached) return;
+
+        final currentScreenY = rb.localToGlobal(Offset.zero).dy;
+        final drift = currentScreenY - tappedRowScreenY!;
+        if (drift.abs() > 0.5) {
+          final pos = _scheduleScrollController.position;
+          _scheduleScrollController.jumpTo(
+            (pos.pixels + drift).clamp(pos.minScrollExtent, pos.maxScrollExtent),
+          );
+        }
+      });
+    }
+
+    // 펼침/접힘 애니메이션 완료 후 화면 밖 내용을 부드럽게 노출
+    Future<void>.delayed(const Duration(milliseconds: 350)).then((_) {
+      if (mounted && _expandedScheduleId == scheduleId) {
+        _ensureExpandedVisible(scheduleId);
+      }
+    });
+
     if (hasCached || hasNoStops) {
-      _scrollExpandedSectionIntoView(
-        scheduleId,
-        scrollToken: scrollToken,
-        delay: const Duration(milliseconds: 220),
-      );
       return;
     }
 
@@ -195,9 +226,8 @@ class _ShuttleScheduleViewState extends State<ShuttleScheduleView> {
       return;
     }
 
-    // 마지막 탭 요청이 아닌 경우 무시
-    if (requestToken != _lastRequestToken ||
-        _expandedScheduleId != scheduleId) {
+    // 다른 항목으로 이미 탭이 바뀌었는지 확인
+    if (_expandedScheduleId != scheduleId) {
       return;
     }
 
@@ -210,11 +240,13 @@ class _ShuttleScheduleViewState extends State<ShuttleScheduleView> {
         _noStopsScheduleIds.remove(scheduleId);
       }
     });
-    _scrollExpandedSectionIntoView(
-      scheduleId,
-      scrollToken: scrollToken,
-      delay: const Duration(milliseconds: 120),
-    );
+
+    // 데이터 로드 후 크기가 바뀌었으므로 한 번 더 보이기 처리
+    Future<void>.delayed(const Duration(milliseconds: 280)).then((_) {
+      if (mounted && _expandedScheduleId == scheduleId) {
+        _ensureExpandedVisible(scheduleId);
+      }
+    });
   }
 
   @override
@@ -606,6 +638,7 @@ class _ShuttleScheduleViewState extends State<ShuttleScheduleView> {
         : Theme.of(context).hintColor;
 
     return Container(
+      key: _getScheduleRowKey(schedule.id),
       decoration: BoxDecoration(
         border: Border(
           bottom: BorderSide(
@@ -621,7 +654,6 @@ class _ShuttleScheduleViewState extends State<ShuttleScheduleView> {
             onTap: () => _onScheduleTap(schedule),
             child: ClipRect(
               child: Container(
-                key: _getScheduleRowKey(schedule.id),
                 color: (isExpanded && isHighlightActive)
                     ? expandedRowColor
                     : Colors.transparent,
