@@ -36,11 +36,21 @@ class BusDeparture {
 
 class UpcomingDepartureViewModel extends GetxController
     with WidgetsBindingObserver {
-  UpcomingDepartureViewModel({ShuttleRepository? shuttleRepository})
-      : _shuttleRepository = shuttleRepository ?? ShuttleRepository();
+  UpcomingDepartureViewModel({
+    ShuttleRepository? shuttleRepository,
+    this.campusOverride,
+    this.enableAutoRefresh = true,
+  }) : _shuttleRepository = shuttleRepository ?? ShuttleRepository();
 
   final ShuttleRepository _shuttleRepository;
+  final String? campusOverride;
+  final bool enableAutoRefresh;
   final settingsViewModel = Get.find<SettingsViewModel>();
+  final RxString currentCampusRx = ''.obs;
+
+  String get currentCampus => campusOverride == null
+      ? settingsViewModel.selectedCampus.value
+      : currentCampusRx.value;
 
   // NoticeViewModel 참조 (지연 초기화)
   NoticeViewModel? get noticeViewModel {
@@ -105,22 +115,30 @@ class UpcomingDepartureViewModel extends GetxController
     _onRefreshCallback = callback;
   }
 
+  void clearRefreshCallback() {
+    _onRefreshCallback = null;
+  }
+
   @override
   void onInit() {
     super.onInit();
     // 앱 상태 감지를 위한 옵저버 등록
     WidgetsBinding.instance.addObserver(this);
+    currentCampusRx.value =
+        campusOverride ?? settingsViewModel.selectedCampus.value;
 
     // 활성 상태 추적 변수 설정
     isActive.value = true;
     isOnHomePage.value = true;
 
     // 캠퍼스 설정이 변경되면 데이터 다시 로드 및 타이머 재시작
-    ever(settingsViewModel.selectedCampus, (_) {
+    if (campusOverride == null) {
+      ever(settingsViewModel.selectedCampus, (_) {
       _isInitialLoad.value = true; // 캠퍼스 변경 시 첫 로딩으로 처리
       loadData();
       // loadData 내부에서 타이머 관리하므로 _startRefreshTimer() 호출 불필요
-    });
+      });
+    }
 
     // 활성 상태 변경 리스너 (앱 포그라운드/백그라운드)
     ever(isActive, (active) {
@@ -184,11 +202,16 @@ class UpcomingDepartureViewModel extends GetxController
   }
 
   void _startRefreshTimer() {
+    if (!enableAutoRefresh) {
+      _stopRefreshTimer();
+      return;
+    }
+
     // 기존 타이머 취소 (중복 실행 방지)
     _stopRefreshTimer();
 
     // 천안 캠퍼스는 5초, 나머지는 30초 후 업데이트 (단발성 Timer)
-    final refreshInterval = settingsViewModel.selectedCampus.value == '천안'
+    final refreshInterval = currentCampus == '천안'
         ? Duration(seconds: 5)
         : Duration(seconds: 30);
 
@@ -217,7 +240,7 @@ class UpcomingDepartureViewModel extends GetxController
     error.value = '';
 
     try {
-      final isCean = settingsViewModel.selectedCampus.value == '천안';
+      final isCean = currentCampus == '천안';
 
       // 천안 캠퍼스인 경우: 모든 데이터를 준비한 후 한 번에 업데이트 (깜박임 방지)
       if (isCean) {
@@ -269,16 +292,26 @@ class UpcomingDepartureViewModel extends GetxController
       _onRefreshCallback?.call();
 
       // 2. 다음 자동 새로고침 예약 (활성 상태이고 홈일 때만)
-      if (isActive.value && isOnHomePage.value) {
+      if (enableAutoRefresh && isActive.value && isOnHomePage.value) {
         _startRefreshTimer();
       }
+    }
+  }
+
+  void setWidgetEnabled(bool enabled) {
+    if (enabled == isActive.value) return;
+    isActive.value = enabled;
+    if (enabled) {
+      loadData();
+    } else {
+      _stopRefreshTimer();
     }
   }
 
   Future<void> loadCityBusData({bool updateUI = true}) async {
     try {
       // 현재 캠퍼스 확인
-      final currentCampus = settingsViewModel.selectedCampus.value;
+      final currentCampus = this.currentCampus;
       // bus_times.json 파일 읽기
       final Map<String, dynamic> busData = await BusTimesLoader.loadBusTimes();
       final Map<String, DateTime> realLastBusTimePerRoute =
@@ -379,7 +412,7 @@ class UpcomingDepartureViewModel extends GetxController
   Future<void> loadShuttleData() async {
     print('셔틀버스 데이터 로드 시작');
     try {
-      final currentCampus = settingsViewModel.selectedCampus.value;
+      final currentCampus = this.currentCampus;
       final int stationId = (currentCampus == '천안') ? 14 : 1;
       if (_previousStationId != stationId) {
         _cachedShuttleData = null;

@@ -10,6 +10,7 @@ import 'notice_list_view.dart';
 import 'shuttle_bus/shuttle_route_selection_view.dart';
 import 'settings_view.dart';
 import 'components/upcoming_departures_widget.dart';
+import 'components/upcoming_departures_arrival_widget.dart';
 import 'components/auto_scroll_text.dart';
 import '../utils/platform_utils.dart';
 import 'city_bus/grouped_bus_view.dart';
@@ -20,6 +21,8 @@ import 'package:tutorial_coach_mark/tutorial_coach_mark.dart';
 import 'package:app_version_update/app_version_update.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import '../services/preferences_service.dart';
+import '../viewmodel/upcoming_departure_viewmodel.dart';
+import '../viewmodel/upcoming_departures_arrival_viewmodel.dart';
 
 class HomeView extends StatefulWidget {
   const HomeView({Key? key}) : super(key: key);
@@ -30,7 +33,9 @@ class HomeView extends StatefulWidget {
 
 class _HomeViewState extends State<HomeView> {
   final noticeViewModel = Get.put(NoticeViewModel());
+  final SettingsViewModel _settingsViewModel = Get.find<SettingsViewModel>();
   final PreferencesService _preferencesService = PreferencesService();
+  late final Worker _departureWidgetSettingWorker;
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   final GlobalKey guideKey = GlobalKey();
   final ScrollController _homeScrollController = ScrollController();
@@ -47,11 +52,30 @@ class _HomeViewState extends State<HomeView> {
 
   @override
   void initState() {
+    _departureWidgetSettingWorker = ever<bool>(
+      _settingsViewModel.isLocationBasedDepartureWidgetEnabled,
+      (enabled) {
+        _applyDepartureWidgetMode(enabled);
+      },
+    );
     super.initState();
-    // 화면이 그려진 후 초기화 로직 실행
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _handleStartupFlow();
     });
+
+    _applyDepartureWidgetMode(
+        _settingsViewModel.isLocationBasedDepartureWidgetEnabled.value);
+  }
+
+  void _applyDepartureWidgetMode(bool isLocationBasedEnabled) {
+    if (Get.isRegistered<UpcomingDepartureViewModel>()) {
+      Get.find<UpcomingDepartureViewModel>()
+          .setWidgetEnabled(!isLocationBasedEnabled);
+    }
+    if (Get.isRegistered<UpcomingDeparturesArrivalViewModel>()) {
+      Get.find<UpcomingDeparturesArrivalViewModel>()
+          .setWidgetEnabled(isLocationBasedEnabled);
+    }
   }
 
   Future<void> _handleStartupFlow() async {
@@ -358,6 +382,7 @@ class _HomeViewState extends State<HomeView> {
 
   @override
   void dispose() {
+    _departureWidgetSettingWorker.dispose();
     _homeScrollController.dispose();
     super.dispose();
   }
@@ -585,7 +610,10 @@ class _HomeViewState extends State<HomeView> {
               // 곧 출발 섹션
               Container(
                 key: _upcomingWidgetKey,
-                child: UpcomingDeparturesWidget(),
+                child: Obx(() => _settingsViewModel
+                        .isLocationBasedDepartureWidgetEnabled.value
+                    ? const UpcomingDeparturesArrivalWidget()
+                    : UpcomingDeparturesWidget()),
               ),
 
               // const SizedBox(height: 16),

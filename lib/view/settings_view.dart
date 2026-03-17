@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../viewmodel/settings_viewmodel.dart';
 import 'package:package_info_plus/package_info_plus.dart';
-import 'subway/subway_view.dart';
 import 'guide/guide_selection_view.dart';
 
 import 'package:url_launcher/url_launcher.dart';
@@ -15,271 +14,314 @@ class SettingsView extends StatelessWidget {
   final VoidCallback? onRequestHomeExperienceTour;
 
   const SettingsView({
-    Key? key,
+    super.key,
     this.guideKey,
     this.onRequestHomeExperienceTour,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isDarkMode = theme.brightness == Brightness.dark;
     final cardColor = theme.cardColor;
 
     return Drawer(
       backgroundColor: theme.scaffoldBackgroundColor,
-      child: Column(
-        children: [
-          // 드로어 헤더 (AppBar 대체)
-          Container(
-            padding: const EdgeInsets.only(top: 60, bottom: 10),
-            alignment: Alignment.center,
-            child: Text(
-              '설정',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: isDarkMode ? Colors.white : Colors.black87,
-              ),
-            ),
-          ),
-          Expanded(
-            child: GetBuilder<SettingsViewModel>(
-              init: SettingsViewModel(),
-              builder: (controller) => ListView(
-                padding: const EdgeInsets.symmetric(horizontal: 20.0),
-                children: [
-                  // 캠퍼스 설정 섹션
-                  Padding(
-                    padding: const EdgeInsets.only(left: 8, bottom: 8),
-                    child: Text(
-                      '기준 캠퍼스',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: isDarkMode ? Colors.white : Colors.black87,
-                      ),
+      child: SafeArea(
+        bottom: false,
+        child: GetBuilder<SettingsViewModel>(
+          init: SettingsViewModel(),
+          builder: (controller) => Obx(
+            () => ListView(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+              children: [
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  child: Text(
+                    '설정',
+                    style: theme.textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
-                  Container(
-                    decoration: BoxDecoration(
-                      color: cardColor,
-                      borderRadius: BorderRadius.circular(25),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.1),
-                          blurRadius: 10,
-                          offset: const Offset(0, 0),
+                ),
+                const SizedBox(height: 12),
+                Container(
+                  decoration: _buildCardDecoration(context, cardColor),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      children: [
+                        _buildCompactChoiceSection(
+                          context,
+                          title: '기준 캠퍼스',
+                          selectedValue: controller.selectedCampus.value,
+                          choices: const [
+                            _SettingChoice(label: '아산캠퍼스', value: '아산'),
+                            _SettingChoice(label: '천안캠퍼스', value: '천안'),
+                          ],
+                          onChanged: controller.setCampus,
+                        ),
+                        _buildSectionDivider(context),
+                        _buildCompactChoiceSection(
+                          context,
+                          title: '기준 지하철역',
+                          selectedValue: controller.selectedSubwayStation.value,
+                          choices: const [
+                            _SettingChoice(label: '천안역', value: '천안'),
+                            _SettingChoice(label: '아산역', value: '아산'),
+                          ],
+                          onChanged: controller.setSubwayStation,
+                        ),
+                        _buildSectionDivider(context),
+                        _buildToggleTile(
+                          context,
+                          title: '위치 기반 위젯',
+                          description: '내 위치 기준 도착 위젯과 시내버스 위치를 표시합니다.',
+                          value: controller
+                              .isLocationBasedDepartureWidgetEnabled.value,
+                          onChanged:
+                              controller.setLocationBasedDepartureWidgetEnabled,
+                        ),
+                        _buildSectionDivider(context),
+                        _buildActionTile(
+                          context,
+                          key: guideKey,
+                          icon: Icons.help_outline_rounded,
+                          title: '이용 가이드',
+                          subtitle: '튜토리얼과 화면별 사용법 보기',
+                          onTap: () async {
+                            final shouldStartTour =
+                                await Get.to(() => const GuideSelectionView());
+                            if (shouldStartTour == true) {
+                              onRequestHomeExperienceTour?.call();
+                            }
+                          },
                         ),
                       ],
                     ),
-                    child: Obx(() => Column(
-                          children: [
-                            _buildRadioItem(
-                              context,
-                              title: '아산캠퍼스',
-                              value: '아산',
-                              groupValue: controller.selectedCampus.value,
-                              onChanged: (val) => controller.setCampus(val!),
-                              isFirst: true,
-                            ),
-                            Divider(
-                                height: 1, color: Colors.grey.withOpacity(0.1)),
-                            _buildRadioItem(
-                              context,
-                              title: '천안캠퍼스',
-                              value: '천안',
-                              groupValue: controller.selectedCampus.value,
-                              onChanged: (val) => controller.setCampus(val!),
-                              isLast: true,
-                            ),
-                          ],
-                        )),
                   ),
-
-                  const SizedBox(height: 24),
-
-                  // 지하철역 설정 섹션
-                  Padding(
-                    padding: const EdgeInsets.only(left: 8, bottom: 8),
-                    child: Text(
-                      '기준 지하철역',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: isDarkMode ? Colors.white : Colors.black87,
-                      ),
-                    ),
-                  ),
-                  Container(
-                    decoration: BoxDecoration(
-                      color: cardColor,
-                      borderRadius: BorderRadius.circular(25),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.1),
-                          blurRadius: 10,
-                          offset: const Offset(0, 0),
-                        ),
-                      ],
-                    ),
-                    child: Obx(() => Column(
-                          children: [
-                            _buildRadioItem(
-                              context,
-                              title: '천안역',
-                              value: '천안',
-                              groupValue:
-                                  controller.selectedSubwayStation.value,
-                              onChanged: (val) =>
-                                  controller.setSubwayStation(val!),
-                              isFirst: true,
-                            ),
-                            Divider(
-                                height: 1, color: Colors.grey.withOpacity(0.1)),
-                            _buildRadioItem(
-                              context,
-                              title: '아산역',
-                              value: '아산',
-                              groupValue:
-                                  controller.selectedSubwayStation.value,
-                              onChanged: (val) =>
-                                  controller.setSubwayStation(val!),
-                              isLast: true,
-                            ),
-                          ],
-                        )),
-                  ),
-
-                  const SizedBox(height: 32),
-
-                  // 가이드 섹션
-                  Padding(
-                    padding: const EdgeInsets.only(left: 8, bottom: 12),
-                    child: Text(
-                      '도움말',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: isDarkMode ? Colors.white : Colors.black87,
-                      ),
-                    ),
-                  ),
-                  ScaleButton(
-                    onTap: () async {
-                      final shouldStartTour =
-                          await Get.to(() => const GuideSelectionView());
-                      if (shouldStartTour == true) {
-                        onRequestHomeExperienceTour?.call();
-                      }
-                    },
-                    child: Container(
-                      key: guideKey,
-                      decoration: BoxDecoration(
-                        color: cardColor,
-                        borderRadius: BorderRadius.circular(25),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.1),
-                            blurRadius: 10,
-                            offset: const Offset(0, 0),
-                          ),
-                        ],
-                      ),
-                      child: const Padding(
-                        padding:
-                            EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                        child: Row(
-                          children: [
-                            Icon(Icons.help_outline, color: Colors.blue),
-                            SizedBox(width: 12),
-                            Expanded(
-                              child: Text(
-                                '이용 가이드',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ),
-                            Icon(Icons.arrow_forward_ios,
-                                size: 16, color: Colors.grey),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-
-                  const SizedBox(height: 32),
-
-                  // 정보 섹션
-                  _buildInfoSection(context),
-                ],
-              ),
+                ),
+                const SizedBox(height: 12),
+                _buildInfoSection(context),
+              ],
             ),
           ),
-        ],
+        ),
       ),
     );
   }
 
-  Widget _buildRadioItem(
+  BoxDecoration _buildCardDecoration(BuildContext context, Color cardColor) {
+    return BoxDecoration(
+      color: cardColor,
+      borderRadius: BorderRadius.circular(24),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withValues(alpha: 0.08),
+          blurRadius: 16,
+          offset: const Offset(0, 6),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCompactChoiceSection(
     BuildContext context, {
     required String title,
-    String? subtitle,
-    required String value,
-    required String groupValue,
-    required ValueChanged<String?> onChanged,
-    bool isFirst = false,
-    bool isLast = false,
+    required String selectedValue,
+    required List<_SettingChoice> choices,
+    required ValueChanged<String> onChanged,
   }) {
-    final isSelected = value == groupValue;
+    final textTheme = Theme.of(context).textTheme;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: textTheme.titleSmall?.copyWith(
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            for (var index = 0; index < choices.length; index++) ...[
+              Expanded(
+                child: _buildChoiceButton(
+                  context,
+                  label: choices[index].label,
+                  isSelected: selectedValue == choices[index].value,
+                  onTap: () => onChanged(choices[index].value),
+                ),
+              ),
+              if (index != choices.length - 1) const SizedBox(width: 8),
+            ],
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildChoiceButton(
+    BuildContext context, {
+    required String label,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    final theme = Theme.of(context);
     final colorScheme = Theme.of(context).colorScheme;
 
     return ScaleButton(
-      onTap: () => onChanged(value),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 160),
+        curve: Curves.easeOut,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? colorScheme.primary.withValues(alpha: 0.12)
+              : theme.scaffoldBackgroundColor.withValues(alpha: 0.45),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isSelected
+                ? colorScheme.primary.withValues(alpha: 0.28)
+                : theme.dividerColor.withValues(alpha: 0.18),
+          ),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              isSelected ? Icons.check_circle : Icons.circle_outlined,
+              size: 16,
+              color: isSelected ? colorScheme.primary : Colors.grey[400],
+            ),
+            const SizedBox(width: 8),
+            Flexible(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSectionDivider(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 14),
+      child: Divider(
+        height: 1,
+        thickness: 1,
+        color: Theme.of(context).dividerColor.withValues(alpha: 0.12),
+      ),
+    );
+  }
+
+  Widget _buildToggleTile(
+    BuildContext context, {
+    required String title,
+    required String description,
+    required bool value,
+    required ValueChanged<bool> onChanged,
+  }) {
+    final textTheme = Theme.of(context).textTheme;
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                description,
+                style: textTheme.bodySmall?.copyWith(
+                  color: textTheme.bodySmall?.color?.withValues(alpha: 0.72),
+                  height: 1.3,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(width: 12),
+        Switch.adaptive(
+          value: value,
+          onChanged: onChanged,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildActionTile(
+    BuildContext context, {
+    Key? key,
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+  }) {
+    final theme = Theme.of(context);
+    final textTheme = theme.textTheme;
+
+    return ScaleButton(
+      onTap: onTap,
+      child: Container(
+        key: key,
+        padding: const EdgeInsets.symmetric(vertical: 2),
         child: Row(
           children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.primary.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(
+                icon,
+                size: 18,
+                color: theme.colorScheme.primary,
+              ),
+            ),
+            const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     title,
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight:
-                          isSelected ? FontWeight.bold : FontWeight.normal,
-                      color: Theme.of(context).textTheme.bodyLarge?.color,
+                    style: textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
-                  if (subtitle != null) ...[
-                    const SizedBox(height: 2),
-                    Text(
-                      subtitle,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey[600],
-                      ),
+                  const SizedBox(height: 4),
+                  Text(
+                    subtitle,
+                    style: textTheme.bodySmall?.copyWith(
+                      color:
+                          textTheme.bodySmall?.color?.withValues(alpha: 0.72),
                     ),
-                  ],
+                  ),
                 ],
               ),
             ),
-            if (isSelected)
-              Icon(
-                Icons.check_circle,
-                color: colorScheme.primary,
-                size: 24,
-              )
-            else
-              Icon(
-                Icons.radio_button_unchecked,
-                color: Colors.grey[400],
-                size: 24,
-              ),
+            Icon(
+              Icons.chevron_right_rounded,
+              color: Colors.grey[500],
+            ),
           ],
         ),
       ),
@@ -287,104 +329,109 @@ class SettingsView extends StatelessWidget {
   }
 
   Widget _buildInfoSection(BuildContext context) {
-    return Column(
-      children: [
-        // 앱 정보
-        Container(
-          padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 24),
-          decoration: BoxDecoration(
-            color: Theme.of(context).cardColor.withOpacity(0.5),
-            borderRadius: BorderRadius.circular(20),
+    final theme = Theme.of(context);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+      decoration: BoxDecoration(
+        color: theme.cardColor.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '앱 정보',
+            style: theme.textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
           ),
-          child: Column(
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
             children: [
               FutureBuilder<PackageInfo>(
                 future: PackageInfo.fromPlatform(),
                 builder: (context, snapshot) {
-                  if (snapshot.hasData) {
-                    return Column(
-                      children: [
-                        Text(
-                          '현재 버전 ${snapshot.data!.version}',
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
-                            color: Colors.grey[700],
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        FutureBuilder<Map<String, dynamic>>(
-                          future: BusTimesLoader.loadBusTimes(),
-                          builder: (context, busSnapshot) {
-                            if (busSnapshot.hasData) {
-                              final version =
-                                  busSnapshot.data!["version"] ?? "-";
-                              return Text(
-                                '시내버스 시간표 버전: $version',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.grey[500],
-                                ),
-                              );
-                            }
-                            return const SizedBox.shrink();
-                          },
-                        ),
-                      ],
-                    );
+                  if (!snapshot.hasData) {
+                    return const SizedBox.shrink();
                   }
-                  return const SizedBox.shrink();
+                  return _buildInfoBadge(
+                    context,
+                    '앱 ${snapshot.data!.version}',
+                  );
                 },
               ),
-              const SizedBox(height: 20),
-              Wrap(
-                alignment: WrapAlignment.center,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                spacing: 0,
-                runSpacing: 8,
-                children: [
-                  _buildTextButton(
+              FutureBuilder<Map<String, dynamic>>(
+                future: BusTimesLoader.loadBusTimes(),
+                builder: (context, snapshot) {
+                  if (!snapshot.hasData) {
+                    return const SizedBox.shrink();
+                  }
+                  final version = snapshot.data!['version'] ?? '-';
+                  return _buildInfoBadge(
                     context,
-                    '개인정보처리방침 / 지원',
-                    () async {
-                      final Uri url = Uri.parse(
-                          'https://www.notion.so/1eda668f263380ff92aae3ac8b74b157?pvs=4');
-                      if (await canLaunchUrl(url)) {
-                        await launchUrl(url,
-                            mode: LaunchMode.externalApplication);
-                      }
-                    },
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 4),
-                    child: Container(
-                      height: 12,
-                      width: 1,
-                      color: Colors.grey[300],
-                    ),
-                  ),
-                  _buildTextButton(
-                    context,
-                    '오픈소스 라이선스',
-                    () async {
-                      final packageInfo = await PackageInfo.fromPlatform();
-                      if (context.mounted) {
-                        showLicensePage(
-                          context: context,
-                          applicationName: '호통',
-                          applicationVersion: packageInfo.version,
-                          applicationLegalese:
-                              '© 2025 호통\n\n이 앱은 다음 오픈소스 라이브러리들을 사용합니다:',
-                        );
-                      }
-                    },
-                  ),
-                ],
+                    '버스 $version',
+                  );
+                },
               ),
             ],
           ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 12,
+            runSpacing: 6,
+            children: [
+              _buildTextButton(
+                context,
+                '개인정보처리방침 / 지원',
+                () async {
+                  final Uri url = Uri.parse(
+                      'https://www.notion.so/1eda668f263380ff92aae3ac8b74b157?pvs=4');
+                  if (await canLaunchUrl(url)) {
+                    await launchUrl(url, mode: LaunchMode.externalApplication);
+                  }
+                },
+              ),
+              _buildTextButton(
+                context,
+                '오픈소스 라이선스',
+                () async {
+                  final packageInfo = await PackageInfo.fromPlatform();
+                  if (context.mounted) {
+                    showLicensePage(
+                      context: context,
+                      applicationName: '호통',
+                      applicationVersion: packageInfo.version,
+                      applicationLegalese:
+                          '© 2025 호통\n\n이 앱은 다음 오픈소스 라이브러리들을 사용합니다:',
+                    );
+                  }
+                },
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInfoBadge(BuildContext context, String label) {
+    final theme = Theme.of(context);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: theme.scaffoldBackgroundColor.withValues(alpha: 0.55),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        label,
+        style: theme.textTheme.bodySmall?.copyWith(
+          fontWeight: FontWeight.w600,
         ),
-      ],
+      ),
     );
   }
 
@@ -405,4 +452,14 @@ class SettingsView extends StatelessWidget {
       ),
     );
   }
+}
+
+class _SettingChoice {
+  final String label;
+  final String value;
+
+  const _SettingChoice({
+    required this.label,
+    required this.value,
+  });
 }

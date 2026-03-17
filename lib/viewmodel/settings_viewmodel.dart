@@ -10,6 +10,7 @@ class SettingsViewModel extends GetxController {
 
   var selectedCampus = '아산'.obs;
   var selectedSubwayStation = '천안'.obs;
+  var isLocationBasedDepartureWidgetEnabled = false.obs;
 
   @override
   void onInit() {
@@ -22,6 +23,9 @@ class SettingsViewModel extends GetxController {
         await _preferencesService.getStringOrDefault('campus', '아산');
     selectedSubwayStation.value =
         await _preferencesService.getStringOrDefault('subwayStation', '천안');
+    isLocationBasedDepartureWidgetEnabled.value =
+        await _preferencesService.getBoolOrDefault(
+            'isLocationBasedDepartureWidgetEnabled', false);
   }
 
   Future<void> setCampus(String campus) async {
@@ -32,5 +36,10 @@ class SettingsViewModel extends GetxController {
   Future<void> setSubwayStation(String station) async {
     await _preferencesService.setString('subwayStation', station);
     selectedSubwayStation.value = station;
+  }
+
+  Future<void> setLocationBasedDepartureWidgetEnabled(bool enabled) async {
+    await _preferencesService.setBool('isLocationBasedDepartureWidgetEnabled', enabled);
+    isLocationBasedDepartureWidgetEnabled.value = enabled;
   }
 }
