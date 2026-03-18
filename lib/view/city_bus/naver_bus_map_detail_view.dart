@@ -282,15 +282,21 @@ class _NaverBusMapDetailViewState extends State<NaverBusMapDetailView> {
       final metadata = i < _stationMetadata.length ? _stationMetadata[i] : null;
       final hasCustomIcon = _stationMarkerIcon != null;
 
-      final marker = NMarker(
-        id: 'city_station_$i',
-        position: NLatLng(point.latitude, point.longitude),
-        icon: _stationMarkerIcon,
-        iconTintColor: hasCustomIcon ? Colors.transparent : _stationMarkerColor,
-        size: hasCustomIcon ? const Size(20, 20) : const Size(18, 18),
-        anchor:
-            hasCustomIcon ? const NPoint(0.5, 0.85) : const NPoint(0.5, 1.0),
-      );
+      final marker = hasCustomIcon
+          ? NMarker(
+              id: 'city_station_$i',
+              position: NLatLng(point.latitude, point.longitude),
+              icon: _stationMarkerIcon,
+              size: const Size(20, 20),
+              anchor: const NPoint(0.5, 0.85),
+            )
+          : NMarker(
+              id: 'city_station_$i',
+              position: NLatLng(point.latitude, point.longitude),
+              iconTintColor: _stationMarkerColor,
+              size: const Size(18, 18),
+              anchor: const NPoint(0.5, 1.0),
+            );
       marker.setMinZoom(_stationMarkerMinZoom);
       marker.setOnTapListener((_) => _showStationInfo(metadata, i));
       overlays.add(marker);
@@ -331,22 +337,37 @@ class _NaverBusMapDetailViewState extends State<NaverBusMapDetailView> {
   }) {
     final hasCustomIcon = _busMarkerIcon != null;
 
-    return NMarker(
-      id: id,
-      position: position,
-      icon: _busMarkerIcon,
-      size: hasCustomIcon ? const Size(32, 32) : const Size(20, 20),
-      iconTintColor: hasCustomIcon ? Colors.transparent : _busMarkerColor,
-      caption: vehicleNo.isEmpty
-          ? null
-          : NOverlayCaption(
-              text: vehicleNo,
-              textSize: 9.5,
-              color: _busCaptionColor,
-              haloColor: _busCaptionHaloColor,
-            ),
-      anchor: hasCustomIcon ? const NPoint(0.5, 0.5) : const NPoint(0.5, 1.0),
-    );
+    return hasCustomIcon
+        ? NMarker(
+            id: id,
+            position: position,
+            icon: _busMarkerIcon,
+            size: const Size(32, 32),
+            caption: vehicleNo.isEmpty
+                ? null
+                : NOverlayCaption(
+                    text: vehicleNo,
+                    textSize: 9.5,
+                    color: _busCaptionColor,
+                    haloColor: _busCaptionHaloColor,
+                  ),
+            anchor: const NPoint(0.5, 0.5),
+          )
+        : NMarker(
+            id: id,
+            position: position,
+            size: const Size(20, 20),
+            iconTintColor: _busMarkerColor,
+            caption: vehicleNo.isEmpty
+                ? null
+                : NOverlayCaption(
+                    text: vehicleNo,
+                    textSize: 9.5,
+                    color: _busCaptionColor,
+                    haloColor: _busCaptionHaloColor,
+                  ),
+            anchor: const NPoint(0.5, 1.0),
+          );
   }
 
   void _showStationInfo(_StationMetadata? station, int index) {
