@@ -410,7 +410,7 @@ class UpcomingDeparturesArrivalViewModel extends GetxController
         forceNetworkRefresh: forceNetworkRefresh,
       );
     } catch (_) {
-      error.value = '위치 기반 정보를 불러오지 못했습니다.';
+      error.value = '정보를 갱신하는 중 문제가 발생했습니다.';
       statusMessage.value = '위치 기반 정보를 갱신하는 중 문제가 발생했습니다.';
     } finally {
       _isLoadInProgress = false;
