@@ -1,5 +1,6 @@
 // lib/view/settings_view.dart
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import '../viewmodel/settings_viewmodel.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -78,8 +79,12 @@ class SettingsView extends StatelessWidget {
                           description: '캠퍼스 밖에서는 등교\n(동남구,서북구 셔틀 미지원)\n캠퍼스 안에서는 하교정보 표시',
                           value: controller
                               .isLocationBasedDepartureWidgetEnabled.value,
-                          onChanged:
-                              controller.setLocationBasedDepartureWidgetEnabled,
+                          onChanged: (enabled) {
+                            HapticFeedback.lightImpact();
+                            controller.setLocationBasedDepartureWidgetEnabled(
+                              enabled,
+                            );
+                          },
                         ),
                         _buildSectionDivider(context),
                         _buildActionTile(
