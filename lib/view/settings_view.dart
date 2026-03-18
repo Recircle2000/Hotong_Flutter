@@ -74,8 +74,8 @@ class SettingsView extends StatelessWidget {
                         _buildSectionDivider(context),
                         _buildToggleTile(
                           context,
-                          title: '위치 기반 위젯',
-                          description: '내 위치 기준 도착 위젯과 시내버스 위치를 표시합니다.',
+                          title: '위치 기반 위젯 활성화',
+                          description: '캠퍼스 밖에서는 등교\n(동남구,서북구 셔틀 미지원)\n캠퍼스 안에서는 하교정보 표시',
                           value: controller
                               .isLocationBasedDepartureWidgetEnabled.value,
                           onChanged:
@@ -359,7 +359,7 @@ class SettingsView extends StatelessWidget {
                   }
                   return _buildInfoBadge(
                     context,
-                    '앱 ${snapshot.data!.version}',
+                    '버전 ${snapshot.data!.version}',
                   );
                 },
               ),
@@ -372,7 +372,7 @@ class SettingsView extends StatelessWidget {
                   final version = snapshot.data!['version'] ?? '-';
                   return _buildInfoBadge(
                     context,
-                    '버스 $version',
+                    '시내버스 $version',
                   );
                 },
               ),
@@ -385,7 +385,7 @@ class SettingsView extends StatelessWidget {
             children: [
               _buildTextButton(
                 context,
-                '개인정보처리방침 / 지원',
+                '개인정보처리방침      ',
                 () async {
                   final Uri url = Uri.parse(
                       'https://www.notion.so/1eda668f263380ff92aae3ac8b74b157?pvs=4');
@@ -405,8 +405,19 @@ class SettingsView extends StatelessWidget {
                       applicationName: '호통',
                       applicationVersion: packageInfo.version,
                       applicationLegalese:
-                          '© 2025 호통\n\n이 앱은 다음 오픈소스 라이브러리들을 사용합니다:',
+                          '© 2026 호통\n\n이 앱은 다음 오픈소스 라이브러리들을 사용합니다:',
                     );
+                  }
+                },
+              ),
+              _buildTextButton(
+                context,
+                '피드백/지원',
+                    () async {
+                  final Uri url = Uri.parse(
+                      'https://docs.google.com/forms/d/e/1FAIpQLSdPCDCj8mVqkTTHmwPD0b_lINF8woqUBCH_MmNsvs9OS4OfMQ/viewform?usp=publish-editor');
+                  if (await canLaunchUrl(url)) {
+                    await launchUrl(url, mode: LaunchMode.externalApplication);
                   }
                 },
               ),
