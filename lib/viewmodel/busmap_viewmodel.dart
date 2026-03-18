@@ -54,6 +54,9 @@ class StationMarkerInfo {
 }
 
 class BusMapViewModel extends GetxController with WidgetsBindingObserver {
+  BusMapViewModel({this.initialRouteOverride});
+
+  final String? initialRouteOverride;
   final markers = RxList<BusMarkerInfo>([]);
   final stationMarkers = RxList<StationMarkerInfo>([]);
   final selectedRoute = "순환5_DOWN".obs;
@@ -93,8 +96,8 @@ class BusMapViewModel extends GetxController with WidgetsBindingObserver {
     routePolylinePoints.clear();
     
     // 데이터 새로고침
-    fetchRouteData();
-    fetchStationData();
+    fetchRouteData(route);
+    fetchStationData(route);
     
     // 🚀 최적화: 이미 수신된 데이터가 있다면 즉시 표시
     if (allRoutesBusData.containsKey(route) && allRoutesBusData[route]!.isNotEmpty) {
@@ -104,13 +107,11 @@ class BusMapViewModel extends GetxController with WidgetsBindingObserver {
     }
     
     // 웹소켓에 새 노선 정보 전송
-    if (channel != null && channel.sink != null) {
-      try {
-        channel.sink.add(jsonEncode({"route": selectedRoute.value}));
-        print("Updated WebSocket route preference: ${selectedRoute.value}");
-      } catch (e) {
-        print("Failed to send route update to WebSocket: $e");
-      }
+    try {
+      channel.sink.add(jsonEncode({"route": selectedRoute.value}));
+      print("Updated WebSocket route preference: ${selectedRoute.value}");
+    } catch (e) {
+      print("Failed to send route update to WebSocket: $e");
     }
   }
 
@@ -131,25 +132,33 @@ class BusMapViewModel extends GetxController with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this); // 앱 상태 감지 추가
     // Set selectedRoute based on campus
     final settingsViewModel = Get.find<SettingsViewModel>();
-    final campus = settingsViewModel.selectedCampus.value;
-    if (campus == "천안") {
-      selectedRoute.value = "24_DOWN";
+    final String? overrideRoute = initialRouteOverride;
+    if (overrideRoute != null && overrideRoute.isNotEmpty) {
+      selectedRoute.value = overrideRoute;
     } else {
-      selectedRoute.value = "순환5_DOWN";
+      final campus = settingsViewModel.selectedCampus.value;
+      if (campus == "천안") {
+        selectedRoute.value = "24_DOWN";
+      } else {
+        selectedRoute.value = "순환5_DOWN";
+      }
     }
     // Listen for campus changes
     ever(settingsViewModel.selectedCampus, (String newCampus) {
+      if (initialRouteOverride != null && initialRouteOverride!.isNotEmpty) {
+        return;
+      }
       if (newCampus == "천안") {
         selectedRoute.value = "24_DOWN";
       } else {
         selectedRoute.value = "순환5_DOWN";
       }
-      fetchRouteData();
-      fetchStationData();
+      fetchRouteData(selectedRoute.value);
+      fetchStationData(selectedRoute.value);
     });
     _connectWebSocket();
-    fetchRouteData();  // 초기 경로 데이터 로드
-    fetchStationData();  // 초기 정류장 데이터 로드
+    fetchRouteData(selectedRoute.value);  // 초기 경로 데이터 로드
+    fetchStationData(selectedRoute.value);  // 초기 정류장 데이터 로드
     checkLocationPermission(); // 위치 권한 확인
   }
 
@@ -251,10 +260,14 @@ class BusMapViewModel extends GetxController with WidgetsBindingObserver {
   }
 
   /// 버스 경로 데이터 불러오기
-  Future<void> fetchRouteData() async {
+  Future<void> fetchRouteData([String? routeKey]) async {
+    final String targetRoute = routeKey ?? selectedRoute.value;
     try {
-      final geoJsonFile = 'assets/bus_routes/${selectedRoute.value}.json';
+      final geoJsonFile = 'assets/bus_routes/$targetRoute.json';
       final geoJsonData = await rootBundle.loadString(geoJsonFile);
+      if (selectedRoute.value != targetRoute) {
+        return;
+      }
       final geoJson = jsonDecode(geoJsonData);
 
       final coordinates = geoJson['features'][0]['geometry']['coordinates'];
@@ -265,6 +278,9 @@ class BusMapViewModel extends GetxController with WidgetsBindingObserver {
       // 폴리라인 데이터 저장
       routePolylinePoints.assignAll(polylinePoints);
     } catch (e) {
+      if (selectedRoute.value != targetRoute) {
+        return;
+      }
       print("경로 데이터를 불러오는 중 오류 발생: $e");
       Fluttertoast.showToast(
         msg: "경로 데이터를 불러올 수 없습니다.",
@@ -276,7 +292,8 @@ class BusMapViewModel extends GetxController with WidgetsBindingObserver {
   }
 
   /// 🚏 정류장 데이터 불러오기
-  Future<void> fetchStationData() async {
+  Future<void> fetchStationData([String? routeKey]) async {
+    final String targetRoute = routeKey ?? selectedRoute.value;
     try {
       // 초기화
       stationMarkers.clear();
@@ -285,8 +302,11 @@ class BusMapViewModel extends GetxController with WidgetsBindingObserver {
       currentPositions.clear();
       detailedBusPositions.clear();
       
-      final jsonFile = 'assets/bus_stops/${selectedRoute.value}.json';
+      final jsonFile = 'assets/bus_stops/$targetRoute.json';
       final jsonData = await rootBundle.loadString(jsonFile);
+      if (selectedRoute.value != targetRoute) {
+        return;
+      }
       final data = jsonDecode(jsonData);
 
       final stations = data['response']['body']['items']['item'] as List;
@@ -318,6 +338,9 @@ class BusMapViewModel extends GetxController with WidgetsBindingObserver {
 
       stationMarkers.assignAll(stopMarkers);
     } catch (e) {
+      if (selectedRoute.value != targetRoute) {
+        return;
+      }
       print("정류장 데이터를 불러오는 중 오류 발생: $e");
       Fluttertoast.showToast(
         msg: "정류장 데이터를 불러올 수 없습니다.",

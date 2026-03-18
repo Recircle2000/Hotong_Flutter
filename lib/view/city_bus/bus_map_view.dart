@@ -99,19 +99,26 @@ class _BusMapViewState extends State<BusMapView> {
 
     // 초기 노선이 지정된 경우 자동 선택
     if (widget.initialRoute != null) {
+      _applyInitialRoute();
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        // 이미 등록된 BusMapViewModel 인스턴스를 찾습니다 (grouped_bus_view에서 생성됨)
-        if (Get.isRegistered<BusMapViewModel>()) {
-          final controller = Get.find<BusMapViewModel>();
-          // 노선 매핑 확인
-          String? mappedRoute = _findMappedRoute(widget.initialRoute!,
-              destination: widget.initialDestination);
-          if (mappedRoute != null) {
-            // 웹소켓 재연결 없이 노선 정보만 업데이트
-            controller.updateSelectedRoute(mappedRoute);
-          }
-        }
+        _applyInitialRoute();
       });
+    }
+  }
+
+  void _applyInitialRoute() {
+    if (widget.initialRoute == null ||
+        !Get.isRegistered<BusMapViewModel>()) {
+      return;
+    }
+
+    final controller = Get.find<BusMapViewModel>();
+    final String? mappedRoute = _findMappedRoute(
+      widget.initialRoute!,
+      destination: widget.initialDestination,
+    );
+    if (mappedRoute != null) {
+      controller.updateSelectedRoute(mappedRoute);
     }
   }
 
