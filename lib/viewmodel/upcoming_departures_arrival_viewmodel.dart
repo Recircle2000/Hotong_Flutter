@@ -660,7 +660,7 @@ class UpcomingDeparturesArrivalViewModel extends GetxController
         station.latitude,
         station.longitude,
       );
-      if (distance > 300) {
+      if (distance > 400) {
         continue;
       }
 
@@ -799,7 +799,7 @@ class UpcomingDeparturesArrivalViewModel extends GetxController
           candidate.latitude,
           candidate.longitude,
         );
-        if (distance > 150) {
+        if (distance > 200) {
           continue;
         }
 
