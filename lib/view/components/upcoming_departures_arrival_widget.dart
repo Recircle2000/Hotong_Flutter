@@ -21,11 +21,10 @@ class UpcomingDeparturesArrivalWidget extends StatefulWidget {
 }
 
 class _UpcomingDeparturesArrivalWidgetState
-    extends State<UpcomingDeparturesArrivalWidget> {
+    extends State<UpcomingDeparturesArrivalWidget> with RouteAware {
   late final UpcomingDeparturesArrivalViewModel viewModel;
-
-  int _remainingSeconds = 30;
-  Timer? _refreshCountdownTimer;
+  final RouteObserver<PageRoute> _routeObserver =
+      Get.find<RouteObserver<PageRoute>>();
 
   @override
   void initState() {
@@ -33,67 +32,43 @@ class _UpcomingDeparturesArrivalWidgetState
     viewModel = Get.isRegistered<UpcomingDeparturesArrivalViewModel>()
         ? Get.find<UpcomingDeparturesArrivalViewModel>()
         : Get.put(UpcomingDeparturesArrivalViewModel());
+  }
 
-    viewModel.setRefreshCallback(_startRefreshCountdown);
-    _startRefreshCountdown();
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _routeObserver.subscribe(this, ModalRoute.of(context)! as PageRoute);
+  }
+
+  @override
+  void didPush() {
+    unawaited(viewModel.setWidgetEnabled(true));
+    super.didPush();
+  }
+
+  @override
+  void didPopNext() {
+    unawaited(viewModel.setWidgetEnabled(true));
+    super.didPopNext();
+  }
+
+  @override
+  void didPushNext() {
+    unawaited(viewModel.setWidgetEnabled(false));
+    super.didPushNext();
+  }
+
+  @override
+  void didPop() {
+    unawaited(viewModel.setWidgetEnabled(false));
+    super.didPop();
   }
 
   @override
   void dispose() {
-    _refreshCountdownTimer?.cancel();
-    viewModel.clearRefreshCallback();
+    _routeObserver.unsubscribe(this);
+    unawaited(viewModel.setWidgetEnabled(false));
     super.dispose();
-  }
-
-  void _startRefreshCountdown() {
-    _refreshCountdownTimer?.cancel();
-
-    if (!viewModel.shouldUseRefreshCountdown) {
-      if (mounted) {
-        setState(() {
-          _remainingSeconds = 0;
-        });
-      } else {
-        _remainingSeconds = 0;
-      }
-      return;
-    }
-
-    if (mounted) {
-      setState(() {
-        _remainingSeconds = viewModel.refreshIntervalSeconds;
-      });
-    } else {
-      _remainingSeconds = viewModel.refreshIntervalSeconds;
-    }
-
-    _refreshCountdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (!mounted) {
-        timer.cancel();
-        return;
-      }
-
-      if (!viewModel.shouldUseRefreshCountdown) {
-        timer.cancel();
-        setState(() {
-          _remainingSeconds = 0;
-        });
-        return;
-      }
-
-      setState(() {
-        if (_remainingSeconds > 0) {
-          _remainingSeconds--;
-        } else {
-          _remainingSeconds = viewModel.refreshIntervalSeconds;
-        }
-      });
-    });
-  }
-
-  void _manualRefresh() {
-    viewModel.refreshLocation();
-    _startRefreshCountdown();
   }
 
   @override
@@ -146,38 +121,10 @@ class _UpcomingDeparturesArrivalWidgetState
                   ),
                 ),
                 const SizedBox(width: 8),
-                viewModel.isRefreshing.value
-                    ? const SizedBox(
-                        width: 10,
-                        height: 10,
-                        child: CircularProgressIndicator.adaptive(
-                          strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation<Color>(Colors.grey),
-                        ),
-                      )
-                    : Text(
-                        viewModel.shouldUseRefreshCountdown
-                            ? '$_remainingSeconds초'
-                            : '-',
-                        style: TextStyle(
-                          fontSize: 10,
-                          color: Colors.grey[600],
-                        ),
-                      ),
-                const SizedBox(width: 4),
-                ScaleButton(
-                  onTap: _manualRefresh,
-                  child: Padding(
-                    padding: const EdgeInsets.all(6),
-                    child: Icon(
-                      Icons.refresh,
-                      size: 16,
-                      color: Theme.of(context).colorScheme.secondary,
-                    ),
-                  ),
-                ),
+                _buildLiveStatusChip(context),
               ],
             ),
+            const SizedBox(height: 5),
             if (viewModel.error.isNotEmpty)
               Container(
                 height: 200,
@@ -275,7 +222,7 @@ class _UpcomingDeparturesArrivalWidgetState
     });
   }
 
-  String _buildHeaderSubtitle() {
+String _buildHeaderSubtitle() {
     final String? preferredStopName =
         viewModel.nearbyShuttleStop.value?.station.name ??
             viewModel.nearbyBusStop.value?.displayName;
@@ -289,7 +236,7 @@ class _UpcomingDeparturesArrivalWidgetState
       case ArrivalBranchMode.fallbackDefaultWidget:
         return '캠퍼스 내부로 인식되어 기본 위젯 사용';
       case ArrivalBranchMode.noNearbyStop:
-        return '위치 또는 주변 정류장 확인 중';
+        return viewModel.statusMessage.value;
     }
   }
 
@@ -327,6 +274,75 @@ class _UpcomingDeparturesArrivalWidgetState
           fontWeight: FontWeight.w600,
           color: Colors.grey[600],
         ),
+      ),
+    );
+  }
+
+Widget _buildLiveStatusChip(BuildContext context) {
+    final bool isRefreshing = viewModel.isRefreshing.value;
+    final bool isLocationServiceEnabled =
+        viewModel.isLocationServiceEnabled.value;
+    final bool isLocationPermissionGranted =
+        viewModel.isLocationPermissionGranted.value;
+    final Color accentColor = !isLocationServiceEnabled
+        ? Colors.orange
+        : !isLocationPermissionGranted
+            ? Colors.redAccent
+            : Theme.of(context).colorScheme.primary;
+    final String label = !isLocationServiceEnabled
+        ? '위치 서비스 꺼짐'
+        : !isLocationPermissionGranted
+            ? '위치 권한 허용 안됨'
+            : isRefreshing
+                ? '위치 조회중'
+                : '실시간';
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: accentColor.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (!isLocationServiceEnabled)
+            Icon(
+              Icons.location_disabled,
+              size: 12,
+              color: accentColor,
+            )
+          else if (!isLocationPermissionGranted)
+            Icon(
+              Icons.location_off,
+              size: 12,
+              color: accentColor,
+            )
+          else if (isRefreshing)
+            SizedBox(
+              width: 10,
+              height: 10,
+              child: CircularProgressIndicator.adaptive(
+                strokeWidth: 2,
+                valueColor: AlwaysStoppedAnimation<Color>(accentColor),
+              ),
+            )
+          else
+            Icon(
+              Icons.location_on,
+              size: 12,
+              color: accentColor,
+            ),
+          const SizedBox(width: 5),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w600,
+              color: accentColor,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -459,7 +475,7 @@ class _UpcomingDeparturesArrivalWidgetState
         : _getStopsAwayColor(arrival.stopsAway ?? 0);
     final String subtitle = isScheduled
         ? '${_formatTime(arrival.departureTime!)} 출발'
-        : '현재 ${arrival.currentNodeName}';
+        : '현재: ${arrival.currentNodeName}';
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 6),
@@ -472,7 +488,9 @@ class _UpcomingDeparturesArrivalWidgetState
             ),
             binding: BindingsBuilder(() {
               if (!Get.isRegistered<BusMapViewModel>()) {
-                Get.put(BusMapViewModel());
+                Get.put(
+                  BusMapViewModel(initialRouteOverride: arrival.routeKey),
+                );
               }
             }),
           );

@@ -110,6 +110,10 @@ class UpcomingDepartureViewModel extends GetxController
   List<BusDeparture>? _tempCityBuses;
   bool? _tempCityBusServiceEnded;
   List<BusDeparture>? _tempRealtimeBuses;
+  Worker? _campusWorker;
+  Worker? _activeWorker;
+  Worker? _homePageWorker;
+  bool _isDisposed = false;
 
   void setRefreshCallback(Function callback) {
     _onRefreshCallback = callback;
@@ -133,15 +137,21 @@ class UpcomingDepartureViewModel extends GetxController
 
     // 캠퍼스 설정이 변경되면 데이터 다시 로드 및 타이머 재시작
     if (campusOverride == null) {
-      ever(settingsViewModel.selectedCampus, (_) {
-      _isInitialLoad.value = true; // 캠퍼스 변경 시 첫 로딩으로 처리
-      loadData();
-      // loadData 내부에서 타이머 관리하므로 _startRefreshTimer() 호출 불필요
+      _campusWorker = ever(settingsViewModel.selectedCampus, (_) {
+        if (_isDisposed) {
+          return;
+        }
+        _isInitialLoad.value = true; // 캠퍼스 변경 시 첫 로딩으로 처리
+        loadData();
+        // loadData 내부에서 타이머 관리하므로 _startRefreshTimer() 호출 불필요
       });
     }
 
     // 활성 상태 변경 리스너 (앱 포그라운드/백그라운드)
-    ever(isActive, (active) {
+    _activeWorker = ever(isActive, (active) {
+      if (_isDisposed) {
+        return;
+      }
       if (active && isOnHomePage.value) {
         print('앱이 활성화됨 -> 즉시 새로고침');
         // 공지사항도 함께 새로고침
@@ -155,7 +165,10 @@ class UpcomingDepartureViewModel extends GetxController
     });
 
     // 페이지 상태 변경 리스너 (홈 페이지/다른 페이지)
-    ever(isOnHomePage, (onHomePage) {
+    _homePageWorker = ever(isOnHomePage, (onHomePage) {
+      if (_isDisposed) {
+        return;
+      }
       if (onHomePage && isActive.value) {
         print('홈페이지로 돌아옴 -> 즉시 새로고침');
         // 공지사항도 함께 새로고침
@@ -170,6 +183,9 @@ class UpcomingDepartureViewModel extends GetxController
 
     // 초기 데이터 로드 및 타이머 시작 (프레임이 완전히 렌더링된 후 실행)
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_isDisposed) {
+        return;
+      }
       print('위젯 렌더링 완료 후 초기 데이터 로드');
       loadData();
     });
@@ -177,11 +193,21 @@ class UpcomingDepartureViewModel extends GetxController
 
   // 페이지 상태 업데이트 함수
   void setHomePageState(bool isOnHome) {
+    if (_isDisposed) {
+      return;
+    }
     isOnHomePage.value = isOnHome;
   }
 
   @override
   void onClose() {
+    _isDisposed = true;
+    _campusWorker?.dispose();
+    _activeWorker?.dispose();
+    _homePageWorker?.dispose();
+    isActive.value = false;
+    isOnHomePage.value = false;
+    _onRefreshCallback = null;
     // 앱 상태 감지 옵저버 제거
     WidgetsBinding.instance.removeObserver(this);
     _stopRefreshTimer();
@@ -190,6 +216,9 @@ class UpcomingDepartureViewModel extends GetxController
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (_isDisposed) {
+      return;
+    }
     if (state == AppLifecycleState.paused ||
         state == AppLifecycleState.inactive ||
         state == AppLifecycleState.detached) {
@@ -202,7 +231,7 @@ class UpcomingDepartureViewModel extends GetxController
   }
 
   void _startRefreshTimer() {
-    if (!enableAutoRefresh) {
+    if (_isDisposed || !enableAutoRefresh) {
       _stopRefreshTimer();
       return;
     }
@@ -228,6 +257,10 @@ class UpcomingDepartureViewModel extends GetxController
   }
 
   Future<void> loadData({bool silent = false}) async {
+    if (_isDisposed) {
+      return;
+    }
+
     // 로딩 중에는 타이머가 돌 필요 없으므로 취소
     _stopRefreshTimer();
 
@@ -247,14 +280,26 @@ class UpcomingDepartureViewModel extends GetxController
         // 정류장 시퀀스가 비어있으면 먼저 로드
         if (_ce24DownStops.isEmpty || _ce81DownStops.isEmpty) {
           await loadCeanStopSequences();
+          if (_isDisposed) {
+            return;
+          }
           print(
               '[DEBUG] 정류장 시퀀스 로드 완료 - 24_DOWN: ${_ce24DownStops.length}개, 81_DOWN: ${_ce81DownStops.length}개');
         }
 
         // 모든 데이터를 먼저 준비 (UI 업데이트 없이)
         await loadCityBusData(updateUI: false);
+        if (_isDisposed) {
+          return;
+        }
         await loadShuttleData();
+        if (_isDisposed) {
+          return;
+        }
         await fetchCeanRealtimeBuses(updateUI: false);
+        if (_isDisposed) {
+          return;
+        }
 
         // 모든 데이터가 준비된 후 한 번에 UI 업데이트 (실시간 버스 먼저, 시간표 버스 나중에)
         if (_tempRealtimeBuses != null) {
@@ -273,7 +318,13 @@ class UpcomingDepartureViewModel extends GetxController
       } else {
         // 아산 캠퍼스인 경우: 기존대로 순차적으로 업데이트
         await loadCityBusData();
+        if (_isDisposed) {
+          return;
+        }
         await loadShuttleData();
+        if (_isDisposed) {
+          return;
+        }
       }
 
       print('데이터 로드 완료');
@@ -284,21 +335,26 @@ class UpcomingDepartureViewModel extends GetxController
       // 에러 발생 시에도 첫 로딩 완료 처리 (무한 로딩 방지)
       _isInitialLoad.value = false;
     } finally {
-      isLoading.value = false;
-      isRefreshing.value = false; // 로딩 종료
+      if (!_isDisposed) {
+        isLoading.value = false;
+        isRefreshing.value = false; // 로딩 종료
 
-      // 로딩 완료 후 (성공/실패 무관)
-      // 1. UI 타이머 리셋
-      _onRefreshCallback?.call();
+        // 로딩 완료 후 (성공/실패 무관)
+        // 1. UI 타이머 리셋
+        _onRefreshCallback?.call();
 
-      // 2. 다음 자동 새로고침 예약 (활성 상태이고 홈일 때만)
-      if (enableAutoRefresh && isActive.value && isOnHomePage.value) {
-        _startRefreshTimer();
+        // 2. 다음 자동 새로고침 예약 (활성 상태이고 홈일 때만)
+        if (enableAutoRefresh && isActive.value && isOnHomePage.value) {
+          _startRefreshTimer();
+        }
       }
     }
   }
 
   void setWidgetEnabled(bool enabled) {
+    if (_isDisposed) {
+      return;
+    }
     if (enabled == isActive.value) return;
     isActive.value = enabled;
     if (enabled) {

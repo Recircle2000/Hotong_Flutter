@@ -115,6 +115,8 @@ class _UpcomingDeparturesWidgetState extends State<UpcomingDeparturesWidget>
   @override
   void dispose() {
     _refreshCountdownTimer?.cancel();
+    viewModel.setHomePageState(false);
+    viewModel.setWidgetEnabled(false);
     viewModel.clearRefreshCallback();
     // 라우트 옵저버에서 구독 해제
     _routeObserver.unsubscribe(this);

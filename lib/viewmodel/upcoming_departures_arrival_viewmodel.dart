@@ -85,6 +85,16 @@ class NearbyBusStop {
   final Map<String, BusStopCandidate> routeStops;
 }
 
+class _NearbyBusStopAnchor {
+  const _NearbyBusStopAnchor({
+    required this.stop,
+    required this.distanceMeters,
+  });
+
+  final BusStopCandidate stop;
+  final double distanceMeters;
+}
+
 class LocationShuttleArrival {
   const LocationShuttleArrival({
     required this.routeId,
@@ -208,6 +218,7 @@ class UpcomingDeparturesArrivalViewModel extends GetxController
   final RxBool isRefreshing = false.obs;
   final RxBool isWidgetEnabled = true.obs;
   final RxBool isLocationReady = false.obs;
+  final RxBool isLocationServiceEnabled = true.obs;
   final RxBool isLocationPermissionGranted = false.obs;
   final RxString error = ''.obs;
   final RxString statusMessage = '위치를 확인하는 중입니다.'.obs;
@@ -218,6 +229,7 @@ class UpcomingDeparturesArrivalViewModel extends GetxController
   final RxBool shouldShowFallbackUpcomingWidget = false.obs;
   final Rxn<Position> currentPosition = Rxn<Position>();
   final Rxn<NearbyShuttleStop> nearbyShuttleStop = Rxn<NearbyShuttleStop>();
+  final RxList<NearbyBusStop> nearbyBusStops = <NearbyBusStop>[].obs;
   final Rxn<NearbyBusStop> nearbyBusStop = Rxn<NearbyBusStop>();
   final RxList<LocationShuttleArrival> shuttleArrivals =
       <LocationShuttleArrival>[].obs;
@@ -242,13 +254,15 @@ class UpcomingDeparturesArrivalViewModel extends GetxController
   DateTime? _lastShuttleRefreshAt;
   Map<String, dynamic>? _latestRealtimePayload;
   String? _connectedBusWebSocketPath;
+  bool _isLoadInProgress = false;
+  bool _isRequestingLocationPermission = false;
 
   bool get shouldUseRefreshCountdown =>
       _isLocationBranch(branchMode.value) &&
       !shouldShowFallbackUpcomingWidget.value &&
       isWidgetEnabled.value;
 
-  int get refreshIntervalSeconds => 30;
+  int get refreshIntervalSeconds => _secondsUntilNextMinute();
 
   String get campusDescription {
     switch (branchMode.value) {
@@ -282,6 +296,7 @@ class UpcomingDeparturesArrivalViewModel extends GetxController
         loadData(
           silent: true,
           forceNetworkRefresh: true,
+          allowPermissionPrompt: false,
         );
       }
     });
@@ -318,6 +333,7 @@ class UpcomingDeparturesArrivalViewModel extends GetxController
       loadData(
         silent: true,
         forceNetworkRefresh: true,
+        allowPermissionPrompt: false,
       );
     }
   }
@@ -330,7 +346,7 @@ class UpcomingDeparturesArrivalViewModel extends GetxController
     isWidgetEnabled.value = enabled;
 
     if (enabled) {
-      await _activate();
+      await _activate(allowPermissionPrompt: false);
       return;
     }
 
@@ -343,6 +359,7 @@ class UpcomingDeparturesArrivalViewModel extends GetxController
     return loadData(
       forceNetworkRefresh: true,
       forceLocationRefresh: true,
+      allowPermissionPrompt: true,
     );
   }
 
@@ -350,11 +367,13 @@ class UpcomingDeparturesArrivalViewModel extends GetxController
     bool silent = false,
     bool forceNetworkRefresh = false,
     bool forceLocationRefresh = false,
+    bool allowPermissionPrompt = true,
   }) async {
-    if (!isWidgetEnabled.value) {
+    if (!isWidgetEnabled.value || _isLoadInProgress) {
       return;
     }
 
+    _isLoadInProgress = true;
     _stopRefreshTimer();
 
     if (!silent) {
@@ -366,7 +385,9 @@ class UpcomingDeparturesArrivalViewModel extends GetxController
     try {
       await _loadShuttleStationsIfNeeded();
 
-      final bool canUseLocation = await _ensureLocationPermission();
+      final bool canUseLocation = await _ensureLocationPermission(
+        allowPermissionPrompt: allowPermissionPrompt,
+      );
       if (!canUseLocation) {
         branchMode.value = ArrivalBranchMode.noNearbyStop;
         return;
@@ -392,6 +413,7 @@ class UpcomingDeparturesArrivalViewModel extends GetxController
       error.value = '위치 기반 정보를 불러오지 못했습니다.';
       statusMessage.value = '위치 기반 정보를 갱신하는 중 문제가 발생했습니다.';
     } finally {
+      _isLoadInProgress = false;
       isLoading.value = false;
       isRefreshing.value = false;
       _onRefreshCallback?.call();
@@ -399,7 +421,9 @@ class UpcomingDeparturesArrivalViewModel extends GetxController
     }
   }
 
-  Future<void> _activate() async {
+  Future<void> _activate({
+    bool allowPermissionPrompt = true,
+  }) async {
     if (!isWidgetEnabled.value) {
       isWidgetEnabled.value = true;
     }
@@ -407,6 +431,7 @@ class UpcomingDeparturesArrivalViewModel extends GetxController
     await loadData(
       forceNetworkRefresh: true,
       forceLocationRefresh: true,
+      allowPermissionPrompt: allowPermissionPrompt,
     );
   }
 
@@ -446,19 +471,32 @@ class UpcomingDeparturesArrivalViewModel extends GetxController
     _positionSubscription = null;
   }
 
-  Future<bool> _ensureLocationPermission() async {
+  Future<bool> _ensureLocationPermission({
+    required bool allowPermissionPrompt,
+  }) async {
     final bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    isLocationServiceEnabled.value = serviceEnabled;
     if (!serviceEnabled) {
       isLocationReady.value = false;
       isLocationPermissionGranted.value = false;
       statusMessage.value = '위치 서비스를 켜야 위치기반 위젯을 사용할 수 있습니다.';
-      _clearLocationBranchData();
+      _clearLocationBranchData(
+        shuttleMessage: '위치 서비스 꺼짐',
+        busMessage: '위치 서비스 꺼짐',
+      );
       return false;
     }
 
     LocationPermission permission = await Geolocator.checkPermission();
-    if (permission == LocationPermission.denied) {
-      permission = await Geolocator.requestPermission();
+    if (permission == LocationPermission.denied &&
+        allowPermissionPrompt &&
+        !_isRequestingLocationPermission) {
+      _isRequestingLocationPermission = true;
+      try {
+        permission = await Geolocator.requestPermission();
+      } finally {
+        _isRequestingLocationPermission = false;
+      }
     }
 
     final bool granted = permission == LocationPermission.always ||
@@ -468,9 +506,12 @@ class UpcomingDeparturesArrivalViewModel extends GetxController
 
     if (!granted) {
       statusMessage.value = permission == LocationPermission.deniedForever
-          ? '위치 권한이 영구적으로 거부되었습니다.'
-          : '위치 권한을 허용해 주세요.';
-      _clearLocationBranchData();
+          ? ''
+          : '';
+      _clearLocationBranchData(
+        shuttleMessage: '위치 권한 허용 안됨',
+        busMessage: '위치 권한 허용 안됨',
+      );
       return false;
     }
 
@@ -557,13 +598,16 @@ class UpcomingDeparturesArrivalViewModel extends GetxController
       position,
       config.shuttleStationIds,
     );
-    final NearbyBusStop? nextBusStop = await _findNearbyBusStop(
+    final List<NearbyBusStop> nextBusStops = await _findNearbyBusStops(
       position,
       config.busRouteKeys,
     );
+    final NearbyBusStop? nextBusStop =
+        nextBusStops.isNotEmpty ? nextBusStops.first : null;
 
     final int? previousShuttleStationId = nearbyShuttleStop.value?.station.id;
     nearbyShuttleStop.value = nextShuttleStop;
+    nearbyBusStops.assignAll(nextBusStops);
     nearbyBusStop.value = nextBusStop;
 
     if (nextShuttleStop == null) {
@@ -616,7 +660,7 @@ class UpcomingDeparturesArrivalViewModel extends GetxController
         station.latitude,
         station.longitude,
       );
-      if (distance > 400) {
+      if (distance > 300) {
         continue;
       }
 
@@ -739,12 +783,11 @@ class UpcomingDeparturesArrivalViewModel extends GetxController
     return busTimes;
   }
 
-  Future<NearbyBusStop?> _findNearbyBusStop(
+  Future<List<NearbyBusStop>> _findNearbyBusStops(
     Position position,
     List<String> routeKeys,
   ) async {
-    BusStopCandidate? anchorStop;
-    double anchorDistance = double.infinity;
+    final List<_NearbyBusStopAnchor> anchors = <_NearbyBusStopAnchor>[];
 
     for (final String routeKey in routeKeys) {
       final List<BusStopCandidate> candidates =
@@ -756,21 +799,59 @@ class UpcomingDeparturesArrivalViewModel extends GetxController
           candidate.latitude,
           candidate.longitude,
         );
-        if (distance > 400) {
+        if (distance > 150) {
           continue;
         }
 
-        if (distance < anchorDistance) {
-          anchorStop = candidate;
-          anchorDistance = distance;
+        final int existingIndex = anchors.indexWhere((anchor) {
+          return _isSamePhysicalStop(anchor.stop, candidate);
+        });
+
+        if (existingIndex == -1) {
+          anchors.add(
+            _NearbyBusStopAnchor(
+              stop: candidate,
+              distanceMeters: distance,
+            ),
+          );
+          continue;
+        }
+
+        if (distance < anchors[existingIndex].distanceMeters) {
+          anchors[existingIndex] = _NearbyBusStopAnchor(
+            stop: candidate,
+            distanceMeters: distance,
+          );
         }
       }
     }
 
-    if (anchorStop == null) {
-      return null;
+    if (anchors.isEmpty) {
+      return <NearbyBusStop>[];
     }
 
+    anchors.sort((a, b) => a.distanceMeters.compareTo(b.distanceMeters));
+
+    final List<NearbyBusStop> results = <NearbyBusStop>[];
+    for (final _NearbyBusStopAnchor anchor in anchors.take(2)) {
+      final NearbyBusStop? nearbyStop = await _buildNearbyBusStopFromAnchor(
+        anchor.stop,
+        anchor.distanceMeters,
+        routeKeys,
+      );
+      if (nearbyStop != null) {
+        results.add(nearbyStop);
+      }
+    }
+
+    return results;
+  }
+
+  Future<NearbyBusStop?> _buildNearbyBusStopFromAnchor(
+    BusStopCandidate anchorStop,
+    double anchorDistance,
+    List<String> routeKeys,
+  ) async {
     final Map<String, BusStopCandidate> routeStops = <String, BusStopCandidate>{};
     for (final String routeKey in routeKeys) {
       final List<BusStopCandidate> candidates =
@@ -960,14 +1041,15 @@ class UpcomingDeparturesArrivalViewModel extends GetxController
       return true;
     }
 
-    final String? busStopName = nearbyBusStop.value?.displayName;
-    if (busStopName == null || busStopName.isEmpty) {
-      return false;
+    for (final NearbyBusStop stop in nearbyBusStops) {
+      final String normalizedStopName = _normalizeStopName(stop.displayName);
+      const String normalizedTarget = '천안아산역';
+      if (normalizedStopName.contains(normalizedTarget)) {
+        return true;
+      }
     }
 
-    final String normalizedStopName = _normalizeStopName(busStopName);
-    const String normalizedTarget = '천안아산역';
-    return normalizedStopName.contains(normalizedTarget);
+    return false;
   }
 
   Future<LocationBusArrival?> _buildAsanCirculation5ScheduledArrival() async {
@@ -999,7 +1081,8 @@ class UpcomingDeparturesArrivalViewModel extends GetxController
     return LocationBusArrival.scheduled(
       routeKey: '순환5_UP',
       routeName: '순환5',
-      targetStopName: nearbyBusStop.value?.displayName ??
+      targetStopName: _findNearbyBusStopName('천안아산역') ??
+          nearbyBusStop.value?.displayName ??
           nearbyShuttleStop.value?.station.name ??
           '천안아산역(아캠방향)',
       departureTime: nextDeparture,
@@ -1010,37 +1093,51 @@ class UpcomingDeparturesArrivalViewModel extends GetxController
   List<LocationBusArrival> _buildRealtimeBusArrivals({
     String? excludedRouteKey,
   }) {
-    final NearbyBusStop? stop = nearbyBusStop.value;
     final Map<String, dynamic>? payload = _latestRealtimePayload;
-    if (stop == null || payload == null) {
+    if (payload == null || nearbyBusStops.isEmpty) {
       return <LocationBusArrival>[];
     }
 
-    final List<LocationBusArrival> arrivals = <LocationBusArrival>[];
+    final Map<String, LocationBusArrival> bestArrivalByRoute =
+        <String, LocationBusArrival>{};
+    final Map<String, int> bestStopsAwayByRoute = <String, int>{};
+    final Map<String, double> bestStopDistanceByRoute = <String, double>{};
 
-    for (final MapEntry<String, BusStopCandidate> entry in stop.routeStops.entries) {
-      final String routeKey = entry.key;
-      if (excludedRouteKey != null && routeKey == excludedRouteKey) {
-        continue;
-      }
-
-      final BusStopCandidate targetStop = entry.value;
-      final dynamic rawVehicles = payload[routeKey];
-      if (rawVehicles is! List) {
-        continue;
-      }
-
-      for (final dynamic rawVehicle in rawVehicles) {
-        final Map<String, dynamic> vehicle =
-            Map<String, dynamic>.from(rawVehicle as Map);
-        final int vehicleNodeOrder = _toInt(vehicle['nodeord']);
-        final int stopsAway = targetStop.nodeOrder - vehicleNodeOrder;
-        if (stopsAway <= 0) {
+    for (final NearbyBusStop stop in nearbyBusStops) {
+      for (final MapEntry<String, BusStopCandidate> entry in stop.routeStops.entries) {
+        final String routeKey = entry.key;
+        if (excludedRouteKey != null && routeKey == excludedRouteKey) {
           continue;
         }
 
-        arrivals.add(
-          LocationBusArrival.realtime(
+        final BusStopCandidate targetStop = entry.value;
+        final dynamic rawVehicles = payload[routeKey];
+        if (rawVehicles is! List) {
+          continue;
+        }
+
+        for (final dynamic rawVehicle in rawVehicles) {
+          final Map<String, dynamic> vehicle =
+              Map<String, dynamic>.from(rawVehicle as Map);
+          final int vehicleNodeOrder = _toInt(vehicle['nodeord']);
+          final int stopsAway = targetStop.nodeOrder - vehicleNodeOrder;
+          if (stopsAway <= 0) {
+            continue;
+          }
+
+          final int? currentBestStopsAway = bestStopsAwayByRoute[routeKey];
+          final double? currentBestStopDistance =
+              bestStopDistanceByRoute[routeKey];
+          if (!_shouldReplaceRealtimeArrival(
+            currentBestStopsAway: currentBestStopsAway,
+            currentBestStopDistance: currentBestStopDistance,
+            candidateStopsAway: stopsAway,
+            candidateStopDistance: stop.distanceMeters,
+          )) {
+            continue;
+          }
+
+          bestArrivalByRoute[routeKey] = LocationBusArrival.realtime(
             routeKey: routeKey,
             routeName: targetStop.routeName,
             targetStopName: targetStop.stopName,
@@ -1049,20 +1146,44 @@ class UpcomingDeparturesArrivalViewModel extends GetxController
             vehicleNumber: vehicle['vehicleno']?.toString() ?? '',
             stopsAway: stopsAway,
             badgeText: _formatStopsAway(stopsAway),
-          ),
-        );
+          );
+          bestStopsAwayByRoute[routeKey] = stopsAway;
+          bestStopDistanceByRoute[routeKey] = stop.distanceMeters;
+        }
       }
     }
 
-    arrivals.sort((a, b) {
-      final int byStops = (a.stopsAway ?? 999).compareTo(b.stopsAway ?? 999);
-      if (byStops != 0) {
-        return byStops;
-      }
-      return a.routeName.compareTo(b.routeName);
-    });
+    final List<LocationBusArrival> arrivals = bestArrivalByRoute.values.toList()
+      ..sort((a, b) {
+        final int byStops = (a.stopsAway ?? 999).compareTo(b.stopsAway ?? 999);
+        if (byStops != 0) {
+          return byStops;
+        }
+        return a.routeName.compareTo(b.routeName);
+      });
 
     return arrivals;
+  }
+
+  bool _shouldReplaceRealtimeArrival({
+    required int? currentBestStopsAway,
+    required double? currentBestStopDistance,
+    required int candidateStopsAway,
+    required double candidateStopDistance,
+  }) {
+    if (currentBestStopsAway == null || currentBestStopDistance == null) {
+      return true;
+    }
+
+    if (candidateStopsAway < currentBestStopsAway) {
+      return true;
+    }
+
+    if (candidateStopsAway > currentBestStopsAway) {
+      return false;
+    }
+
+    return candidateStopDistance < currentBestStopDistance;
   }
 
   Uri _buildBusWebSocketUri(String path) {
@@ -1079,10 +1200,14 @@ class UpcomingDeparturesArrivalViewModel extends GetxController
   void _updateLocationStatusMessage() {
     final NearbyShuttleStop? shuttleStop = nearbyShuttleStop.value;
     final NearbyBusStop? busStop = nearbyBusStop.value;
+    final int nearbyBusStopCount = nearbyBusStops.length;
+    final String busStopLabel = nearbyBusStopCount > 1
+        ? '${busStop?.displayName} 외 ${nearbyBusStopCount - 1}개'
+        : busStop?.displayName ?? '';
 
     if (shuttleStop != null && busStop != null) {
       statusMessage.value =
-          '${shuttleStop.station.name} / ${busStop.displayName} 주변 정류장을 기준으로 표시합니다.';
+          '${shuttleStop.station.name} / $busStopLabel 주변 정류장을 기준으로 표시합니다.';
       return;
     }
 
@@ -1094,29 +1219,39 @@ class UpcomingDeparturesArrivalViewModel extends GetxController
 
     if (busStop != null) {
       statusMessage.value =
-          '${busStop.displayName} 시내버스 정류장 기준으로 표시합니다.';
+          '$busStopLabel 시내버스 정류장 기준으로 표시합니다.';
       return;
     }
 
     statusMessage.value = '주변 정류장을 찾지 못했습니다.';
   }
 
-  void _clearLocationBranchData() {
+  void _clearLocationBranchData({
+    String shuttleMessage = '주변 정류장 없음',
+    String busMessage = '주변 정류장 없음',
+  }) {
     shouldShowFallbackUpcomingWidget.value = false;
     fallbackCampus.value = null;
     branchMode.value = ArrivalBranchMode.noNearbyStop;
     _stopRefreshTimer();
     _disconnectBusWebSocket();
-    _clearArrivalResults();
+    _clearArrivalResults(
+      shuttleMessage: shuttleMessage,
+      busMessage: busMessage,
+    );
   }
 
-  void _clearArrivalResults() {
+  void _clearArrivalResults({
+    String shuttleMessage = '주변 정류장 없음',
+    String busMessage = '주변 정류장 없음',
+  }) {
     nearbyShuttleStop.value = null;
+    nearbyBusStops.clear();
     nearbyBusStop.value = null;
     shuttleArrivals.clear();
     busArrivals.clear();
-    shuttleEmptyMessage.value = '주변 정류장 없음';
-    busEmptyMessage.value = '주변 정류장 없음';
+    shuttleEmptyMessage.value = shuttleMessage;
+    busEmptyMessage.value = busMessage;
   }
 
   void _restartRefreshTimerIfNeeded() {
@@ -1125,12 +1260,14 @@ class UpcomingDeparturesArrivalViewModel extends GetxController
       return;
     }
 
+    final int secondsUntilRefresh = refreshIntervalSeconds;
     _refreshTimer = Timer(
-      Duration(seconds: refreshIntervalSeconds),
+      Duration(seconds: secondsUntilRefresh),
       () {
         loadData(
           silent: true,
           forceNetworkRefresh: true,
+          allowPermissionPrompt: false,
         );
       },
     );
@@ -1155,6 +1292,19 @@ class UpcomingDeparturesArrivalViewModel extends GetxController
   bool _isLocationBranch(ArrivalBranchMode mode) {
     return mode == ArrivalBranchMode.asanLocationArrival ||
         mode == ArrivalBranchMode.cheonanLocationArrival;
+  }
+
+  int _secondsUntilNextMinute() {
+    final DateTime now = DateTime.now();
+    final DateTime nextMinute = DateTime(
+      now.year,
+      now.month,
+      now.day,
+      now.hour,
+      now.minute + 1,
+    );
+    final int seconds = nextMinute.difference(now).inSeconds;
+    return seconds <= 0 ? 1 : seconds;
   }
 
   DateTime _parseTimeToday(String hhmmss) {
@@ -1223,5 +1373,15 @@ class UpcomingDeparturesArrivalViewModel extends GetxController
         .replaceAll(')', '')
         .replaceAll('.', '')
         .toLowerCase();
+  }
+
+  String? _findNearbyBusStopName(String keyword) {
+    final String normalizedKeyword = _normalizeStopName(keyword);
+    for (final NearbyBusStop stop in nearbyBusStops) {
+      if (_normalizeStopName(stop.displayName).contains(normalizedKeyword)) {
+        return stop.displayName;
+      }
+    }
+    return null;
   }
 }
