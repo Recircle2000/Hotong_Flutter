@@ -56,11 +56,13 @@ class _AutoScrollTextState extends State<AutoScrollText> {
         });
 
         // 오른쪽 끝까지 스크롤
-        _scrollController.animateTo(
+        _scrollController
+            .animateTo(
           _scrollController.position.maxScrollExtent,
           duration: widget.scrollDuration,
           curve: Curves.linear,
-        ).then((_) {
+        )
+            .then((_) {
           // 스크롤이 끝나면 다시 처음으로 돌아가기 전에 잠시 멈춤
           if (mounted) {
             setState(() {
@@ -70,11 +72,13 @@ class _AutoScrollTextState extends State<AutoScrollText> {
             _timer = Timer(widget.pauseDuration, () {
               if (_scrollController.hasClients && mounted) {
                 // 처음으로 돌아가기
-                _scrollController.animateTo(
+                _scrollController
+                    .animateTo(
                   0,
                   duration: Duration(microseconds: 1), // 0.5초
                   curve: Curves.easeInOut,
-                ).then((_) {
+                )
+                    .then((_) {
                   if (mounted) {
                     // 다시 시작
                     _startScrolling();
@@ -100,13 +104,16 @@ class _AutoScrollTextState extends State<AutoScrollText> {
   Widget build(BuildContext context) {
     return SizedBox(
       height: widget.height,
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        controller: _scrollController,
-        physics: NeverScrollableScrollPhysics(), // 사용자 스크롤 비활성화
-        child: Text(
-          widget.text,
-          style: widget.style,
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          controller: _scrollController,
+          physics: NeverScrollableScrollPhysics(), // 사용자 스크롤 비활성화
+          child: Text(
+            widget.text,
+            style: widget.style,
+          ),
         ),
       ),
     );

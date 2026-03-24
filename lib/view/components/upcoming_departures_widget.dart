@@ -13,7 +13,17 @@ import 'scale_button.dart';
 import '../../viewmodel/busmap_viewmodel.dart';
 
 class UpcomingDeparturesWidget extends StatefulWidget {
-  UpcomingDeparturesWidget({Key? key}) : super(key: key);
+  UpcomingDeparturesWidget({
+    Key? key,
+    this.campusOverride,
+    this.controllerTag,
+    this.enableAutoRefresh = true,
+  })  : assert(campusOverride == null || controllerTag != null),
+        super(key: key);
+
+  final String? campusOverride;
+  final String? controllerTag;
+  final bool enableAutoRefresh;
 
   @override
   _UpcomingDeparturesWidgetState createState() =>
@@ -22,8 +32,7 @@ class UpcomingDeparturesWidget extends StatefulWidget {
 
 class _UpcomingDeparturesWidgetState extends State<UpcomingDeparturesWidget>
     with RouteAware {
-  final UpcomingDepartureViewModel viewModel =
-      Get.put(UpcomingDepartureViewModel());
+  late final UpcomingDepartureViewModel viewModel;
   int _remainingSeconds = 30; // 자동 새로고침까지 남은 시간(초)
   Timer? _refreshCountdownTimer;
 
@@ -33,6 +42,28 @@ class _UpcomingDeparturesWidgetState extends State<UpcomingDeparturesWidget>
   @override
   void initState() {
     super.initState();
+
+    if (widget.controllerTag != null) {
+      viewModel = Get.isRegistered<UpcomingDepartureViewModel>(
+        tag: widget.controllerTag,
+      )
+          ? Get.find<UpcomingDepartureViewModel>(tag: widget.controllerTag)
+          : Get.put(
+              UpcomingDepartureViewModel(
+                campusOverride: widget.campusOverride,
+                enableAutoRefresh: widget.enableAutoRefresh,
+              ),
+              tag: widget.controllerTag,
+            );
+    } else {
+      viewModel = Get.isRegistered<UpcomingDepartureViewModel>()
+          ? Get.find<UpcomingDepartureViewModel>()
+          : Get.put(
+              UpcomingDepartureViewModel(
+                enableAutoRefresh: widget.enableAutoRefresh,
+              ),
+            );
+    }
 
     // 뷰모델의 새로고침 콜백 등록
     viewModel.setRefreshCallback(() {
@@ -84,8 +115,15 @@ class _UpcomingDeparturesWidgetState extends State<UpcomingDeparturesWidget>
   @override
   void dispose() {
     _refreshCountdownTimer?.cancel();
+    viewModel.setHomePageState(false);
+    viewModel.setWidgetEnabled(false);
+    viewModel.clearRefreshCallback();
     // 라우트 옵저버에서 구독 해제
     _routeObserver.unsubscribe(this);
+    if (widget.controllerTag != null &&
+        Get.isRegistered<UpcomingDepartureViewModel>(tag: widget.controllerTag)) {
+      Get.delete<UpcomingDepartureViewModel>(tag: widget.controllerTag);
+    }
     super.dispose();
   }
 
@@ -93,22 +131,32 @@ class _UpcomingDeparturesWidgetState extends State<UpcomingDeparturesWidget>
     // 기존 타이머 취소
     _refreshCountdownTimer?.cancel();
 
+    if (!widget.enableAutoRefresh) {
+      _remainingSeconds = 0;
+      return;
+    }
+
     // 천안 캠퍼스는 5초, 나머지는 30초
     final countdownSeconds =
-        viewModel.settingsViewModel.selectedCampus.value == '천안' ? 5 : 30;
+        viewModel.currentCampus == '천안' ? 5 : 30;
 
     // 초기값 설정
     _remainingSeconds = countdownSeconds;
 
     // 1초마다 카운트다운
     _refreshCountdownTimer = Timer.periodic(Duration(seconds: 1), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+
       setState(() {
         if (_remainingSeconds > 0) {
           _remainingSeconds--;
         } else {
           // 카운트다운 종료 시 다시 시작 (캠퍼스 변경 시 간격도 변경 가능하도록)
           final newCountdownSeconds =
-              viewModel.settingsViewModel.selectedCampus.value == '천안' ? 5 : 30;
+              viewModel.currentCampus == '천안' ? 5 : 30;
           _remainingSeconds = newCountdownSeconds;
           // 타이머 초기화와 동시에 수행되는 자동 새로고침
           // 뷰모델의 타이머가 자동으로 새로고침을 실행하므로 여기서는 호출하지 않음
@@ -120,14 +168,22 @@ class _UpcomingDeparturesWidgetState extends State<UpcomingDeparturesWidget>
   // 수동 새로고침 시 카운트다운도 리셋
   void _manualRefresh() {
     viewModel.loadData();
-    _startRefreshCountdown();
+    if (widget.enableAutoRefresh) {
+      _startRefreshCountdown();
+    }
   }
 
   // 타이머 디스플레이를 리셋하는 메소드
   void _resetTimerDisplay() {
+    if (!mounted) {
+      return;
+    }
+
     setState(() {
       final countdownSeconds =
-          viewModel.settingsViewModel.selectedCampus.value == '천안' ? 5 : 30;
+          widget.enableAutoRefresh
+              ? (viewModel.currentCampus == '천안' ? 5 : 30)
+              : 0;
       _remainingSeconds = countdownSeconds;
     });
   }
@@ -157,7 +213,7 @@ class _UpcomingDeparturesWidgetState extends State<UpcomingDeparturesWidget>
               const SizedBox(width: 4),
               Expanded(
                 child: Obx(() => Text(
-                      '${viewModel.settingsViewModel.selectedCampus.value == '천안' ? '기점 출발 기준 / 실시간 도착 정보 제공' : '아캠 출발 기준'} ',
+                      '${viewModel.currentCampus == '천안' ? '기점 출발 기준 / 실시간 도착 정보 제공' : '아캠 출발 기준'} ',
                       style: TextStyle(
                         fontSize: 10,
                         fontWeight: FontWeight.w500,
@@ -176,7 +232,7 @@ class _UpcomingDeparturesWidgetState extends State<UpcomingDeparturesWidget>
                       ),
                     )
                   : Text(
-                      '${_remainingSeconds}초',
+                      widget.enableAutoRefresh ? '${_remainingSeconds}초' : '-',
                       style: TextStyle(
                         fontSize: 10,
                         color: Colors.grey[600],
@@ -319,9 +375,7 @@ class _UpcomingDeparturesWidgetState extends State<UpcomingDeparturesWidget>
                         children: [
                           _buildSectionTitle(context, '시내버스'),
                           // 천안 캠퍼스: 실시간 버스 + 기존 시내버스 합쳐서 최대 3개
-                          if (viewModel
-                                  .settingsViewModel.selectedCampus.value ==
-                              '천안')
+                          if (viewModel.currentCampus == '천안')
                             Obx(() {
                               final combinedBuses = [
                                 ...viewModel.ceRealtimeBuses,
@@ -349,9 +403,7 @@ class _UpcomingDeparturesWidgetState extends State<UpcomingDeparturesWidget>
                               );
                             }),
                           // 아산 캠퍼스: 기존 시내버스만 최대 3개
-                          if (viewModel
-                                  .settingsViewModel.selectedCampus.value !=
-                              '천안')
+                          if (viewModel.currentCampus != '천안')
                             Obx(() => viewModel.upcomingCityBuses.isEmpty
                                 ? _buildEmptyMessage(context, '버스')
                                 : Column(

@@ -30,6 +30,7 @@ class _ShuttleRouteSelectionViewState extends State<ShuttleRouteSelectionView> {
   // 셔틀버스 색상 - 홈 화면과 동일하게 맞춤
   final Color shuttleColor = const Color(0xFFB83227);
   final ScrollController _scrollController = ScrollController();
+  Worker? _errorWorker;
 
   final GlobalKey _nearbyButtonKey = GlobalKey();
 
@@ -38,6 +39,16 @@ class _ShuttleRouteSelectionViewState extends State<ShuttleRouteSelectionView> {
   @override
   void initState() {
     super.initState();
+    _errorWorker = ever<String?>(viewModel.errorMessage, (message) {
+      if (!mounted || message == null || message.isEmpty) return;
+      Get.snackbar(
+        '오류',
+        message,
+        snackPosition: SnackPosition.BOTTOM,
+      );
+      viewModel.clearErrorMessage();
+    });
+
     if (widget.startExperienceTour) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _startExperienceTour();
@@ -47,6 +58,7 @@ class _ShuttleRouteSelectionViewState extends State<ShuttleRouteSelectionView> {
 
   @override
   void dispose() {
+    _errorWorker?.dispose();
     _scrollController.dispose();
     super.dispose();
   }
@@ -386,7 +398,7 @@ class _ShuttleRouteSelectionViewState extends State<ShuttleRouteSelectionView> {
 
         SizedBox(height: 24),
 
-        Text('셔틀버스 노선 선택',
+        Text('노선 선택',
             style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
         SizedBox(height: 12),
 
@@ -406,13 +418,24 @@ class _ShuttleRouteSelectionViewState extends State<ShuttleRouteSelectionView> {
   }
 
   // 플랫폼별 로딩 인디케이터
-  Widget _buildPlatformLoadingIndicator() {
-    return CircularProgressIndicator.adaptive(
-      valueColor: AlwaysStoppedAnimation<Color>(shuttleColor),
+  Widget _buildPlatformLoadingIndicator({
+    double size = 24,
+    Color? color,
+    double strokeWidth = 2.5,
+  }) {
+    final indicatorColor = color ?? shuttleColor;
+    return SizedBox(
+      width: size,
+      height: size,
+      child: CircularProgressIndicator.adaptive(
+        strokeWidth: strokeWidth,
+        valueColor: AlwaysStoppedAnimation<Color>(indicatorColor),
+      ),
     );
   }
 
   // 현재 시간 정보 및 도움말 카드
+  // 현재 시간/날짜를 간결하게 보여주는 헤더
   Widget _buildCurrentTimeInfo(BuildContext context) {
     return StreamBuilder<DateTime>(
       stream: Stream<DateTime>.periodic(
@@ -422,69 +445,51 @@ class _ShuttleRouteSelectionViewState extends State<ShuttleRouteSelectionView> {
       initialData: DateTime.now(),
       builder: (context, snapshot) {
         final now = snapshot.data ?? DateTime.now();
-        final dayOfWeek =
-            ['월요일', '화요일', '수요일', '목요일', '금요일', '토요일', '일요일'][now.weekday - 1];
+        final dayOfWeek = _getDayOfWeekString(now);
         final timeString = DateFormat('HH:mm').format(now);
         final brightness = Theme.of(context).brightness;
         final backgroundColor = brightness == Brightness.dark
             ? shuttleColor.withOpacity(0.2)
             : shuttleColor.withOpacity(0.1);
+        final titleColor =
+            brightness == Brightness.dark ? Colors.redAccent : shuttleColor;
 
         return Container(
-          padding: EdgeInsets.all(16),
+          padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             color: backgroundColor,
-            borderRadius: BorderRadius.circular(25),
-            // boxShadow: [
-            //   BoxShadow(
-            //     color: Colors.black.withOpacity(0.1),
-            //     blurRadius: 0,
-            //     offset: const Offset(0, 0),
-            //   ),
-            // ],
+            borderRadius: BorderRadius.circular(20),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
                 children: [
-                  Icon(Icons.access_time, color: shuttleColor),
-                  SizedBox(width: 8),
                   Text(
-                    '현재 시간: $timeString',
+                '${DateFormat('MM월 dd일').format(now)} ($dayOfWeek)',
+                style: TextStyle(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 17,
+                  color: titleColor.withOpacity(0.85),
+                ),
+              ),
+                  const Spacer(),
+                  Text(
+                    timeString,
                     style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                      color: brightness == Brightness.dark
-                          ? Colors.redAccent
-                          : shuttleColor,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 17,
+                      color: titleColor,
                     ),
                   ),
                 ],
               ),
-              SizedBox(height: 8),
-              Row(
-                children: [
-                  Icon(Icons.calendar_today, color: shuttleColor),
-                  SizedBox(width: 8),
-                  Text(
-                    '오늘:  ${DateFormat('yyyy년 MM월 dd일').format(now)} ($dayOfWeek)',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                      color: brightness == Brightness.dark
-                          ? Colors.redAccent
-                          : shuttleColor,
-                    ),
-                  ),
-                ],
-              ),
-              SizedBox(height: 12),
+              const SizedBox(height: 10),
               Text(
-                '아래에서 노선과 운행 날짜를 선택하여 셔틀버스 시간표를 확인하세요.',
+                '노선과 운행 날짜를 선택해 시간표를 조회하세요.',
                 style: TextStyle(
                   color: Theme.of(context).hintColor,
-                  fontSize: 14,
+                  fontSize: 13,
                 ),
               ),
             ],
@@ -673,7 +678,7 @@ class _ShuttleRouteSelectionViewState extends State<ShuttleRouteSelectionView> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          '운행 날짜 선택',
+          '탑승일',
           style: TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.bold,
@@ -684,6 +689,8 @@ class _ShuttleRouteSelectionViewState extends State<ShuttleRouteSelectionView> {
           context,
           onTapDatePicker: () => _showIOSDatePicker(context),
         ),
+        SizedBox(height: 8),
+        _buildScheduleTypeInfoText(context),
       ],
     );
   }
@@ -745,7 +752,7 @@ class _ShuttleRouteSelectionViewState extends State<ShuttleRouteSelectionView> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          '운행 날짜 선택',
+          '탑승일',
           style: TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.bold,
@@ -756,8 +763,54 @@ class _ShuttleRouteSelectionViewState extends State<ShuttleRouteSelectionView> {
           context,
           onTapDatePicker: () => _showAndroidDatePicker(context),
         ),
+        SizedBox(height: 8),
+        _buildScheduleTypeInfoText(context),
       ],
     );
+  }
+
+  Widget _buildScheduleTypeInfoText(BuildContext context) {
+    return Obx(() {
+      if (viewModel.selectedDate.value.isEmpty) {
+        return SizedBox.shrink();
+      }
+
+      final scheduleTypeName = viewModel.scheduleTypeName.value;
+      final isLoading = viewModel.isLoadingScheduleType.value;
+
+      if (scheduleTypeName.isEmpty && !isLoading) {
+        return SizedBox.shrink();
+      }
+
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            '운행 유형: $scheduleTypeName',
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: Theme.of(context).brightness == Brightness.dark
+                  ? Colors.redAccent
+                  : shuttleColor,
+            ),
+          ),
+          SizedBox(width: 8),
+          SizedBox(
+            width: 14,
+            height: 14,
+            child: Opacity(
+              opacity: isLoading ? 1 : 0,
+              child: _buildPlatformLoadingIndicator(
+                size: 14,
+                color: Theme.of(context).hintColor,
+                strokeWidth: 2,
+              ),
+            ),
+          ),
+        ],
+      );
+    });
   }
 
   Widget _buildDateSelectorWithArrows(

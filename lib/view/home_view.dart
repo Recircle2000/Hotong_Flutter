@@ -10,16 +10,19 @@ import 'notice_list_view.dart';
 import 'shuttle_bus/shuttle_route_selection_view.dart';
 import 'settings_view.dart';
 import 'components/upcoming_departures_widget.dart';
+import 'components/upcoming_departures_arrival_widget.dart';
 import 'components/auto_scroll_text.dart';
 import '../utils/platform_utils.dart';
 import 'city_bus/grouped_bus_view.dart';
 import 'subway/subway_view.dart';
 import 'package:hsro/view/components/scale_button.dart';
 import 'package:tutorial_coach_mark/tutorial_coach_mark.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:app_version_update/app_version_update.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import '../services/preferences_service.dart';
+import '../viewmodel/upcoming_departure_viewmodel.dart';
+import '../viewmodel/upcoming_departures_arrival_viewmodel.dart';
 
 class HomeView extends StatefulWidget {
   const HomeView({Key? key}) : super(key: key);
@@ -30,6 +33,9 @@ class HomeView extends StatefulWidget {
 
 class _HomeViewState extends State<HomeView> {
   final noticeViewModel = Get.put(NoticeViewModel());
+  final SettingsViewModel _settingsViewModel = Get.find<SettingsViewModel>();
+  final PreferencesService _preferencesService = PreferencesService();
+  late final Worker _departureWidgetSettingWorker;
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   final GlobalKey guideKey = GlobalKey();
   final ScrollController _homeScrollController = ScrollController();
@@ -46,25 +52,44 @@ class _HomeViewState extends State<HomeView> {
 
   @override
   void initState() {
+    _departureWidgetSettingWorker = ever<bool>(
+      _settingsViewModel.isLocationBasedDepartureWidgetEnabled,
+      (enabled) {
+        _applyDepartureWidgetMode(enabled);
+      },
+    );
     super.initState();
-    // 화면이 그려진 후 초기화 로직 실행
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _handleStartupFlow();
     });
+
+    _applyDepartureWidgetMode(
+        _settingsViewModel.isLocationBasedDepartureWidgetEnabled.value);
+  }
+
+  void _applyDepartureWidgetMode(bool isLocationBasedEnabled) {
+    if (Get.isRegistered<UpcomingDepartureViewModel>()) {
+      Get.find<UpcomingDepartureViewModel>()
+          .setWidgetEnabled(!isLocationBasedEnabled);
+    }
+    if (Get.isRegistered<UpcomingDeparturesArrivalViewModel>()) {
+      Get.find<UpcomingDeparturesArrivalViewModel>()
+          .setWidgetEnabled(isLocationBasedEnabled);
+    }
   }
 
   Future<void> _handleStartupFlow() async {
-    final prefs = await SharedPreferences.getInstance();
-
     // 1. 면책 문구 확인 (최초 실행 시)
-    final bool isFirstRun = prefs.getBool('first_run') ?? true;
+    final bool isFirstRun =
+        await _preferencesService.getBoolOrDefault('first_run', true);
     if (isFirstRun) {
       await PlatformUtils.showPlatformDisclaimerDialog(context);
-      await prefs.setBool('first_run', false);
+      await _preferencesService.setBool('first_run', false);
     }
 
     // 2. 가이드 확인
-    final hasSeenGuide = prefs.getBool('has_seen_guide') ?? false;
+    final hasSeenGuide =
+        await _preferencesService.getBoolOrDefault('has_seen_guide', false);
     if (!hasSeenGuide) {
       // 드로어 열기
       _scaffoldKey.currentState?.openDrawer();
@@ -149,8 +174,7 @@ class _HomeViewState extends State<HomeView> {
   }
 
   Future<void> _completeTutorial() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('has_seen_guide', true);
+    await _preferencesService.setBool('has_seen_guide', true);
 
     // 튜토리얼 종료 시 드로어 닫기
     if (_scaffoldKey.currentState?.isDrawerOpen ?? false) {
@@ -358,6 +382,7 @@ class _HomeViewState extends State<HomeView> {
 
   @override
   void dispose() {
+    _departureWidgetSettingWorker.dispose();
     _homeScrollController.dispose();
     super.dispose();
   }
@@ -585,7 +610,10 @@ class _HomeViewState extends State<HomeView> {
               // 곧 출발 섹션
               Container(
                 key: _upcomingWidgetKey,
-                child: UpcomingDeparturesWidget(),
+                child: Obx(() => _settingsViewModel
+                        .isLocationBasedDepartureWidgetEnabled.value
+                    ? const UpcomingDeparturesArrivalWidget()
+                    : UpcomingDeparturesWidget()),
               ),
 
               // const SizedBox(height: 16),

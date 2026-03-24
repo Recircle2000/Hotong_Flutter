@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../../models/emergency_notice_model.dart';
 import '../../viewmodel/subway_viewmodel.dart';
 import '../../models/subway_arrival_model.dart';
 import '../components/emergency_notice_banner.dart';
 import 'subway_schedule_view.dart';
 import 'dart:io' show Platform;
+import '../../services/preferences_service.dart';
 
 class SubwayView extends StatefulWidget {
   final String stationName;
@@ -19,6 +19,7 @@ class SubwayView extends StatefulWidget {
 
 class _SubwayViewState extends State<SubwayView> {
   final SubwayViewModel controller = Get.put(SubwayViewModel());
+  final PreferencesService _preferencesService = PreferencesService();
   late PageController _pageController;
   late RxString _selectedStation;
 
@@ -34,9 +35,10 @@ class _SubwayViewState extends State<SubwayView> {
   }
 
   void _showSwipeTutorial() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    bool hasSeenTutorial =
-        prefs.getBool('has_seen_subway_swipe_tutorial') ?? false;
+    final hasSeenTutorial = await _preferencesService.getBoolOrDefault(
+      'has_seen_subway_swipe_tutorial',
+      false,
+    );
 
     if (hasSeenTutorial) return;
 
@@ -77,9 +79,12 @@ class _SubwayViewState extends State<SubwayView> {
                   ),
                   const SizedBox(height: 24),
                   ElevatedButton(
-                    onPressed: () {
+                    onPressed: () async {
                       Get.back();
-                      prefs.setBool('has_seen_subway_swipe_tutorial', true);
+                      await _preferencesService.setBool(
+                        'has_seen_subway_swipe_tutorial',
+                        true,
+                      );
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Theme.of(context).colorScheme.primary,
@@ -103,8 +108,12 @@ class _SubwayViewState extends State<SubwayView> {
     );
 
     // Ensure it's marked as seen even if dismissed via barrier
-    if (prefs.getBool('has_seen_subway_swipe_tutorial') != true) {
-      await prefs.setBool('has_seen_subway_swipe_tutorial', true);
+    final isNowSeen = await _preferencesService.getBoolOrDefault(
+      'has_seen_subway_swipe_tutorial',
+      false,
+    );
+    if (!isNowSeen) {
+      await _preferencesService.setBool('has_seen_subway_swipe_tutorial', true);
     }
   }
 

@@ -2,17 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_naver_map/flutter_naver_map.dart';
 import 'package:get/get.dart';
 import 'package:flutter/services.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:flutter/cupertino.dart';
-import 'dart:io' show Platform;
 import 'view/home_view.dart';
 import 'utils/env_config.dart';
 import 'utils/location_service.dart';
-import 'utils/platform_utils.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'viewmodel/settings_viewmodel.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
-import 'package:app_version_update/app_version_update.dart';
 import 'package:hsro/utils/bus_times_loader.dart';
 
 void main() async {
@@ -41,7 +36,7 @@ void main() async {
 
   // Settings ViewModel 등록
   Get.put(SettingsViewModel(), permanent: true);
-  
+
   // RouteObserver 등록
   Get.put(RouteObserver<PageRoute>(), permanent: true);
 
@@ -54,7 +49,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final routeObserver = Get.find<RouteObserver<PageRoute>>();
-    
+
     return GetMaterialApp(
       localizationsDelegates: const [
         GlobalMaterialLocalizations.delegate,
@@ -72,7 +67,8 @@ class MyApp extends StatelessWidget {
       // lib/main.dart의 theme 부분 수정
       theme: ThemeData(
         primaryColor: Colors.white, // 주요 브랜드 색상
-        scaffoldBackgroundColor: const Color(0xFFF8F9FA), // 앱의 기본 배경색 (현재: 밝은 회색 계열)
+        scaffoldBackgroundColor:
+            const Color(0xFFF8F9FA), // 앱의 기본 배경색 (현재: 밝은 회색 계열)
         appBarTheme: const AppBarTheme(
           backgroundColor: Color(0xFFF8F9FA), // 앱바 배경색 (배경과 동일하게 설정하여 일체감)
           foregroundColor: Colors.black, // 앱바의 텍스트 및 아이콘 색상
@@ -109,7 +105,8 @@ class MyApp extends StatelessWidget {
         elevatedButtonTheme: ElevatedButtonThemeData(
           style: ButtonStyle(
             backgroundColor: MaterialStateProperty.all(Colors.black), // 버튼 배경색
-            foregroundColor: MaterialStateProperty.all(Colors.white), // 버튼 텍스트 색상
+            foregroundColor:
+                MaterialStateProperty.all(Colors.white), // 버튼 텍스트 색상
             shape: MaterialStateProperty.all(
               RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
@@ -158,8 +155,10 @@ class MyApp extends StatelessWidget {
         ),
         elevatedButtonTheme: ElevatedButtonThemeData(
           style: ButtonStyle(
-            backgroundColor: MaterialStateProperty.all(Colors.white), // 다크모드 버튼 배경 (흰색)
-            foregroundColor: MaterialStateProperty.all(Colors.black), // 다크모드 버튼 텍스트 (검정)
+            backgroundColor:
+                MaterialStateProperty.all(Colors.white), // 다크모드 버튼 배경 (흰색)
+            foregroundColor:
+                MaterialStateProperty.all(Colors.black), // 다크모드 버튼 텍스트 (검정)
             shape: MaterialStateProperty.all(
               RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),

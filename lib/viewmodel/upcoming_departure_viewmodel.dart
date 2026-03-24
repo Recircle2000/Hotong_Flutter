@@ -3,13 +3,11 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart'; // rootBundle 사용
 import 'package:get/get.dart';
-import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart'; // 환경 변수 사용을 위한 패키지 추가
 import 'settings_viewmodel.dart';
 import 'notice_viewmodel.dart';
 import 'package:hsro/utils/bus_times_loader.dart';
-import '../utils/env_config.dart';
+import '../repository/shuttle_repository.dart';
 
 // BusDeparture에 routeKey 추가 (노선+방향 포함 식별자, 예: '1000_DOWN')
 class BusDeparture {
@@ -31,13 +29,28 @@ class BusDeparture {
   });
 
   bool get isRealtimeBus =>
-      destination == '호서대천캠' && (routeKey == '24_DOWN' || routeKey == '81_DOWN') && departureTime is String;
+      destination == '호서대천캠' &&
+      (routeKey == '24_DOWN' || routeKey == '81_DOWN') &&
+      departureTime is String;
 }
 
-class UpcomingDepartureViewModel extends GetxController with WidgetsBindingObserver {
-  // 환경 변수에서 BASE_URL 가져오기
-  final String baseUrl = EnvConfig.baseUrl; // 환경 변수에서 가져옴
+class UpcomingDepartureViewModel extends GetxController
+    with WidgetsBindingObserver {
+  UpcomingDepartureViewModel({
+    ShuttleRepository? shuttleRepository,
+    this.campusOverride,
+    this.enableAutoRefresh = true,
+  }) : _shuttleRepository = shuttleRepository ?? ShuttleRepository();
+
+  final ShuttleRepository _shuttleRepository;
+  final String? campusOverride;
+  final bool enableAutoRefresh;
   final settingsViewModel = Get.find<SettingsViewModel>();
+  final RxString currentCampusRx = ''.obs;
+
+  String get currentCampus => campusOverride == null
+      ? settingsViewModel.selectedCampus.value
+      : currentCampusRx.value;
 
   // NoticeViewModel 참조 (지연 초기화)
   NoticeViewModel? get noticeViewModel {
@@ -75,8 +88,8 @@ class UpcomingDepartureViewModel extends GetxController with WidgetsBindingObser
 
   // 셔틀 노선 상세 페이지 이동을 위한 변수들
   final RxInt selectedScheduleId = (-1).obs; // 선택된 스케줄 ID
-  final RxString scheduleTypeName = ''
-      .obs; // 현재 스케줄 타입 이름 (Weekday, Saturday, Holiday)
+  final RxString scheduleTypeName =
+      ''.obs; // 현재 스케줄 타입 이름 (Weekday, Saturday, Holiday)
 
   // 오늘 시내버스 운행 종료 여부 플래그
   final isCityBusServiceEnded = false.obs;
@@ -92,14 +105,22 @@ class UpcomingDepartureViewModel extends GetxController with WidgetsBindingObser
 
   // 각 노선별 실시간 위치에서, 호서대(천안)까지 남은 정류장 수 계산용 버스 표시 목록
   final RxList<BusDeparture> ceRealtimeBuses = <BusDeparture>[].obs;
-  
+
   // 천안 캠퍼스용 임시 시내버스 데이터 저장 (깜박임 방지)
   List<BusDeparture>? _tempCityBuses;
   bool? _tempCityBusServiceEnded;
   List<BusDeparture>? _tempRealtimeBuses;
+  Worker? _campusWorker;
+  Worker? _activeWorker;
+  Worker? _homePageWorker;
+  bool _isDisposed = false;
 
   void setRefreshCallback(Function callback) {
     _onRefreshCallback = callback;
+  }
+
+  void clearRefreshCallback() {
+    _onRefreshCallback = null;
   }
 
   @override
@@ -107,20 +128,30 @@ class UpcomingDepartureViewModel extends GetxController with WidgetsBindingObser
     super.onInit();
     // 앱 상태 감지를 위한 옵저버 등록
     WidgetsBinding.instance.addObserver(this);
+    currentCampusRx.value =
+        campusOverride ?? settingsViewModel.selectedCampus.value;
 
     // 활성 상태 추적 변수 설정
     isActive.value = true;
     isOnHomePage.value = true;
 
     // 캠퍼스 설정이 변경되면 데이터 다시 로드 및 타이머 재시작
-    ever(settingsViewModel.selectedCampus, (_) {
-      _isInitialLoad.value = true; // 캠퍼스 변경 시 첫 로딩으로 처리
-      loadData();
-      // loadData 내부에서 타이머 관리하므로 _startRefreshTimer() 호출 불필요
-    });
+    if (campusOverride == null) {
+      _campusWorker = ever(settingsViewModel.selectedCampus, (_) {
+        if (_isDisposed) {
+          return;
+        }
+        _isInitialLoad.value = true; // 캠퍼스 변경 시 첫 로딩으로 처리
+        loadData();
+        // loadData 내부에서 타이머 관리하므로 _startRefreshTimer() 호출 불필요
+      });
+    }
 
     // 활성 상태 변경 리스너 (앱 포그라운드/백그라운드)
-    ever(isActive, (active) {
+    _activeWorker = ever(isActive, (active) {
+      if (_isDisposed) {
+        return;
+      }
       if (active && isOnHomePage.value) {
         print('앱이 활성화됨 -> 즉시 새로고침');
         // 공지사항도 함께 새로고침
@@ -134,7 +165,10 @@ class UpcomingDepartureViewModel extends GetxController with WidgetsBindingObser
     });
 
     // 페이지 상태 변경 리스너 (홈 페이지/다른 페이지)
-    ever(isOnHomePage, (onHomePage) {
+    _homePageWorker = ever(isOnHomePage, (onHomePage) {
+      if (_isDisposed) {
+        return;
+      }
       if (onHomePage && isActive.value) {
         print('홈페이지로 돌아옴 -> 즉시 새로고침');
         // 공지사항도 함께 새로고침
@@ -149,6 +183,9 @@ class UpcomingDepartureViewModel extends GetxController with WidgetsBindingObser
 
     // 초기 데이터 로드 및 타이머 시작 (프레임이 완전히 렌더링된 후 실행)
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_isDisposed) {
+        return;
+      }
       print('위젯 렌더링 완료 후 초기 데이터 로드');
       loadData();
     });
@@ -156,11 +193,21 @@ class UpcomingDepartureViewModel extends GetxController with WidgetsBindingObser
 
   // 페이지 상태 업데이트 함수
   void setHomePageState(bool isOnHome) {
+    if (_isDisposed) {
+      return;
+    }
     isOnHomePage.value = isOnHome;
   }
 
   @override
   void onClose() {
+    _isDisposed = true;
+    _campusWorker?.dispose();
+    _activeWorker?.dispose();
+    _homePageWorker?.dispose();
+    isActive.value = false;
+    isOnHomePage.value = false;
+    _onRefreshCallback = null;
     // 앱 상태 감지 옵저버 제거
     WidgetsBinding.instance.removeObserver(this);
     _stopRefreshTimer();
@@ -169,6 +216,9 @@ class UpcomingDepartureViewModel extends GetxController with WidgetsBindingObser
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (_isDisposed) {
+      return;
+    }
     if (state == AppLifecycleState.paused ||
         state == AppLifecycleState.inactive ||
         state == AppLifecycleState.detached) {
@@ -181,14 +231,19 @@ class UpcomingDepartureViewModel extends GetxController with WidgetsBindingObser
   }
 
   void _startRefreshTimer() {
+    if (_isDisposed || !enableAutoRefresh) {
+      _stopRefreshTimer();
+      return;
+    }
+
     // 기존 타이머 취소 (중복 실행 방지)
     _stopRefreshTimer();
 
     // 천안 캠퍼스는 5초, 나머지는 30초 후 업데이트 (단발성 Timer)
-    final refreshInterval = settingsViewModel.selectedCampus.value == '천안' 
-        ? Duration(seconds: 5) 
+    final refreshInterval = currentCampus == '천안'
+        ? Duration(seconds: 5)
         : Duration(seconds: 30);
-    
+
     // Timer.periodic 대신 Timer 사용 -> loadData 완료 후 다시 예약하는 재귀적 구조
     _refreshTimer = Timer(refreshInterval, () {
       print('자동 새로고침 시작');
@@ -202,6 +257,10 @@ class UpcomingDepartureViewModel extends GetxController with WidgetsBindingObser
   }
 
   Future<void> loadData({bool silent = false}) async {
+    if (_isDisposed) {
+      return;
+    }
+
     // 로딩 중에는 타이머가 돌 필요 없으므로 취소
     _stopRefreshTimer();
 
@@ -214,21 +273,34 @@ class UpcomingDepartureViewModel extends GetxController with WidgetsBindingObser
     error.value = '';
 
     try {
-      final isCean = settingsViewModel.selectedCampus.value == '천안';
-      
+      final isCean = currentCampus == '천안';
+
       // 천안 캠퍼스인 경우: 모든 데이터를 준비한 후 한 번에 업데이트 (깜박임 방지)
       if (isCean) {
         // 정류장 시퀀스가 비어있으면 먼저 로드
         if (_ce24DownStops.isEmpty || _ce81DownStops.isEmpty) {
           await loadCeanStopSequences();
-          print('[DEBUG] 정류장 시퀀스 로드 완료 - 24_DOWN: ${_ce24DownStops.length}개, 81_DOWN: ${_ce81DownStops.length}개');
+          if (_isDisposed) {
+            return;
+          }
+          print(
+              '[DEBUG] 정류장 시퀀스 로드 완료 - 24_DOWN: ${_ce24DownStops.length}개, 81_DOWN: ${_ce81DownStops.length}개');
         }
-        
+
         // 모든 데이터를 먼저 준비 (UI 업데이트 없이)
         await loadCityBusData(updateUI: false);
+        if (_isDisposed) {
+          return;
+        }
         await loadShuttleData();
+        if (_isDisposed) {
+          return;
+        }
         await fetchCeanRealtimeBuses(updateUI: false);
-        
+        if (_isDisposed) {
+          return;
+        }
+
         // 모든 데이터가 준비된 후 한 번에 UI 업데이트 (실시간 버스 먼저, 시간표 버스 나중에)
         if (_tempRealtimeBuses != null) {
           ceRealtimeBuses.clear();
@@ -246,7 +318,13 @@ class UpcomingDepartureViewModel extends GetxController with WidgetsBindingObser
       } else {
         // 아산 캠퍼스인 경우: 기존대로 순차적으로 업데이트
         await loadCityBusData();
+        if (_isDisposed) {
+          return;
+        }
         await loadShuttleData();
+        if (_isDisposed) {
+          return;
+        }
       }
 
       print('데이터 로드 완료');
@@ -257,36 +335,51 @@ class UpcomingDepartureViewModel extends GetxController with WidgetsBindingObser
       // 에러 발생 시에도 첫 로딩 완료 처리 (무한 로딩 방지)
       _isInitialLoad.value = false;
     } finally {
-      isLoading.value = false;
-      isRefreshing.value = false; // 로딩 종료
+      if (!_isDisposed) {
+        isLoading.value = false;
+        isRefreshing.value = false; // 로딩 종료
 
-      // 로딩 완료 후 (성공/실패 무관)
-      // 1. UI 타이머 리셋
-      _onRefreshCallback?.call();
-      
-      // 2. 다음 자동 새로고침 예약 (활성 상태이고 홈일 때만)
-      if (isActive.value && isOnHomePage.value) {
-        _startRefreshTimer();
+        // 로딩 완료 후 (성공/실패 무관)
+        // 1. UI 타이머 리셋
+        _onRefreshCallback?.call();
+
+        // 2. 다음 자동 새로고침 예약 (활성 상태이고 홈일 때만)
+        if (enableAutoRefresh && isActive.value && isOnHomePage.value) {
+          _startRefreshTimer();
+        }
       }
+    }
+  }
+
+  void setWidgetEnabled(bool enabled) {
+    if (_isDisposed) {
+      return;
+    }
+    if (enabled == isActive.value) return;
+    isActive.value = enabled;
+    if (enabled) {
+      loadData();
+    } else {
+      _stopRefreshTimer();
     }
   }
 
   Future<void> loadCityBusData({bool updateUI = true}) async {
     try {
       // 현재 캠퍼스 확인
-      final currentCampus = settingsViewModel.selectedCampus.value;
+      final currentCampus = this.currentCampus;
       // bus_times.json 파일 읽기
       final Map<String, dynamic> busData = await BusTimesLoader.loadBusTimes();
-      final Map<String, DateTime> realLastBusTimePerRoute = {}; // 한 번만 선언, 모든 곳에서 이 변수 이용
+      final Map<String, DateTime> realLastBusTimePerRoute =
+          {}; // 한 번만 선언, 모든 곳에서 이 변수 이용
       // 현재 시간 및 오늘 날짜
       final now = DateTime.now();
       final today = DateTime(now.year, now.month, now.day);
       // 곧 출발하는 버스 리스트
       final upcomingBuses = <BusDeparture>[];
       // 캠퍼스에 따라 다른 출발지 설정
-      final String departurePlace = currentCampus == '천안'
-          ? '각원사 회차지'
-          : '호서대학교 기점';
+      final String departurePlace =
+          currentCampus == '천안' ? '각원사 회차지' : '호서대학교 기점';
       // 오늘 운행 종료 플래그 초기화
       bool lastBusDeparted = true;
       busData.forEach((routeKey, routeData) {
@@ -312,7 +405,8 @@ class UpcomingDepartureViewModel extends GetxController with WidgetsBindingObser
             final hour = int.parse(parts[0]);
             final minute = int.parse(parts[1]);
             final second = 0;
-            final departureTime = DateTime(now.year, now.month, now.day, hour, minute, second);
+            final departureTime =
+                DateTime(now.year, now.month, now.day, hour, minute, second);
             if (departureTime.year == today.year &&
                 departureTime.month == today.month &&
                 departureTime.day == today.day) {
@@ -339,7 +433,8 @@ class UpcomingDepartureViewModel extends GetxController with WidgetsBindingObser
         final bus = upcomingBuses[i];
         final realLastDt = realLastBusTimePerRoute[bus.routeKey];
         //print('[막차 디버깅] 노선(routeKey): ${bus.routeKey}, 출발: ${bus.departureTime}, 실막차: $realLastDt, isLastBus: ${(realLastDt != null) && (bus.departureTime == realLastDt)}');
-        final isLast = (realLastDt != null) && (bus.departureTime == realLastDt);
+        final isLast =
+            (realLastDt != null) && (bus.departureTime == realLastDt);
         upcomingBuses[i] = BusDeparture(
           routeName: bus.routeName,
           destination: bus.destination,
@@ -373,7 +468,7 @@ class UpcomingDepartureViewModel extends GetxController with WidgetsBindingObser
   Future<void> loadShuttleData() async {
     print('셔틀버스 데이터 로드 시작');
     try {
-      final currentCampus = settingsViewModel.selectedCampus.value;
+      final currentCampus = this.currentCampus;
       final int stationId = (currentCampus == '천안') ? 14 : 1;
       if (_previousStationId != stationId) {
         _cachedShuttleData = null;
@@ -393,25 +488,18 @@ class UpcomingDepartureViewModel extends GetxController with WidgetsBindingObser
         }
       }
       if (_cachedShuttleData == null) {
-        final response = await http.get(
-            Uri.parse(
-                '$baseUrl/shuttle/stations/$stationId/schedules-by-date?date=$dateStr'),
-            headers: {'Accept-Charset': 'UTF-8'}
+        responseData = await _shuttleRepository.fetchStationSchedulesByDate(
+          stationId: stationId,
+          date: dateStr,
         );
-        if (response.statusCode == 200) {
-          final String decodedBody = utf8.decode(response.bodyBytes);
-          responseData = json.decode(decodedBody);
-          print(responseData);
-          _cachedShuttleData = responseData;
-        } else {
-          throw Exception('API 오류:  [200m${response.statusCode} [0m');
-        }
+        print(responseData);
+        _cachedShuttleData = responseData;
       } else {
         responseData = _cachedShuttleData!;
       }
-      scheduleTypeName.value =
-          responseData['schedule_type_name'] ?? responseData['schedule_type'] ??
-              '';
+      scheduleTypeName.value = responseData['schedule_type_name'] ??
+          responseData['schedule_type'] ??
+          '';
       final List<dynamic> schedulesData = responseData['schedules'] ?? [];
       final Map<int, String> routeNames = _cachedRouteNames ?? {};
       final upcomingShuttleList = <BusDeparture>[];
@@ -427,7 +515,8 @@ class UpcomingDepartureViewModel extends GetxController with WidgetsBindingObser
         final second = timeParts.length > 2 ? int.parse(timeParts[2]) : 0;
         final dt = DateTime(now.year, now.month, now.day, hour, minute, second);
         // 오늘 날짜 체크 생략(이미 서버서 주는 날짜만 오므로)
-        if (!lastShuttleTimePerRoute.containsKey(routeId) || lastShuttleTimePerRoute[routeId]!.isBefore(dt)) {
+        if (!lastShuttleTimePerRoute.containsKey(routeId) ||
+            lastShuttleTimePerRoute[routeId]!.isBefore(dt)) {
           lastShuttleTimePerRoute[routeId] = dt;
         }
       }
@@ -440,26 +529,16 @@ class UpcomingDepartureViewModel extends GetxController with WidgetsBindingObser
       } else {
         isShuttleServiceNotOperated.value = false;
       }
-      int lastIdx = schedulesData.length - 1; // 마지막 인덱스 저장
       for (int i = 0; i < schedulesData.length; i++) {
         final schedule = schedulesData[i];
         final int routeId = schedule['route_id'];
         final int scheduleId = schedule['schedule_id'];
         if (!routeNames.containsKey(routeId)) {
           try {
-            final routeResponse = await http.get(
-                Uri.parse('$baseUrl/shuttle/routes?route_id=$routeId'),
-                headers: {'Accept-Charset': 'UTF-8'}
-            );
-            if (routeResponse.statusCode == 200) {
-              final String decodedRouteBody = utf8.decode(
-                  routeResponse.bodyBytes);
-              final List<dynamic> routeData = json.decode(decodedRouteBody);
-              print(routeData);
-              if (routeData.isNotEmpty) {
-                routeNames[routeId] = routeData[0]['route_name'];
-                _cachedRouteNames = routeNames;
-              }
+            final routeName = await _shuttleRepository.fetchRouteName(routeId);
+            if (routeName != null) {
+              routeNames[routeId] = routeName;
+              _cachedRouteNames = routeNames;
             }
           } catch (e) {
             print('노선 정보 로드 중 오류: $e');
@@ -471,9 +550,8 @@ class UpcomingDepartureViewModel extends GetxController with WidgetsBindingObser
         final hour = int.parse(timeParts[0]);
         final minute = int.parse(timeParts[1]);
         final second = timeParts.length > 2 ? int.parse(timeParts[2]) : 0;
-        final departureTime = DateTime(
-            now.year, now.month, now.day, hour, minute, second
-        );
+        final departureTime =
+            DateTime(now.year, now.month, now.day, hour, minute, second);
         // 오늘 날짜의 셔틀만 체크
         if (departureTime.year == today.year &&
             departureTime.month == today.month &&
@@ -482,7 +560,8 @@ class UpcomingDepartureViewModel extends GetxController with WidgetsBindingObser
           final minutesLeft = (difference.inSeconds / 60).ceil();
           if (difference.inSeconds > 0 && difference.inMinutes <= 90) {
             // 노선별 출발시간 최신화
-            if (!lastShuttleTimePerRoute.containsKey(routeId) || lastShuttleTimePerRoute[routeId]!.isBefore(departureTime)) {
+            if (!lastShuttleTimePerRoute.containsKey(routeId) ||
+                lastShuttleTimePerRoute[routeId]!.isBefore(departureTime)) {
               lastShuttleTimePerRoute[routeId] = departureTime;
             }
             upcomingShuttleList.add(BusDeparture(
@@ -504,8 +583,11 @@ class UpcomingDepartureViewModel extends GetxController with WidgetsBindingObser
       // 2차: upcomingShuttleList(90분 내)에 대입 (아래 for문 내 중복 생성 방지, 기존 for문 교체)
       for (int i = 0; i < upcomingShuttleList.length; i++) {
         final s = upcomingShuttleList[i];
-        final routeId = schedulesData.firstWhere((e) => e['schedule_id'] == s.scheduleId, orElse: () => null)?['route_id'];
-        if (routeId != null && lastShuttleTimePerRoute[routeId] == s.departureTime) {
+        final routeId = schedulesData.firstWhere(
+            (e) => e['schedule_id'] == s.scheduleId,
+            orElse: () => null)?['route_id'];
+        if (routeId != null &&
+            lastShuttleTimePerRoute[routeId] == s.departureTime) {
           upcomingShuttleList[i] = BusDeparture(
             routeName: s.routeName,
             destination: s.destination,
@@ -517,8 +599,8 @@ class UpcomingDepartureViewModel extends GetxController with WidgetsBindingObser
           );
         }
       }
-      upcomingShuttleList.sort((a, b) =>
-          a.minutesLeft.compareTo(b.minutesLeft));
+      upcomingShuttleList
+          .sort((a, b) => a.minutesLeft.compareTo(b.minutesLeft));
       upcomingShuttles.value = upcomingShuttleList.take(3).toList();
       isShuttleServiceEnded.value = lastShuttleDeparted;
       if (upcomingShuttles.isNotEmpty &&
@@ -534,29 +616,32 @@ class UpcomingDepartureViewModel extends GetxController with WidgetsBindingObser
 
   Future<void> loadCeanStopSequences() async {
     // 24_DOWN
-    final stopFile24 = await rootBundle.loadString('assets/bus_stops/24_DOWN.json');
-    final stops24 = (json.decode(stopFile24)['response']['body']['items']['item'] as List)
-      .map<String>((e) => e['nodeord'].toString())
-      .toList();
+    final stopFile24 =
+        await rootBundle.loadString('assets/bus_stops/24_DOWN.json');
+    final stops24 =
+        (json.decode(stopFile24)['response']['body']['items']['item'] as List)
+            .map<String>((e) => e['nodeord'].toString())
+            .toList();
     // 81_DOWN
-    final stopFile81 = await rootBundle.loadString('assets/bus_stops/81_DOWN.json');
-    final stops81 = (json.decode(stopFile81)['response']['body']['items']['item'] as List)
-      .map<String>((e) => e['nodeord'].toString())
-      .toList();
+    final stopFile81 =
+        await rootBundle.loadString('assets/bus_stops/81_DOWN.json');
+    final stops81 =
+        (json.decode(stopFile81)['response']['body']['items']['item'] as List)
+            .map<String>((e) => e['nodeord'].toString())
+            .toList();
     // '각원사회차지'(회차지) 제외, '각원사'~'호서대(천안)' 범위만!
     var idx24Start = stops24.indexOf('2');
     var idx24End = stops24.indexOf('7');
-    _ce24DownStops = stops24.sublist(idx24Start, idx24End+1);
+    _ce24DownStops = stops24.sublist(idx24Start, idx24End + 1);
     var idx81Start = stops81.indexOf('2');
     var idx81End = stops81.indexOf('4');
-    _ce81DownStops = stops81.sublist(idx81Start, idx81End+1);
+    _ce81DownStops = stops81.sublist(idx81Start, idx81End + 1);
   }
 
   Future<void> fetchCeanRealtimeBuses({bool updateUI = true}) async {
     // 실시간 위치 불러오기
-    final resp = await http.get(Uri.parse('$baseUrl/buses'));
-     //final resp = await http.get(Uri.parse('http://10.0.2.2:8000/buses'));
-    if (resp.statusCode != 200) {
+    final data = await _shuttleRepository.fetchRealtimeBuses();
+    if (data == null) {
       if (updateUI) {
         ceRealtimeBuses.clear();
       } else {
@@ -564,7 +649,6 @@ class UpcomingDepartureViewModel extends GetxController with WidgetsBindingObser
       }
       return;
     }
-    final data = json.decode(utf8.decode(resp.bodyBytes));
     var list = <BusDeparture>[];
     // 24_DOWN
     if (data['buses']['24_DOWN'] is List) {
@@ -574,8 +658,8 @@ class UpcomingDepartureViewModel extends GetxController with WidgetsBindingObser
         if (idx == -1) {
           continue; // 각원사~호서대(천안) 범위 밖
         }
-        if (idx < _ce24DownStops.length-1) {
-          int left = _ce24DownStops.length-1-idx;
+        if (idx < _ce24DownStops.length - 1) {
+          int left = _ce24DownStops.length - 1 - idx;
           list.add(BusDeparture(
             routeName: '24',
             destination: '호서대천캠',
@@ -595,8 +679,8 @@ class UpcomingDepartureViewModel extends GetxController with WidgetsBindingObser
         if (idx == -1) {
           continue; // 각원사~호서대(천안) 범위 밖
         }
-        if (idx < _ce81DownStops.length-1) {
-          int left = _ce81DownStops.length-1-idx;
+        if (idx < _ce81DownStops.length - 1) {
+          int left = _ce81DownStops.length - 1 - idx;
           list.add(BusDeparture(
             routeName: '81',
             destination: '호서대천캠',
@@ -619,4 +703,3 @@ class UpcomingDepartureViewModel extends GetxController with WidgetsBindingObser
     }
   }
 }
-

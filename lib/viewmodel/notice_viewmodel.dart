@@ -1,11 +1,15 @@
-import 'package:get/get.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
-import '../models/notice_model.dart';
-import '../utils/env_config.dart';
 import 'package:flutter/painting.dart';
+import 'package:get/get.dart';
+
+import '../models/notice_model.dart';
+import '../repository/notice_repository.dart';
 
 class NoticeViewModel extends GetxController {
+  NoticeViewModel({NoticeRepository? noticeRepository})
+      : _noticeRepository = noticeRepository ?? NoticeRepository();
+
+  final NoticeRepository _noticeRepository;
+
   final notice = Rxn<Notice>();
   final isLoading = false.obs;
   final error = ''.obs;
@@ -13,33 +17,30 @@ class NoticeViewModel extends GetxController {
   final filteredNotices = <Notice>[].obs;
   final selectedFilter = '전체'.obs;
 
-  // 필터 옵션
   final filterOptions = ['전체', '앱', '업데이트', '셔틀버스', '시내버스'];
 
   @override
   void onInit() {
     super.onInit();
     fetchLatestNotice();
-    //fetchAllNotices();
   }
 
-  // 필터 변경
   void changeFilter(String filter) {
     selectedFilter.value = filter;
     _applyFilter();
   }
 
-  // 필터 적용
   void _applyFilter() {
     if (selectedFilter.value == '전체') {
       filteredNotices.value = List.from(allNotices);
-    } else {
-      String noticeType = _getNoticeTypeFromFilter(selectedFilter.value);
-      filteredNotices.value = allNotices.where((notice) => notice.noticeType == noticeType).toList();
+      return;
     }
+
+    final noticeType = _getNoticeTypeFromFilter(selectedFilter.value);
+    filteredNotices.value =
+        allNotices.where((item) => item.noticeType == noticeType).toList();
   }
 
-  // 필터명을 API의 notice_type으로 변환
   String _getNoticeTypeFromFilter(String filter) {
     switch (filter) {
       case '앱':
@@ -55,7 +56,6 @@ class NoticeViewModel extends GetxController {
     }
   }
 
-  // notice_type을 한글로 변환
   String getNoticeTypeDisplayName(String noticeType) {
     switch (noticeType) {
       case 'App':
@@ -71,17 +71,16 @@ class NoticeViewModel extends GetxController {
     }
   }
 
-  // notice_type에 따른 배경색 반환
   Color getNoticeTypeColor(String noticeType) {
     switch (noticeType) {
       case 'App':
-        return const Color(0xFF9E9E9E); // 회색
+        return const Color(0xFF9E9E9E);
       case 'update':
-        return const Color(0xFFFF9800); // 주황색
+        return const Color(0xFFFF9800);
       case 'shuttle':
-        return const Color(0xFFB83227); // 메인메뉴 셔틀버스 붉은색
+        return const Color(0xFFB83227);
       case 'citybus':
-        return const Color(0xFF2196F3); // 메인메뉴 시내버스 파란색
+        return const Color(0xFF2196F3);
       default:
         return const Color(0xFF9E9E9E);
     }
@@ -92,23 +91,9 @@ class NoticeViewModel extends GetxController {
       isLoading.value = true;
       error.value = '';
 
-      final response = await http.get(
-        Uri.parse('${_getBaseUrl()}/notices/'),
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json; charset=UTF-8',
-        },
-      );
-
-      if (response.statusCode == 200) {
-        final data = utf8.decode(response.bodyBytes);
-        final jsonList = json.decode(data) as List;
-        allNotices.value = jsonList.map((json) => Notice.fromJson(json)).toList();
-        _applyFilter(); // 데이터 로드 후 필터 적용
-      } else {
-        error.value = '공지사항을 불러오는데 실패했습니다';
-      }
-    } catch (e) {
+      allNotices.value = await _noticeRepository.fetchAllNotices();
+      _applyFilter();
+    } catch (_) {
       error.value = '네트워크 오류가 발생했습니다';
     } finally {
       isLoading.value = false;
@@ -119,30 +104,11 @@ class NoticeViewModel extends GetxController {
     try {
       isLoading.value = true;
       error.value = '';
-
-      final response = await http.get(
-        Uri.parse('${_getBaseUrl()}/notices/latest'),
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json; charset=UTF-8',
-        },
-      );
-
-      if (response.statusCode == 200) {
-        final data = utf8.decode(response.bodyBytes);
-        final jsonData = json.decode(data);
-        //print(jsonData);
-        notice.value = Notice.fromJson(jsonData);
-      } else {
-        error.value = '공지사항을 불러오는데 실패했습니다';
-      }
+      notice.value = await _noticeRepository.fetchLatestNotice();
     } catch (e) {
       error.value = '오류: $e';
     } finally {
       isLoading.value = false;
     }
-  }
-  String _getBaseUrl() {
-    return EnvConfig.baseUrl;
   }
 }

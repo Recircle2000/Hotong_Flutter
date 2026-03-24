@@ -2,7 +2,6 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:get/get.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../../../viewmodel/busmap_viewmodel.dart';
 import '../../../viewmodel/settings_viewmodel.dart';
 
@@ -13,7 +12,7 @@ class RoutePicker extends StatelessWidget {
   final Function(String) onRouteSelected;
 
   const RoutePicker({
-    Key? key, 
+    Key? key,
     required this.routeDisplayNames,
     required this.onRouteSelected,
   }) : super(key: key);
@@ -22,12 +21,25 @@ class RoutePicker extends StatelessWidget {
   Widget build(BuildContext context) {
     final controller = Get.find<BusMapViewModel>();
     final settingsViewModel = Get.find<SettingsViewModel>();
-    
+
     return Obx(() {
       final campus = settingsViewModel.selectedCampus.value;
       final List<String> routes = campus == "천안"
           ? ["24_DOWN", "24_UP", "81_DOWN", "81_UP"]
-          : ["순환5_UP", "순환5_DOWN", "1000_UP", "1000_DOWN", "810_UP", "810_DOWN", "820_UP", "820_DOWN", "821_UP", "821_DOWN","822_UP", "822_DOWN"];
+          : [
+              "순환5_UP",
+              "순환5_DOWN",
+              "1000_UP",
+              "1000_DOWN",
+              "810_UP",
+              "810_DOWN",
+              "820_UP",
+              "820_DOWN",
+              "821_UP",
+              "821_DOWN",
+              "822_UP",
+              "822_DOWN"
+            ];
       if (Platform.isIOS) {
         return _buildIOSPicker(context, controller, routes);
       } else {
@@ -35,9 +47,10 @@ class RoutePicker extends StatelessWidget {
       }
     });
   }
-  
+
   /// iOS용 피커 위젯 구현
-  Widget _buildIOSPicker(BuildContext context, BusMapViewModel controller, List<String> routes) {
+  Widget _buildIOSPicker(
+      BuildContext context, BusMapViewModel controller, List<String> routes) {
     return GestureDetector(
       onTap: () => _showCupertinoPicker(context, controller, routes),
       child: Container(
@@ -60,20 +73,22 @@ class RoutePicker extends StatelessWidget {
       ),
     );
   }
-  
+
   /// 쿠퍼티노 픽커 모달 표시
-  Future<void> _showCupertinoPicker(BuildContext context, BusMapViewModel controller, List<String> routes) async {
+  Future<void> _showCupertinoPicker(BuildContext context,
+      BusMapViewModel controller, List<String> routes) async {
     String tempSelectedRoute = controller.selectedRoute.value;
 
     int initialIndex = routes.indexOf(controller.selectedRoute.value);
     if (initialIndex < 0) initialIndex = 0;
 
-    FixedExtentScrollController scrollController = FixedExtentScrollController(
-        initialItem: initialIndex);
+    FixedExtentScrollController scrollController =
+        FixedExtentScrollController(initialItem: initialIndex);
 
     showCupertinoModalPopup(
       context: context,
-      builder: (_) => Material(  // Material 위젯으로 감싸서 테마 적용
+      builder: (_) => Material(
+        // Material 위젯으로 감싸서 테마 적용
         child: Container(
           height: 250,
           color: CupertinoTheme.of(context).brightness == Brightness.dark
@@ -115,7 +130,7 @@ class RoutePicker extends StatelessWidget {
                     children: routes
                         .map((route) => Center(
                               child: Text(
-                                  routeDisplayNames[route] ?? route,
+                                routeDisplayNames[route] ?? route,
                               ),
                             ))
                         .toList(),
@@ -128,9 +143,10 @@ class RoutePicker extends StatelessWidget {
       ),
     );
   }
-  
+
   /// Android용 드롭다운 위젯 구현
-  Widget _buildAndroidPicker(BuildContext context, BusMapViewModel controller, List<String> routes) {
+  Widget _buildAndroidPicker(
+      BuildContext context, BusMapViewModel controller, List<String> routes) {
     return DropdownButton<String>(
       isExpanded: true,
       value: controller.selectedRoute.value,

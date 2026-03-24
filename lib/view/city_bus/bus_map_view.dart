@@ -99,19 +99,26 @@ class _BusMapViewState extends State<BusMapView> {
 
     // 초기 노선이 지정된 경우 자동 선택
     if (widget.initialRoute != null) {
+      _applyInitialRoute();
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        // 이미 등록된 BusMapViewModel 인스턴스를 찾습니다 (grouped_bus_view에서 생성됨)
-        if (Get.isRegistered<BusMapViewModel>()) {
-          final controller = Get.find<BusMapViewModel>();
-          // 노선 매핑 확인
-          String? mappedRoute = _findMappedRoute(widget.initialRoute!,
-              destination: widget.initialDestination);
-          if (mappedRoute != null) {
-            // 웹소켓 재연결 없이 노선 정보만 업데이트
-            controller.updateSelectedRoute(mappedRoute);
-          }
-        }
+        _applyInitialRoute();
       });
+    }
+  }
+
+  void _applyInitialRoute() {
+    if (widget.initialRoute == null ||
+        !Get.isRegistered<BusMapViewModel>()) {
+      return;
+    }
+
+    final controller = Get.find<BusMapViewModel>();
+    final String? mappedRoute = _findMappedRoute(
+      widget.initialRoute!,
+      destination: widget.initialDestination,
+    );
+    if (mappedRoute != null) {
+      controller.updateSelectedRoute(mappedRoute);
     }
   }
 
@@ -480,6 +487,13 @@ class _BusMapViewState extends State<BusMapView> {
   }
 
   String? _findMappedRoute(String routeName, {String? destination}) {
+    if (routeDisplayNames.containsKey(routeName)) {
+      return routeName;
+    }
+
+    final String baseRouteName =
+        routeName.contains('_') ? routeName.split('_').first : routeName;
+
     // 목적지 정보가 있는 경우 상행/하행 구분
     if (destination != null) {
       // 목적지를 기반으로 상행/하행 판단
@@ -487,7 +501,7 @@ class _BusMapViewState extends State<BusMapView> {
 
       // 해당 노선의 상행/하행 키 찾기
       String targetSuffix = isUpDirection ? "_UP" : "_DOWN";
-      String targetKey = "${routeName}${targetSuffix}";
+      String targetKey = "${baseRouteName}${targetSuffix}";
 
       if (routeDisplayNames.containsKey(targetKey)) {
         return targetKey;
@@ -496,7 +510,7 @@ class _BusMapViewState extends State<BusMapView> {
 
     // 목적지 정보가 없거나 매칭되지 않는 경우 기존 로직 사용
     for (String key in routeDisplayNames.keys) {
-      if (key.startsWith(routeName)) {
+      if (key.startsWith(baseRouteName)) {
         return key;
       }
     }

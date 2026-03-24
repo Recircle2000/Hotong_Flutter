@@ -1,5 +1,4 @@
-import 'package:flutter/material.dart';
-import 'package:flutter_map/flutter_map.dart';
+import 'package:flutter/widgets.dart';
 import 'package:get/get.dart';
 import 'package:latlong2/latlong.dart';
 import 'dart:convert';
@@ -28,11 +27,38 @@ class BusPosition {
   });
 }
 
+class BusMarkerInfo {
+  final LatLng position;
+  final String vehicleNo;
+
+  const BusMarkerInfo({
+    required this.position,
+    required this.vehicleNo,
+  });
+}
+
+class StationMarkerInfo {
+  final LatLng position;
+  final String name;
+  final String nodeId;
+  final String nodeNo;
+  final String nodeOrd;
+
+  const StationMarkerInfo({
+    required this.position,
+    required this.name,
+    required this.nodeId,
+    required this.nodeNo,
+    required this.nodeOrd,
+  });
+}
+
 class BusMapViewModel extends GetxController with WidgetsBindingObserver {
-  final mapController = MapController();
-  final markers = RxList<Marker>([]);
-  final stationMarkers = RxList<Marker>([]);  // 🚀 정류장 마커 추가
-  final polylines = RxList<Polyline>([]);
+  BusMapViewModel({this.initialRouteOverride});
+
+  final String? initialRouteOverride;
+  final markers = RxList<BusMarkerInfo>([]);
+  final stationMarkers = RxList<StationMarkerInfo>([]);
   final selectedRoute = "순환5_DOWN".obs;
   final currentPositions = RxList<int>([]); // 여러 버스의 위치를 저장하는 리스트
   final detailedBusPositions = RxList<BusPosition>([]); // 상세 버스 위치 정보
@@ -70,8 +96,8 @@ class BusMapViewModel extends GetxController with WidgetsBindingObserver {
     routePolylinePoints.clear();
     
     // 데이터 새로고침
-    fetchRouteData();
-    fetchStationData();
+    fetchRouteData(route);
+    fetchStationData(route);
     
     // 🚀 최적화: 이미 수신된 데이터가 있다면 즉시 표시
     if (allRoutesBusData.containsKey(route) && allRoutesBusData[route]!.isNotEmpty) {
@@ -81,13 +107,11 @@ class BusMapViewModel extends GetxController with WidgetsBindingObserver {
     }
     
     // 웹소켓에 새 노선 정보 전송
-    if (channel != null && channel.sink != null) {
-      try {
-        channel.sink.add(jsonEncode({"route": selectedRoute.value}));
-        print("Updated WebSocket route preference: ${selectedRoute.value}");
-      } catch (e) {
-        print("Failed to send route update to WebSocket: $e");
-      }
+    try {
+      channel.sink.add(jsonEncode({"route": selectedRoute.value}));
+      print("Updated WebSocket route preference: ${selectedRoute.value}");
+    } catch (e) {
+      print("Failed to send route update to WebSocket: $e");
     }
   }
 
@@ -108,25 +132,33 @@ class BusMapViewModel extends GetxController with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this); // 앱 상태 감지 추가
     // Set selectedRoute based on campus
     final settingsViewModel = Get.find<SettingsViewModel>();
-    final campus = settingsViewModel.selectedCampus.value;
-    if (campus == "천안") {
-      selectedRoute.value = "24_DOWN";
+    final String? overrideRoute = initialRouteOverride;
+    if (overrideRoute != null && overrideRoute.isNotEmpty) {
+      selectedRoute.value = overrideRoute;
     } else {
-      selectedRoute.value = "순환5_DOWN";
+      final campus = settingsViewModel.selectedCampus.value;
+      if (campus == "천안") {
+        selectedRoute.value = "24_DOWN";
+      } else {
+        selectedRoute.value = "순환5_DOWN";
+      }
     }
     // Listen for campus changes
     ever(settingsViewModel.selectedCampus, (String newCampus) {
+      if (initialRouteOverride != null && initialRouteOverride!.isNotEmpty) {
+        return;
+      }
       if (newCampus == "천안") {
         selectedRoute.value = "24_DOWN";
       } else {
         selectedRoute.value = "순환5_DOWN";
       }
-      fetchRouteData();
-      fetchStationData();
+      fetchRouteData(selectedRoute.value);
+      fetchStationData(selectedRoute.value);
     });
     _connectWebSocket();
-    fetchRouteData();  // 초기 경로 데이터 로드
-    fetchStationData();  // 초기 정류장 데이터 로드
+    fetchRouteData(selectedRoute.value);  // 초기 경로 데이터 로드
+    fetchStationData(selectedRoute.value);  // 초기 정류장 데이터 로드
     checkLocationPermission(); // 위치 권한 확인
   }
 
@@ -228,10 +260,14 @@ class BusMapViewModel extends GetxController with WidgetsBindingObserver {
   }
 
   /// 버스 경로 데이터 불러오기
-  Future<void> fetchRouteData() async {
+  Future<void> fetchRouteData([String? routeKey]) async {
+    final String targetRoute = routeKey ?? selectedRoute.value;
     try {
-      final geoJsonFile = 'assets/bus_routes/${selectedRoute.value}.json';
+      final geoJsonFile = 'assets/bus_routes/$targetRoute.json';
       final geoJsonData = await rootBundle.loadString(geoJsonFile);
+      if (selectedRoute.value != targetRoute) {
+        return;
+      }
       final geoJson = jsonDecode(geoJsonData);
 
       final coordinates = geoJson['features'][0]['geometry']['coordinates'];
@@ -241,22 +277,23 @@ class BusMapViewModel extends GetxController with WidgetsBindingObserver {
 
       // 폴리라인 데이터 저장
       routePolylinePoints.assignAll(polylinePoints);
-      updatePolyline(polylinePoints);
     } catch (e) {
+      if (selectedRoute.value != targetRoute) {
+        return;
+      }
       print("경로 데이터를 불러오는 중 오류 발생: $e");
       Fluttertoast.showToast(
         msg: "경로 데이터를 불러올 수 없습니다.",
         toastLength: Toast.LENGTH_SHORT,
         gravity: ToastGravity.BOTTOM,
       );
-      // 오류 발생 시 폴리라인 초기화
-      polylines.clear();
       routePolylinePoints.clear();
     }
   }
 
   /// 🚏 정류장 데이터 불러오기
-  Future<void> fetchStationData() async {
+  Future<void> fetchStationData([String? routeKey]) async {
+    final String targetRoute = routeKey ?? selectedRoute.value;
     try {
       // 초기화
       stationMarkers.clear();
@@ -265,8 +302,11 @@ class BusMapViewModel extends GetxController with WidgetsBindingObserver {
       currentPositions.clear();
       detailedBusPositions.clear();
       
-      final jsonFile = 'assets/bus_stops/${selectedRoute.value}.json';
+      final jsonFile = 'assets/bus_stops/$targetRoute.json';
       final jsonData = await rootBundle.loadString(jsonFile);
+      if (selectedRoute.value != targetRoute) {
+        return;
+      }
       final data = jsonDecode(jsonData);
 
       final stations = data['response']['body']['items']['item'] as List;
@@ -280,30 +320,27 @@ class BusMapViewModel extends GetxController with WidgetsBindingObserver {
       stationNames.assignAll(names);
       stationNumbers.assignAll(numbers);
 
-      final stopMarkers = stations.map((station) {
-        return Marker(
-          width: 30.0,
-          height: 30.0,
-          point: LatLng(
-            double.parse(station['gpslati'].toString()),
-            double.parse(station['gpslong'].toString()),
-          ),
-          child: GestureDetector(
-            onTap: () => _showStationInfo(station),
-            child: Transform.translate(
-              offset: const Offset(0, -13),
-              child: const Icon(
-                Icons.location_on,
-                color: Colors.blueAccent,
-                size: 30,
+      final stopMarkers = stations
+          .map<StationMarkerInfo>((rawStation) {
+            final station = Map<String, dynamic>.from(rawStation as Map);
+            return StationMarkerInfo(
+              position: LatLng(
+                double.parse(station['gpslati'].toString()),
+                double.parse(station['gpslong'].toString()),
               ),
-            ),
-          ),
-        );
-      }).toList();
+              name: station['nodenm']?.toString() ?? 'Unknown station',
+              nodeId: station['nodeid']?.toString() ?? 'N/A',
+              nodeNo: station['nodeno']?.toString() ?? 'N/A',
+              nodeOrd: station['nodeord']?.toString() ?? 'N/A',
+            );
+          })
+          .toList();
 
       stationMarkers.assignAll(stopMarkers);
     } catch (e) {
+      if (selectedRoute.value != targetRoute) {
+        return;
+      }
       print("정류장 데이터를 불러오는 중 오류 발생: $e");
       Fluttertoast.showToast(
         msg: "정류장 데이터를 불러올 수 없습니다.",
@@ -313,64 +350,20 @@ class BusMapViewModel extends GetxController with WidgetsBindingObserver {
     }
   }
 
-  void _showStationInfo(Map<String, dynamic> station) {
-    Get.dialog(
-      AlertDialog(
-        title: Text(station['nodenm'] ?? "정류장"),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('정류장 ID: ${station['nodeid'] ?? "없음"}'),
-            const SizedBox(height: 8),
-            Text('정류장 번호: ${station['nodeno'] ?? "없음"}'),
-            const SizedBox(height: 8),
-            Text('정류장 순서: ${station['nodeord'] ?? "없음"}'),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Get.back(),
-            child: const Text('닫기'),
-          ),
-        ],
-      ),
-    );
-  }
-
   /// 버스 마커 업데이트
   void updateBusMarkers(List<Bus> busList) {
     if (busList.isEmpty) {
       markers.clear();  // Clear all markers if no bus data
       return;
     }
-    final newMarkers = busList.map((bus) {
-      return Marker(
-        width: 80.0,
-        height: 80.0,
-        point: LatLng(bus.latitude, bus.longitude),
-        child: Column(
-          children: [
-            const Icon(Icons.directions_bus, color: Colors.indigo, size: 40),
-            Container(
-              padding: const EdgeInsets.all(5),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.8),
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: Text(
-                bus.vehicleNo,
-                style: const TextStyle(
-                  color: Colors.black,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 10,
-                ),
-              ),
-            ),
-          ],
-        ),
-      );
-    }).toList();
+    final newMarkers = busList
+        .map(
+          (bus) => BusMarkerInfo(
+            position: LatLng(bus.latitude, bus.longitude),
+            vehicleNo: bus.vehicleNo,
+          ),
+        )
+        .toList();
 
     markers.assignAll(newMarkers);
   }
@@ -395,7 +388,7 @@ class BusMapViewModel extends GetxController with WidgetsBindingObserver {
       // 현재 정류장까지의 거리 계산
       final distanceToCurrentStation = const Distance().as(
         LengthUnit.Meter, 
-        stationMarkers[currentStationIndex].point, 
+        stationMarkers[currentStationIndex].position, 
         busLatLng
       );
       
@@ -444,7 +437,7 @@ class BusMapViewModel extends GetxController with WidgetsBindingObserver {
     // 각 정류장의 폴리라인 인덱스 계산
     List<int> stationPolyIndices = [];
     for (int i = 0; i < stationMarkers.length; i++) {
-      stationPolyIndices.add(_findNearestPolylinePoint(stationMarkers[i].point));
+      stationPolyIndices.add(_findNearestPolylinePoint(stationMarkers[i].position));
     }
     
     // 버스 위치보다 앞에 있는 정류장들 중 가장 가까운 것 찾기
@@ -461,12 +454,12 @@ class BusMapViewModel extends GetxController with WidgetsBindingObserver {
     if (currentStationIndex < stationMarkers.length - 1) {
       final currentStationDistance = const Distance().as(
         LengthUnit.Meter, 
-        stationMarkers[currentStationIndex].point, 
+        stationMarkers[currentStationIndex].position, 
         busPosition
       );
       final nextStationDistance = const Distance().as(
         LengthUnit.Meter, 
-        stationMarkers[currentStationIndex + 1].point, 
+        stationMarkers[currentStationIndex + 1].position, 
         busPosition
       );
       
@@ -492,7 +485,7 @@ class BusMapViewModel extends GetxController with WidgetsBindingObserver {
     for (int i = 0; i < stationMarkers.length; i++) {
       final distance = const Distance().as(
         LengthUnit.Meter, 
-        stationMarkers[i].point, 
+        stationMarkers[i].position, 
         busPosition
       );
       
@@ -511,8 +504,8 @@ class BusMapViewModel extends GetxController with WidgetsBindingObserver {
       return 0.0;
     }
     
-    final currentStation = stationMarkers[currentStationIndex].point;
-    final nextStation = stationMarkers[currentStationIndex + 1].point;
+    final currentStation = stationMarkers[currentStationIndex].position;
+    final nextStation = stationMarkers[currentStationIndex + 1].position;
     
     // 현재 정류장에서 너무 멀리 떨어져 있으면 진행률 0
     if (distanceToCurrentStation > 400) {
@@ -592,8 +585,8 @@ class BusMapViewModel extends GetxController with WidgetsBindingObserver {
       return 0.0;
     }
 
-    final currentStation = stationMarkers[nearestStationIndex].point;
-    final nextStation = stationMarkers[nearestStationIndex + 1].point;
+    final currentStation = stationMarkers[nearestStationIndex].position;
+    final nextStation = stationMarkers[nearestStationIndex + 1].position;
 
     // 버스가 현재 정류장에서 너무 멀리 떨어져 있으면 진행률 0으로 설정
     final distanceToCurrentStation = const Distance().as(LengthUnit.Meter, currentStation, busPosition);
@@ -674,17 +667,6 @@ class BusMapViewModel extends GetxController with WidgetsBindingObserver {
     }
 
     return totalDistance;
-  }
-
-  /// 경로 폴리라인 업데이트
-  void updatePolyline(List<LatLng> points) {
-    polylines.assignAll([
-      Polyline(
-        points: points,
-        strokeWidth: 4.0,
-        color: Colors.blueAccent,
-      ),
-    ]);
   }
 
   /// 위치 권한 확인 및 현재 위치 가져오기
@@ -772,20 +754,6 @@ class BusMapViewModel extends GetxController with WidgetsBindingObserver {
     }
   }
   
-  /// 현재 위치로 지도 이동
-  void moveToCurrentLocation() async {
-    if (currentLocation.value != null) {
-      mapController.move(currentLocation.value!, 15);
-      update(); // GetX 상태 업데이트
-    } else {
-      await checkLocationPermission();
-      if (currentLocation.value != null) {
-        mapController.move(currentLocation.value!, 15);
-        update(); // GetX 상태 업데이트
-      }
-    }
-  }
-  
   /// 현재 위치를 실시간으로 추적
   void startLocationTracking() {
     if (!isLocationEnabled.value) {
@@ -828,7 +796,7 @@ class BusMapViewModel extends GetxController with WidgetsBindingObserver {
       final distance = const Distance().as(
         LengthUnit.Meter, 
         currentLocation.value!, 
-        station.point
+        station.position
       );
       
       if (distance < minDistance) {

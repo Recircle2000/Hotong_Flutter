@@ -26,6 +26,7 @@ class _NearbyStopsViewState extends State<NearbyStopsView> {
   // 셔틀버스 색상 - 홈 화면과 동일하게 맞춤
   final Color shuttleColor = Color(0xFFB83227);
   final NearbyStopsViewModel viewModel = Get.put(NearbyStopsViewModel());
+  Worker? _uiMessageWorker;
   final GlobalKey _stationSelectorKey = GlobalKey();
   final GlobalKey _scheduleTableKey = GlobalKey();
   bool _isExperienceTourRunning = false;
@@ -33,11 +34,28 @@ class _NearbyStopsViewState extends State<NearbyStopsView> {
   @override
   void initState() {
     super.initState();
+    _uiMessageWorker =
+        ever<NearbyStopsUiMessage?>(viewModel.uiMessage, (message) {
+      if (!mounted || message == null) return;
+      Get.snackbar(
+        message.title,
+        message.message,
+        snackPosition: SnackPosition.BOTTOM,
+      );
+      viewModel.clearUiMessage();
+    });
+
     if (widget.startExperienceTour) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _startExperienceTour();
       });
     }
+  }
+
+  @override
+  void dispose() {
+    _uiMessageWorker?.dispose();
+    super.dispose();
   }
 
   @override

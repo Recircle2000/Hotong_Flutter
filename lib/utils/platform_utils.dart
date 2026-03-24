@@ -4,7 +4,7 @@ import 'dart:io' show Platform;
 
 class PlatformUtils {
   // 간결한 면책 문구
-  static const String shortDisclaimer = '호서대학교 비공식 앱\n(버스정보: 공공데이터/학교공지 기반)';
+  static const String shortDisclaimer = '호서대학교 비공식 앱';
   
   // 전체 면책 문구
   static const String fullDisclaimer = 

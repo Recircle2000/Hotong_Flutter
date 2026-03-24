@@ -1,14 +1,16 @@
 // lib/viewmodel/settings_viewmodel.dart
 import 'package:get/get.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import '../view/auth/login_view.dart';
-import '../view/home_view.dart';
+import '../services/preferences_service.dart';
 
 class SettingsViewModel extends GetxController {
-  var email = ''.obs;
-  var isLoggedIn = false.obs;
+  SettingsViewModel({PreferencesService? preferencesService})
+      : _preferencesService = preferencesService ?? PreferencesService();
+
+  final PreferencesService _preferencesService;
+
   var selectedCampus = '아산'.obs;
   var selectedSubwayStation = '천안'.obs;
+  var isLocationBasedDepartureWidgetEnabled = false.obs;
 
   @override
   void onInit() {
@@ -17,31 +19,27 @@ class SettingsViewModel extends GetxController {
   }
 
   Future<void> _loadUserData() async {
-    final prefs = await SharedPreferences.getInstance();
-    email.value = prefs.getString('email') ?? '알 수 없음';
-    isLoggedIn.value = prefs.getBool('isLoggedIn') ?? false;
-    selectedCampus.value = prefs.getString('campus') ?? '아산';
-    selectedSubwayStation.value = prefs.getString('subwayStation') ?? '천안';
+    selectedCampus.value =
+        await _preferencesService.getStringOrDefault('campus', '아산');
+    selectedSubwayStation.value =
+        await _preferencesService.getStringOrDefault('subwayStation', '천안');
+    isLocationBasedDepartureWidgetEnabled.value =
+        await _preferencesService.getBoolOrDefault(
+            'isLocationBasedDepartureWidgetEnabled', false);
   }
 
   Future<void> setCampus(String campus) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('campus', campus);
+    await _preferencesService.setString('campus', campus);
     selectedCampus.value = campus;
   }
 
   Future<void> setSubwayStation(String station) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('subwayStation', station);
+    await _preferencesService.setString('subwayStation', station);
     selectedSubwayStation.value = station;
   }
 
-  Future<void> logout() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove('email');
-    await prefs.remove('isLoggedIn');
-    email.value = '알 수 없음';
-    isLoggedIn.value = false;
-    Get.offAll(() => HomeView());
+  Future<void> setLocationBasedDepartureWidgetEnabled(bool enabled) async {
+    await _preferencesService.setBool('isLocationBasedDepartureWidgetEnabled', enabled);
+    isLocationBasedDepartureWidgetEnabled.value = enabled;
   }
 }

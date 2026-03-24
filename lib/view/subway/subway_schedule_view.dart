@@ -7,7 +7,8 @@ import 'dart:io' show Platform;
 class SubwayScheduleView extends StatefulWidget {
   final String? initialStationName;
 
-  const SubwayScheduleView({Key? key, this.initialStationName}) : super(key: key);
+  const SubwayScheduleView({Key? key, this.initialStationName})
+      : super(key: key);
 
   @override
   State<SubwayScheduleView> createState() => _SubwayScheduleViewState();
@@ -22,7 +23,8 @@ class _SubwayScheduleViewState extends State<SubwayScheduleView> {
     super.initState();
     // Initialize controller manually if it's not already registered or find it
     if (!Get.isRegistered<SubwayScheduleViewModel>()) {
-      controller = Get.put(SubwayScheduleViewModel(initialStation: widget.initialStationName));
+      controller = Get.put(
+          SubwayScheduleViewModel(initialStation: widget.initialStationName));
     } else {
       controller = Get.find<SubwayScheduleViewModel>();
       // If passing a specific initial station but reusing VM, ensure VM updates
@@ -54,10 +56,7 @@ class _SubwayScheduleViewState extends State<SubwayScheduleView> {
       duration: const Duration(milliseconds: 300),
       curve: Curves.easeInOut,
     );
-    // controller.changeStation will be called by onPageChanged or we can call it here?
-    // Using PageView onPageChanged is safer for sync. 
-    // But animateToPage triggers onPageChanged? Yes usually.
-    // If we want immediate feedback on the tab while animating:
+
     controller.changeStation(station);
   }
 
@@ -98,78 +97,54 @@ class _SubwayScheduleViewState extends State<SubwayScheduleView> {
 
   Widget _buildScheduleContent(BuildContext context, String station) {
     return Obx(() {
-        // Since the VM fetches data for *selectedStation*, we need to handle specific station views carefully.
-        // Option 1: The VM only holds one station's data at a time.
-        // In this case, 'PageView' allows swiping, but the off-screen page (or currently loading one) might show wrong data until fetch completes.
-        // Actually, since we trigger fetch on page change, there will be a loading state.
-        
-        // Wait, if we use one VM for both pages, they share the `scheduleData`.
-        // If Page 0 is Cheonan and Page 1 is Asan.
-        // If I swipe to Asan, VM updates to Asan. Page 0 (Cheonan) might now show Asan data if it just observes `scheduleData` directly?
-        // But `_buildScheduleContent` is built for a specific station name passed as argument?
-        // No, `_buildScheduleContent(context, '천안')` creates the widget for Cheonan page.
-        // Inside, if we use `controller.scheduleData`, it shows whatever is currently fetched.
-        // Meaning: While swiping, if you see partially the other page, it might show the OLD data (previous station) or NEW data (current station).
-        // This is a common issue with shared state for parameterized pages.
-        
-        // However, standard VM pattern here: The view updates when `selectedStation` changes.
-        // If `selectedStation` matches the page's station, show data.
-        // If not, show loading or empty?
-        
-        if (controller.selectedStation.value != station) {
-           // This page is NOT the active one. 
-           // Can we keep the old data? Not trivial with current VM.
-           // Just show loading or nothing?
-           // If we are animating, we want to see the destination page.
-           // When `_onPageChanged` is called, `selectedStation` updates, and fetch starts.
-           // So the new page will show loading, then data.
-           // The OLD page will mismatch.
-           return const Center(child: CircularProgressIndicator.adaptive());
-        }
+      if (controller.selectedStation.value != station) {
+        return const Center(child: CircularProgressIndicator.adaptive());
+      }
 
-        if (controller.isLoading.value) {
-          return const Center(child: CircularProgressIndicator.adaptive());
-        }
-        if (controller.error.value.isNotEmpty) {
-          return Center(child: Text(controller.error.value));
-        }
-        
-        final schedule = controller.scheduleData.value;
-        if (schedule == null) {
-          return const Center(child: Text('데이터가 없습니다.'));
-        }
+      if (controller.isLoading.value) {
+        return const Center(child: CircularProgressIndicator.adaptive());
+      }
+      if (controller.error.value.isNotEmpty) {
+        return Center(child: Text(controller.error.value));
+      }
 
-        return Column(
-          children: [
-            // Up Section
-            _buildSectionContainer(
-              context,
-              title: '상행',
-              subtitle: '(서울/병점/천안)',
-              icon: Icons.arrow_circle_up,
-              isExpanded: controller.isUpExpanded.value,
-              items: schedule.timetable['상행'] ?? [],
-              onTap: () => controller.isUpExpanded.toggle(),
-            ),
-            
-            // Down Section
-            _buildSectionContainer(
-              context,
-              title: '하행',
-              subtitle: '(신창/아산)',
-              icon: Icons.arrow_circle_down,
-              isExpanded: controller.isDownExpanded.value,
-              items: schedule.timetable['하행'] ?? [],
-              onTap: () => controller.isDownExpanded.toggle(),
-            ),
-            
-            if (!controller.isUpExpanded.value && !controller.isDownExpanded.value)
-              Expanded(child: _buildFooter(context)),
-            if (controller.isUpExpanded.value || controller.isDownExpanded.value)
-              const SizedBox(height: 16), // Bottom spacing
-          ],
-        );
-      });
+      final schedule = controller.scheduleData.value;
+      if (schedule == null) {
+        return const Center(child: Text('데이터가 없습니다.'));
+      }
+
+      return Column(
+        children: [
+          // Up Section
+          _buildSectionContainer(
+            context,
+            title: '상행',
+            subtitle: '(서울/병점/천안)',
+            icon: Icons.arrow_circle_up,
+            isExpanded: controller.isUpExpanded.value,
+            items: schedule.timetable['상행'] ?? [],
+            onTap: () => controller.isUpExpanded.toggle(),
+          ),
+
+          // Down Section
+          _buildSectionContainer(
+            context,
+            title: '하행',
+            subtitle: '(신창/아산)',
+            icon: Icons.arrow_circle_down,
+            isExpanded: controller.isDownExpanded.value,
+            items: schedule.timetable['하행'] ?? [],
+            onTap: () => controller.isDownExpanded.toggle(),
+          ),
+
+          if (!controller.isUpExpanded.value &&
+              !controller.isDownExpanded.value)
+            Expanded(child: _buildFooter(context)),
+          if (controller.isUpExpanded.value || controller.isDownExpanded.value)
+            const SizedBox(height: 16), // Bottom spacing
+        ],
+      );
+    });
   }
 
   Widget _buildSectionContainer(
@@ -181,7 +156,8 @@ class _SubwayScheduleViewState extends State<SubwayScheduleView> {
     required List<SubwayScheduleItem> items,
     required VoidCallback onTap,
   }) {
-    final header = _buildSectionHeader(context, title, subtitle, icon, isExpanded, onTap);
+    final header =
+        _buildSectionHeader(context, title, subtitle, icon, isExpanded, onTap);
 
     if (!isExpanded) {
       return header;
@@ -218,8 +194,8 @@ class _SubwayScheduleViewState extends State<SubwayScheduleView> {
     );
   }
 
-  Widget _buildSectionHeader(
-      BuildContext context, String title, String subtitle, IconData icon, bool isExpanded, VoidCallback onTap) {
+  Widget _buildSectionHeader(BuildContext context, String title,
+      String subtitle, IconData icon, bool isExpanded, VoidCallback onTap) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -234,7 +210,8 @@ class _SubwayScheduleViewState extends State<SubwayScheduleView> {
                 const SizedBox(width: 8),
                 Text(
                   title,
-                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  style: const TextStyle(
+                      fontSize: 18, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(width: 4),
                 Text(
@@ -265,7 +242,8 @@ class _SubwayScheduleViewState extends State<SubwayScheduleView> {
         children: [
           IconButton(
             onPressed: () => Get.back(),
-            icon: Icon(Platform.isIOS ? Icons.arrow_back_ios : Icons.arrow_back, color: Theme.of(context).colorScheme.onBackground),
+            icon: Icon(Platform.isIOS ? Icons.arrow_back_ios : Icons.arrow_back,
+                color: Theme.of(context).colorScheme.onBackground),
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(),
             style: IconButton.styleFrom(
@@ -338,9 +316,7 @@ class _SubwayScheduleViewState extends State<SubwayScheduleView> {
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(vertical: 10),
         decoration: BoxDecoration(
-          color: isSelected
-              ? const Color(0xFF0052A4)
-              : Colors.transparent,
+          color: isSelected ? const Color(0xFF0052A4) : Colors.transparent,
           borderRadius: BorderRadius.circular(8),
           boxShadow: isSelected
               ? [
@@ -369,11 +345,32 @@ class _SubwayScheduleViewState extends State<SubwayScheduleView> {
 
   Widget _buildDayTypeAndLegendRow(BuildContext context) {
     return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         // Express & Destination Legend
         Obx(() {
           final isCheonanStation = controller.selectedStation.value == '천안';
+          final legendItems = <Widget>[
+            _buildLegendItem(context, '급행', Colors.red),
+            _buildLegendItem(context, '구로행', Colors.blue),
+            _buildLegendItem(context, '병점행', Colors.green),
+            if (!isCheonanStation)
+              _buildLegendItem(context, '천안행', Colors.orange),
+          ];
+
+          Widget buildLegendRow(List<Widget> items) {
+            return Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                for (int i = 0; i < items.length; i++) ...[
+                  if (i > 0) const SizedBox(width: 6),
+                  items[i],
+                ],
+              ],
+            );
+          }
+
           return Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             decoration: BoxDecoration(
@@ -384,20 +381,17 @@ class _SubwayScheduleViewState extends State<SubwayScheduleView> {
               border: Border.all(
                   color: Theme.of(context).dividerColor.withOpacity(0.2)),
             ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _buildLegendItem(context, '급행', Colors.red),
-                const SizedBox(width: 6),
-                _buildLegendItem(context, '구로행', Colors.blue),
-                const SizedBox(width: 6),
-                _buildLegendItem(context, '병점행', Colors.green),
-                if (!isCheonanStation) ...[
-                  const SizedBox(width: 6),
-                  _buildLegendItem(context, '천안행', Colors.orange),
-                ],
-              ],
-            ),
+            child: legendItems.length == 4
+                ? Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      buildLegendRow(legendItems.sublist(0, 2)),
+                      const SizedBox(height: 4),
+                      buildLegendRow(legendItems.sublist(2, 4)),
+                    ],
+                  )
+                : buildLegendRow(legendItems),
           );
         }),
 
@@ -470,9 +464,7 @@ class _SubwayScheduleViewState extends State<SubwayScheduleView> {
           style: TextStyle(
             fontSize: 12,
             fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-            color: isSelected
-                ? Colors.white
-                : Theme.of(context).hintColor,
+            color: isSelected ? Colors.white : Theme.of(context).hintColor,
           ),
         ),
       ),
@@ -602,7 +594,7 @@ class _SubwayScheduleViewState extends State<SubwayScheduleView> {
                           runSpacing: 8,
                           children: hourItems.map((item) {
                             final minute = item.departureTime.split(':')[1];
-                            
+
                             // Determine color based on destination (priority) or express status
                             Color itemColor;
                             if (item.arrivalStation == '구로') {
@@ -614,9 +606,8 @@ class _SubwayScheduleViewState extends State<SubwayScheduleView> {
                             } else if (item.isExpress) {
                               itemColor = Colors.red;
                             } else {
-                              itemColor = Theme.of(context)
-                                  .colorScheme
-                                  .onSurface;
+                              itemColor =
+                                  Theme.of(context).colorScheme.onSurface;
                             }
 
                             return Text(
@@ -643,7 +634,7 @@ class _SubwayScheduleViewState extends State<SubwayScheduleView> {
     );
   }
 
-    Widget _buildFooter(BuildContext context) {
+  Widget _buildFooter(BuildContext context) {
     return Center(
       child: Container(
         margin: const EdgeInsets.only(top: 8),
@@ -657,7 +648,8 @@ class _SubwayScheduleViewState extends State<SubwayScheduleView> {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.info_outline, size: 14, color: Theme.of(context).hintColor),
+            Icon(Icons.info_outline,
+                size: 14, color: Theme.of(context).hintColor),
             const SizedBox(width: 6),
             Text(
               '도로 사정이나 철도 운영 상황에 따라 변경될 수 있습니다',
