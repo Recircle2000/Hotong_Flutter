@@ -2,11 +2,13 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
+import '../utils/env_config.dart';
+
 class BusTimesRepository {
   BusTimesRepository({http.Client? client}) : _client = client ?? http.Client();
 
-  static const String versionApiUrl =
-      'https://hotong.click/bus-timetable/version';
+  static String get versionApiUrl =>
+      '${EnvConfig.baseUrl.replaceFirst(RegExp(r'/$'), '')}/bus-timetable/version';
   static const String downloadUrl =
       'https://recircle2000.github.io/hotong_station_image/bus_times.json';
 

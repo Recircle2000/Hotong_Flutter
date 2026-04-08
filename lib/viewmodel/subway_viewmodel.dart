@@ -48,7 +48,7 @@ class SubwayViewModel extends GetxController with WidgetsBindingObserver {
     if (isConnected.value) return; // Avoid multiple connections
 
     try {
-      final baseUrl = EnvConfig.baseUrl; // e.g. https://hotong.click
+      final baseUrl = EnvConfig.baseUrl;
       // Replace https:// or http:// with wss:// or ws://
       String wsUrl = baseUrl.replaceFirst(RegExp(r'^http'), 'ws'); 
       if (!wsUrl.endsWith('/')) {
