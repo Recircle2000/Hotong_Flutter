@@ -460,63 +460,100 @@ class _NearbyStopsViewState extends State<NearbyStopsView> {
           ),
         ),
         SizedBox(height: 8),
-        _buildDateSelectorWithArrows(
-          context,
-          onTapDatePicker: () => _showIOSDatePicker(context),
-        ),
-      ],
-    );
-  }
+        Obx(() {
+          final selectedDate = _getSelectedDateOrToday();
+          final minimumDate = _getMinimumSelectableDate();
+          final maximumDate = _getMaximumSelectableDate();
+          final weekdayLabel = '(${_getDayOfWeekString(selectedDate)})';
 
-  void _showIOSDatePicker(BuildContext context) {
-    DateTime selectedDate =
-        _clampDateToSelectableRange(_getSelectedDateOrToday());
-    final minimumDate = _getMinimumSelectableDate();
-    final maximumDate = _getMaximumSelectableDate();
-
-    showCupertinoModalPopup(
-      context: context,
-      builder: (context) => Container(
-        height: 250,
-        color: CupertinoColors.systemBackground.resolveFrom(context),
-        child: Column(
-          children: [
-            Container(
-              height: 50,
-              color: CupertinoColors.systemGrey5.resolveFrom(context),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  CupertinoButton(
-                    child: Text('취소'),
-                    onPressed: () => Navigator.pop(context),
+          return Row(
+            children: [
+              _buildDateArrowButton(
+                context: context,
+                icon: Icons.chevron_left,
+                enabled: selectedDate.isAfter(minimumDate),
+                onTap: () => _moveSelectedDateBy(-1),
+              ),
+              SizedBox(width: 8),
+              Expanded(
+                child: Container(
+                  height: 50,
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).cardColor,
+                    borderRadius: BorderRadius.circular(25),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.1),
+                        blurRadius: 10,
+                        offset: const Offset(0, 0),
+                      ),
+                    ],
                   ),
-                  CupertinoButton(
-                    child: Text('확인'),
-                    onPressed: () {
-                      final formattedDate =
-                          DateFormat('yyyy-MM-dd').format(selectedDate);
-                      viewModel.selectDate(formattedDate);
-                      Navigator.pop(context);
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      final availablePickerWidth = constraints.maxWidth - 44;
+                      final pickerWidth = availablePickerWidth <= 0
+                          ? constraints.maxWidth
+                          : (availablePickerWidth < 210
+                              ? availablePickerWidth
+                              : 210.0);
+
+                      return Stack(
+                        children: [
+                          Center(
+                            child: SizedBox(
+                              width: pickerWidth,
+                              child: IOSCompactDatePickerField(
+                                key: ValueKey(viewModel.selectedDate.value),
+                                initialDate: selectedDate,
+                                minimumDate: minimumDate,
+                                maximumDate: maximumDate,
+                                onDateChanged: (date) {
+                                  viewModel.selectDate(
+                                    DateFormat('yyyy-MM-dd').format(date),
+                                  );
+                                },
+                              ),
+                            ),
+                          ),
+                          Positioned(
+                            right: 0,
+                            top: 0,
+                            bottom: 0,
+                            child: Align(
+                              alignment: Alignment.centerRight,
+                              child: Text(
+                                weekdayLabel,
+                                textAlign: TextAlign.right,
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                  color: Theme.of(context).brightness ==
+                                          Brightness.dark
+                                      ? Colors.redAccent
+                                      : shuttleColor,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      );
                     },
                   ),
-                ],
+                ),
               ),
-            ),
-            Expanded(
-              child: CupertinoDatePicker(
-                mode: CupertinoDatePickerMode.date,
-                initialDateTime: selectedDate,
-                minimumDate: minimumDate,
-                maximumDate: maximumDate,
-                onDateTimeChanged: (DateTime date) {
-                  selectedDate = date;
-                },
+              SizedBox(width: 8),
+              _buildDateArrowButton(
+                context: context,
+                icon: Icons.chevron_right,
+                enabled: selectedDate.isBefore(maximumDate),
+                onTap: () => _moveSelectedDateBy(1),
               ),
-            ),
-          ],
-        ),
-      ),
+            ],
+          );
+        }),
+      ],
     );
   }
 
@@ -868,18 +905,23 @@ class _NearbyStopsViewState extends State<NearbyStopsView> {
                   ),
                 ),
               SizedBox(height: 8),
-              TextButton(
-                onPressed: () {
-                  HapticFeedback.lightImpact();
-                  // 다른 날짜 선택 다이얼로그 열기
-                  if (Platform.isIOS) {
-                    _showIOSDatePicker(context);
-                  } else {
+              if (Platform.isIOS)
+                Text(
+                  '상단 날짜 선택기에서 다른 날짜를 선택해주세요.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Colors.grey.shade600,
+                    fontSize: 13,
+                  ),
+                )
+              else
+                TextButton(
+                  onPressed: () {
+                    HapticFeedback.lightImpact();
                     _showAndroidDatePicker(context);
-                  }
-                },
-                child: Text('다른 날짜 선택하기'),
-              ),
+                  },
+                  child: Text('다른 날짜 선택하기'),
+                ),
             ],
           ),
         );
@@ -1089,5 +1131,66 @@ class _NearbyStopsViewState extends State<NearbyStopsView> {
     } catch (e) {
       return dateStr;
     }
+  }
+}
+
+class IOSCompactDatePickerField extends StatefulWidget {
+  final DateTime initialDate;
+  final DateTime minimumDate;
+  final DateTime maximumDate;
+  final ValueChanged<DateTime> onDateChanged;
+
+  const IOSCompactDatePickerField({
+    super.key,
+    required this.initialDate,
+    required this.minimumDate,
+    required this.maximumDate,
+    required this.onDateChanged,
+  });
+
+  @override
+  State<IOSCompactDatePickerField> createState() =>
+      _IOSCompactDatePickerFieldState();
+}
+
+class _IOSCompactDatePickerFieldState extends State<IOSCompactDatePickerField> {
+  MethodChannel? _channel;
+
+  @override
+  void dispose() {
+    _channel?.setMethodCallHandler(null);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 32,
+      child: UiKitView(
+        viewType: 'hsro/ios_compact_date_picker',
+        creationParams: {
+          'initialDate': widget.initialDate.millisecondsSinceEpoch,
+          'minimumDate': widget.minimumDate.millisecondsSinceEpoch,
+          'maximumDate': widget.maximumDate.millisecondsSinceEpoch,
+        },
+        creationParamsCodec: const StandardMessageCodec(),
+        onPlatformViewCreated: _handlePlatformViewCreated,
+      ),
+    );
+  }
+
+  void _handlePlatformViewCreated(int viewId) {
+    _channel = MethodChannel('hsro/ios_compact_date_picker_$viewId');
+    _channel!.setMethodCallHandler((call) async {
+      if (call.method != 'onChanged' || call.arguments == null) {
+        return;
+      }
+
+      final milliseconds = call.arguments as int;
+      final selectedDate = DateTime.fromMillisecondsSinceEpoch(milliseconds);
+      widget.onDateChanged(
+        DateTime(selectedDate.year, selectedDate.month, selectedDate.day),
+      );
+    });
   }
 }
