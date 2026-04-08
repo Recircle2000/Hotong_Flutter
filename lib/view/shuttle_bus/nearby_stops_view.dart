@@ -23,6 +23,10 @@ class NearbyStopsView extends StatefulWidget {
 }
 
 class _NearbyStopsViewState extends State<NearbyStopsView> {
+  static const int _scheduleIndexColumnFlex = 1;
+  static const int _scheduleRouteColumnFlex = 4;
+  static const int _scheduleArrivalColumnFlex = 2;
+
   // 셔틀버스 색상 - 홈 화면과 동일하게 맞춤
   final Color shuttleColor = Color(0xFFB83227);
   final NearbyStopsViewModel viewModel = Get.put(NearbyStopsViewModel());
@@ -954,20 +958,19 @@ class _NearbyStopsViewState extends State<NearbyStopsView> {
               padding: EdgeInsets.symmetric(vertical: 12, horizontal: 16),
               child: Row(
                 children: [
-                  Expanded(
-                    flex: 1,
-                    child: Text('번호',
-                        style: TextStyle(fontWeight: FontWeight.bold)),
+                  _buildScheduleHeaderCell(
+                    label: '번호',
+                    flex: _scheduleIndexColumnFlex,
                   ),
-                  Expanded(
-                    flex: 4,
-                    child: Text('노선',
-                        style: TextStyle(fontWeight: FontWeight.bold)),
+                  _buildScheduleHeaderCell(
+                    label: '노선',
+                    flex: _scheduleRouteColumnFlex,
                   ),
-                  Expanded(
-                    flex: 2,
-                    child: Text('도착 시간',
-                        style: TextStyle(fontWeight: FontWeight.bold)),
+                  _buildScheduleHeaderCell(
+                    label: '도착 시간',
+                    flex: _scheduleArrivalColumnFlex,
+                    alignment: Alignment.centerRight,
+                    textAlign: TextAlign.right,
                   ),
                 ],
               ),
@@ -1004,44 +1007,11 @@ class _NearbyStopsViewState extends State<NearbyStopsView> {
                   startTime: _formatTime(schedule.arrivalTime),
                 ));
           },
-          child: Container(
-            padding: EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-            child: Row(
-              children: [
-                Expanded(
-                  flex: 1,
-                  child: Text('${index + 1}'),
-                ),
-                Expanded(
-                  flex: 4,
-                  child: Text(
-                    routeName,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                Expanded(
-                  flex: 2,
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      Text(
-                        _formatTime(schedule.arrivalTime),
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: shuttleColor,
-                        ),
-                      ),
-                      SizedBox(width: 4),
-                      Icon(
-                        CupertinoIcons.chevron_right,
-                        size: 14,
-                        color: Colors.grey,
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
+          child: _buildScheduleListItem(
+            index: index,
+            routeName: routeName,
+            arrivalTime: schedule.arrivalTime,
+            trailingIcon: CupertinoIcons.chevron_right,
           ),
         );
       },
@@ -1070,47 +1040,89 @@ class _NearbyStopsViewState extends State<NearbyStopsView> {
                     startTime: _formatTime(schedule.arrivalTime),
                   ));
             },
-            child: Container(
-              padding: EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+            child: _buildScheduleListItem(
+              index: index,
+              routeName: routeName,
+              arrivalTime: schedule.arrivalTime,
+              trailingIcon: Icons.arrow_forward_ios,
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildScheduleHeaderCell({
+    required String label,
+    required int flex,
+    Alignment alignment = Alignment.centerLeft,
+    TextAlign textAlign = TextAlign.left,
+  }) {
+    return Expanded(
+      flex: flex,
+      child: Align(
+        alignment: alignment,
+        child: Text(
+          label,
+          textAlign: textAlign,
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildScheduleListItem({
+    required int index,
+    required String routeName,
+    required String arrivalTime,
+    required IconData trailingIcon,
+  }) {
+    return Container(
+      padding: EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+      child: Row(
+        children: [
+          Expanded(
+            flex: _scheduleIndexColumnFlex,
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Text('${index + 1}'),
+            ),
+          ),
+          Expanded(
+            flex: _scheduleRouteColumnFlex,
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                routeName,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ),
+          Expanded(
+            flex: _scheduleArrivalColumnFlex,
+            child: Align(
+              alignment: Alignment.centerRight,
               child: Row(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Expanded(
-                    flex: 1,
-                    child: Text('${index + 1}'),
-                  ),
-                  Expanded(
-                    flex: 4,
-                    child: Text(
-                      routeName,
-                      overflow: TextOverflow.ellipsis,
+                  Text(
+                    _formatTime(arrivalTime),
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: shuttleColor,
                     ),
                   ),
-                  Expanded(
-                    flex: 2,
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        Text(
-                          _formatTime(schedule.arrivalTime),
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: shuttleColor,
-                          ),
-                        ),
-                        SizedBox(width: 4),
-                        Icon(
-                          Icons.arrow_forward_ios,
-                          size: 14,
-                          color: Colors.grey,
-                        ),
-                      ],
-                    ),
+                  SizedBox(width: 4),
+                  Icon(
+                    trailingIcon,
+                    size: 14,
+                    color: Colors.grey,
                   ),
                 ],
               ),
             ),
-          );
-        },
+          ),
+        ],
       ),
     );
   }
