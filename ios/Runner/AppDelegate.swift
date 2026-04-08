@@ -75,7 +75,7 @@ final class IOSCompactDatePickerView: NSObject, FlutterPlatformView {
     titleLabel.textColor = .label
     titleLabel.textAlignment = .center
     titleLabel.adjustsFontSizeToFitWidth = true
-    titleLabel.minimumScaleFactor = 0.8
+    titleLabel.minimumScaleFactor = 0.85
     titleLabel.isUserInteractionEnabled = false
     container.addSubview(titleLabel)
 
@@ -85,14 +85,16 @@ final class IOSCompactDatePickerView: NSObject, FlutterPlatformView {
     container.addSubview(picker)
 
     NSLayoutConstraint.activate([
-      picker.leadingAnchor.constraint(equalTo: container.leadingAnchor),
-      picker.trailingAnchor.constraint(equalTo: container.trailingAnchor),
-      picker.topAnchor.constraint(equalTo: container.topAnchor),
-      picker.bottomAnchor.constraint(equalTo: container.bottomAnchor),
+      picker.centerXAnchor.constraint(equalTo: container.centerXAnchor),
+      picker.centerYAnchor.constraint(equalTo: container.centerYAnchor),
+      picker.leadingAnchor.constraint(greaterThanOrEqualTo: container.leadingAnchor),
+      picker.trailingAnchor.constraint(lessThanOrEqualTo: container.trailingAnchor),
+      picker.topAnchor.constraint(greaterThanOrEqualTo: container.topAnchor),
+      picker.bottomAnchor.constraint(lessThanOrEqualTo: container.bottomAnchor),
 
-      titleLabel.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 8),
-      titleLabel.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -8),
-      titleLabel.centerYAnchor.constraint(equalTo: container.centerYAnchor),
+      titleLabel.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+      titleLabel.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+      titleLabel.centerYAnchor.constraint(equalTo: container.centerYAnchor)
     ])
 
     container.bringSubviewToFront(titleLabel)
@@ -105,7 +107,11 @@ final class IOSCompactDatePickerView: NSObject, FlutterPlatformView {
 
   private func configurePicker(with args: [String: Any]?) {
     picker.datePickerMode = .date
-    picker.locale = Locale(identifier: "ko_KR")
+    let locale = Locale(identifier: "ko_KR@calendar=gregorian")
+    var calendar = Calendar(identifier: .gregorian)
+    calendar.locale = locale
+    picker.locale = locale
+    picker.calendar = calendar
 
     if #available(iOS 14.0, *) {
       picker.preferredDatePickerStyle = .compact
@@ -113,6 +119,8 @@ final class IOSCompactDatePickerView: NSObject, FlutterPlatformView {
 
     if let timeZoneIdentifier = args?["timeZone"] as? String,
        let timeZone = TimeZone(identifier: timeZoneIdentifier) {
+      calendar.timeZone = timeZone
+      picker.calendar = calendar
       picker.timeZone = timeZone
     }
 
@@ -154,33 +162,11 @@ final class IOSCompactDatePickerView: NSObject, FlutterPlatformView {
   }
 
   private func updateDisplayedDate() {
-    let dateFormatter = DateFormatter()
-    dateFormatter.locale = Locale(identifier: "ko_KR")
-    dateFormatter.timeZone = picker.timeZone
-    dateFormatter.dateFormat = "yyyy년 MM월 dd일"
-
-    let weekday = weekdayString(for: picker.date)
-    titleLabel.text = "\(dateFormatter.string(from: picker.date))(\(weekday))"
-  }
-
-  private func weekdayString(for date: Date) -> String {
-    switch Calendar(identifier: .gregorian).component(.weekday, from: date) {
-    case 1:
-      return "일"
-    case 2:
-      return "월"
-    case 3:
-      return "화"
-    case 4:
-      return "수"
-    case 5:
-      return "목"
-    case 6:
-      return "금"
-    case 7:
-      return "토"
-    default:
-      return ""
-    }
+    let formatter = DateFormatter()
+    formatter.locale = picker.locale
+    formatter.calendar = picker.calendar
+    formatter.timeZone = picker.timeZone
+    formatter.dateFormat = "yyyy년M월d일"
+    titleLabel.text = formatter.string(from: picker.date)
   }
 }

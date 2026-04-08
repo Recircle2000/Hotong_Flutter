@@ -697,6 +697,7 @@ class _ShuttleRouteSelectionViewState extends State<ShuttleRouteSelectionView> {
           final selectedDate = _getSelectedDateOrToday();
           final minimumDate = _getMinimumSelectableDate();
           final maximumDate = _getMaximumSelectableDate();
+          final weekdayLabel = '(${_getDayOfWeekString(selectedDate)})';
 
           return Row(
             children: [
@@ -705,7 +706,6 @@ class _ShuttleRouteSelectionViewState extends State<ShuttleRouteSelectionView> {
                 icon: Icons.chevron_left,
                 enabled: selectedDate.isAfter(minimumDate),
                 onTap: () => _moveSelectedDateBy(-1),
-                size: 50,
               ),
               SizedBox(width: 8),
               Expanded(
@@ -723,14 +723,54 @@ class _ShuttleRouteSelectionViewState extends State<ShuttleRouteSelectionView> {
                     ],
                   ),
                   padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: IOSCompactDatePickerField(
-                    key: ValueKey(viewModel.selectedDate.value),
-                    initialDate: selectedDate,
-                    minimumDate: minimumDate,
-                    maximumDate: maximumDate,
-                    onDateChanged: (date) {
-                      viewModel.selectDate(
-                        DateFormat('yyyy-MM-dd').format(date),
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      final availablePickerWidth = constraints.maxWidth - 44;
+                      final pickerWidth = availablePickerWidth <= 0
+                          ? constraints.maxWidth
+                          : (availablePickerWidth < 210
+                              ? availablePickerWidth
+                              : 210.0);
+
+                      return Stack(
+                        children: [
+                          Center(
+                            child: SizedBox(
+                              width: pickerWidth,
+                              child: IOSCompactDatePickerField(
+                                key: ValueKey(viewModel.selectedDate.value),
+                                initialDate: selectedDate,
+                                minimumDate: minimumDate,
+                                maximumDate: maximumDate,
+                                onDateChanged: (date) {
+                                  viewModel.selectDate(
+                                    DateFormat('yyyy-MM-dd').format(date),
+                                  );
+                                },
+                              ),
+                            ),
+                          ),
+                          Positioned(
+                            right: 0,
+                            top: 0,
+                            bottom: 0,
+                            child: Align(
+                              alignment: Alignment.centerRight,
+                              child: Text(
+                                weekdayLabel,
+                                textAlign: TextAlign.right,
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                  color: Theme.of(context).brightness ==
+                                          Brightness.dark
+                                      ? Colors.redAccent
+                                      : shuttleColor,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
                       );
                     },
                   ),
@@ -742,7 +782,6 @@ class _ShuttleRouteSelectionViewState extends State<ShuttleRouteSelectionView> {
                 icon: Icons.chevron_right,
                 enabled: selectedDate.isBefore(maximumDate),
                 onTap: () => _moveSelectedDateBy(1),
-                size: 50,
               ),
             ],
           );
@@ -894,7 +933,6 @@ class _ShuttleRouteSelectionViewState extends State<ShuttleRouteSelectionView> {
     required IconData icon,
     required bool enabled,
     required VoidCallback onTap,
-    double size = 40,
   }) {
     return IgnorePointer(
       ignoring: !enabled,
@@ -903,11 +941,11 @@ class _ShuttleRouteSelectionViewState extends State<ShuttleRouteSelectionView> {
         child: ScaleButton(
           onTap: onTap,
           child: Container(
-            width: size,
-            height: size,
+            width: 40,
+            height: 40,
             decoration: BoxDecoration(
               color: Theme.of(context).cardColor,
-              borderRadius: BorderRadius.circular(size / 2),
+              shape: BoxShape.circle,
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withOpacity(0.1),
@@ -918,7 +956,6 @@ class _ShuttleRouteSelectionViewState extends State<ShuttleRouteSelectionView> {
             ),
             child: Icon(
               icon,
-              size: size * 0.55,
               color: enabled
                   ? (Theme.of(context).brightness == Brightness.dark
                       ? Colors.redAccent
@@ -1154,15 +1191,18 @@ class _IOSCompactDatePickerFieldState extends State<IOSCompactDatePickerField> {
 
   @override
   Widget build(BuildContext context) {
-    return UiKitView(
-      viewType: 'hsro/ios_compact_date_picker',
-      creationParams: {
-        'initialDate': widget.initialDate.millisecondsSinceEpoch,
-        'minimumDate': widget.minimumDate.millisecondsSinceEpoch,
-        'maximumDate': widget.maximumDate.millisecondsSinceEpoch,
-      },
-      creationParamsCodec: const StandardMessageCodec(),
-      onPlatformViewCreated: _handlePlatformViewCreated,
+    return SizedBox(
+      height: 32,
+      child: UiKitView(
+        viewType: 'hsro/ios_compact_date_picker',
+        creationParams: {
+          'initialDate': widget.initialDate.millisecondsSinceEpoch,
+          'minimumDate': widget.minimumDate.millisecondsSinceEpoch,
+          'maximumDate': widget.maximumDate.millisecondsSinceEpoch,
+        },
+        creationParamsCodec: const StandardMessageCodec(),
+        onPlatformViewCreated: _handlePlatformViewCreated,
+      ),
     );
   }
 
