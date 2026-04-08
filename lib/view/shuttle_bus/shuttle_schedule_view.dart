@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io' show Platform;
 
 import 'package:flutter/cupertino.dart';
@@ -29,10 +30,17 @@ class ShuttleScheduleView extends StatefulWidget {
 }
 
 class _ShuttleScheduleViewState extends State<ShuttleScheduleView> {
+  static const double _timeToArrowSpacing = 8.0;
+  static const double _timeIndicatorWidth = 18.0;
+  static const double _arrowToEndTimeSpacing = 20.0;
+  static const double _endTimeFontSize = 13.0;
+  static const double _nearestScheduleIconSize = 14.0;
+
   final ShuttleViewModel viewModel = Get.find<ShuttleViewModel>();
   final ScrollController _scheduleScrollController = ScrollController();
   final Map<int, GlobalKey> _scheduleRowKeys = <int, GlobalKey>{};
   final Map<int, Alignment> _rowSizeAlignments = <int, Alignment>{};
+  Timer? _currentTimeRefreshTimer;
 
   int? _expandedScheduleId;
   int? _highlightedScheduleId;
@@ -41,10 +49,19 @@ class _ShuttleScheduleViewState extends State<ShuttleScheduleView> {
       <int, List<ScheduleStop>>{};
   final Set<int> _noStopsScheduleIds = <int>{};
 
-
   @override
   void initState() {
     super.initState();
+
+    _currentTimeRefreshTimer = Timer.periodic(
+      const Duration(seconds: 30),
+      (_) {
+        if (!mounted || !_isViewingToday()) {
+          return;
+        }
+        setState(() {});
+      },
+    );
 
     // 스케줄이 비어있는 경우 데이터 로드
     if (viewModel.schedules.isEmpty) {
@@ -54,6 +71,7 @@ class _ShuttleScheduleViewState extends State<ShuttleScheduleView> {
 
   @override
   void dispose() {
+    _currentTimeRefreshTimer?.cancel();
     _scheduleScrollController.dispose();
     super.dispose();
   }
@@ -107,7 +125,8 @@ class _ShuttleScheduleViewState extends State<ShuttleScheduleView> {
     final rowScreenBottom = rowScreenTop + rowHeight;
 
     // 뷰포트의 화면 상 위치 계산 (AppBar 등 제외)
-    final scrollRb = position.context.storageContext.findRenderObject() as RenderBox?;
+    final scrollRb =
+        position.context.storageContext.findRenderObject() as RenderBox?;
     final viewportScreenTop = scrollRb?.localToGlobal(Offset.zero).dy ?? 0.0;
     final viewportScreenBottom = viewportScreenTop + viewportHeight;
 
@@ -163,8 +182,8 @@ class _ShuttleScheduleViewState extends State<ShuttleScheduleView> {
       final prevIndex = _getScheduleIndex(previousExpandedId);
       final newIndex = _getScheduleIndex(scheduleId);
       previousCollapseAlignment = (newIndex > prevIndex)
-          ? Alignment.bottomCenter  // 아래쪽 클릭 → 위 항목이 아래로 닫힘
-          : Alignment.topCenter;    // 위쪽 클릭 → 아래 항목이 위로 닫힘
+          ? Alignment.bottomCenter // 아래쪽 클릭 → 위 항목이 아래로 닫힘
+          : Alignment.topCenter; // 위쪽 클릭 → 아래 항목이 위로 닫힘
     }
 
     // setState 직전에 탭한 항목의 화면 Y 위치 기록 (바운스 방지용)
@@ -204,7 +223,8 @@ class _ShuttleScheduleViewState extends State<ShuttleScheduleView> {
         if (drift.abs() > 0.5) {
           final pos = _scheduleScrollController.position;
           _scheduleScrollController.jumpTo(
-            (pos.pixels + drift).clamp(pos.minScrollExtent, pos.maxScrollExtent),
+            (pos.pixels + drift)
+                .clamp(pos.minScrollExtent, pos.maxScrollExtent),
           );
         }
       });
@@ -247,6 +267,65 @@ class _ShuttleScheduleViewState extends State<ShuttleScheduleView> {
         _ensureExpandedVisible(scheduleId);
       }
     });
+  }
+
+  Widget _buildScheduleTimeSection({
+    required Widget startChild,
+    required Widget endChild,
+    Widget? indicator,
+  }) {
+    return Row(
+      children: [
+        Expanded(
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: startChild,
+          ),
+        ),
+        const SizedBox(width: _timeToArrowSpacing),
+        SizedBox(
+          width: _timeIndicatorWidth,
+          child: Center(child: indicator ?? const SizedBox.shrink()),
+        ),
+        const SizedBox(width: _arrowToEndTimeSpacing),
+        Expanded(
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: endChild,
+          ),
+        ),
+      ],
+    );
+  }
+
+  bool _isViewingToday() {
+    try {
+      final viewedDate = DateFormat('yyyy-MM-dd').parse(widget.date);
+      final now = DateTime.now();
+      return viewedDate.year == now.year &&
+          viewedDate.month == now.month &&
+          viewedDate.day == now.day;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  int? _getEmphasizedScheduleId() {
+    if (!_isViewingToday() || viewModel.schedules.isEmpty) {
+      return null;
+    }
+
+    final now = DateTime.now();
+    final futureSchedules = viewModel.schedules
+        .where((schedule) => !schedule.startTime.isBefore(now))
+        .toList()
+      ..sort((a, b) => a.startTime.compareTo(b.startTime));
+
+    if (futureSchedules.isNotEmpty) {
+      return futureSchedules.first.id;
+    }
+
+    return viewModel.schedules.last.id;
   }
 
   @override
@@ -523,109 +602,140 @@ class _ShuttleScheduleViewState extends State<ShuttleScheduleView> {
     final isIOS = Platform.isIOS;
 
     return Obx(
-      () => viewModel.isLoadingSchedules.value
-          ? const Center(
-              child: CircularProgressIndicator.adaptive(),
-            )
-          : viewModel.schedules.isEmpty
-              ? const Center(
-                  child: Text('선택된 노선과 일자에 해당하는 운행 정보가 없습니다'),
-                )
-              : Container(
-                  clipBehavior: Clip.antiAlias,
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).cardColor,
-                    borderRadius: BorderRadius.circular(25),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.1),
-                        blurRadius: 10,
-                        offset: const Offset(0, 0),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    children: [
-                      // 헤더 행
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            vertical: 12, horizontal: 16),
-                        decoration: BoxDecoration(
-                          color: Theme.of(context).brightness == Brightness.dark
-                              ? Theme.of(context).cardColor.withOpacity(0.5)
-                              : Theme.of(context)
-                                  .scaffoldBackgroundColor
-                                  .withOpacity(0.8),
-                          borderRadius: const BorderRadius.only(
-                            topLeft: Radius.circular(25),
-                            topRight: Radius.circular(25),
-                          ),
+      () {
+        final emphasizedScheduleId = _getEmphasizedScheduleId();
+
+        return viewModel.isLoadingSchedules.value
+            ? const Center(
+                child: CircularProgressIndicator.adaptive(),
+              )
+            : viewModel.schedules.isEmpty
+                ? const Center(
+                    child: Text('선택된 노선과 일자에 해당하는 운행 정보가 없습니다'),
+                  )
+                : Container(
+                    clipBehavior: Clip.antiAlias,
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).cardColor,
+                      borderRadius: BorderRadius.circular(25),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.1),
+                          blurRadius: 10,
+                          offset: const Offset(0, 0),
                         ),
-                        child: const Row(
-                          children: [
-                            Expanded(
-                              flex: 1,
-                              child: Text(
-                                '회차',
-                                style: TextStyle(fontWeight: FontWeight.bold),
-                              ),
+                      ],
+                    ),
+                    child: Column(
+                      children: [
+                        // 헤더 행
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              vertical: 12, horizontal: 16),
+                          decoration: BoxDecoration(
+                            color: Theme.of(context).brightness ==
+                                    Brightness.dark
+                                ? Theme.of(context).cardColor.withOpacity(0.5)
+                                : Theme.of(context)
+                                    .scaffoldBackgroundColor
+                                    .withOpacity(0.8),
+                            borderRadius: const BorderRadius.only(
+                              topLeft: Radius.circular(25),
+                              topRight: Radius.circular(25),
                             ),
-                            Expanded(
-                              flex: 2,
-                              child: Text(
-                                '출발 시간',
-                                style: TextStyle(fontWeight: FontWeight.bold),
-                              ),
-                            ),
-                            Expanded(
-                              flex: 1,
-                              child: Align(
-                                alignment: Alignment.centerRight,
+                          ),
+                          child: Row(
+                            children: [
+                              const Expanded(
+                                flex: 1,
                                 child: Text(
-                                  '상세',
+                                  '회차',
                                   style: TextStyle(fontWeight: FontWeight.bold),
                                 ),
                               ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Divider(
-                        height: 1,
-                        thickness: 1,
-                        color: Colors.grey.withOpacity(0.3),
-                      ),
-                      Expanded(
-                        child: Container(
-                          child: ClipRect(
-                            child: isIOS
-                                ? ListView.builder(
-                                    controller: _scheduleScrollController,
-                                    itemCount: viewModel.schedules.length,
-                                    itemBuilder: _buildScheduleItem,
-                                  )
-                                : Scrollbar(
-                                    interactive: true,
-                                    thumbVisibility: true,
-                                    controller: _scheduleScrollController,
-                                    child: ListView.builder(
-                                      controller: _scheduleScrollController,
-                                      itemCount: viewModel.schedules.length,
-                                      itemBuilder: _buildScheduleItem,
+                              Expanded(
+                                flex: 4,
+                                child: _buildScheduleTimeSection(
+                                  startChild: const Text(
+                                    '기점 출발 시간',
+                                    style:
+                                        TextStyle(fontWeight: FontWeight.bold),
+                                  ),
+                                  endChild: const Text(
+                                    '종점 도착 시간',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: _endTimeFontSize,
                                     ),
                                   ),
+                                ),
+                              ),
+                              const Expanded(
+                                flex: 1,
+                                child: Align(
+                                  alignment: Alignment.centerRight,
+                                  child: Text(
+                                    '상세',
+                                    style:
+                                        TextStyle(fontWeight: FontWeight.bold),
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                      ),
-                    ],
-                  ),
-                ),
+                        Divider(
+                          height: 1,
+                          thickness: 1,
+                          color: Colors.grey.withOpacity(0.3),
+                        ),
+                        Expanded(
+                          child: Container(
+                            child: ClipRect(
+                              child: isIOS
+                                  ? ListView.builder(
+                                      controller: _scheduleScrollController,
+                                      itemCount: viewModel.schedules.length,
+                                      itemBuilder: (context, index) =>
+                                          _buildScheduleItem(
+                                        context,
+                                        index,
+                                        emphasizedScheduleId,
+                                      ),
+                                    )
+                                  : Scrollbar(
+                                      interactive: true,
+                                      thumbVisibility: true,
+                                      controller: _scheduleScrollController,
+                                      child: ListView.builder(
+                                        controller: _scheduleScrollController,
+                                        itemCount: viewModel.schedules.length,
+                                        itemBuilder: (context, index) =>
+                                            _buildScheduleItem(
+                                          context,
+                                          index,
+                                          emphasizedScheduleId,
+                                        ),
+                                      ),
+                                    ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+      },
     );
   }
 
-  Widget _buildScheduleItem(BuildContext context, int index) {
+  Widget _buildScheduleItem(
+    BuildContext context,
+    int index,
+    int? emphasizedScheduleId,
+  ) {
     final schedule = viewModel.schedules[index];
     final isExpanded = _expandedScheduleId == schedule.id;
+    final isEmphasized = emphasizedScheduleId == schedule.id;
     final animatedSizeAlignment =
         _rowSizeAlignments[schedule.id] ?? Alignment.topCenter;
     final isHighlightActive = _highlightedScheduleId == schedule.id;
@@ -633,6 +743,9 @@ class _ShuttleScheduleViewState extends State<ShuttleScheduleView> {
     final expandedRowColor = isDarkMode
         ? Theme.of(context).colorScheme.primary.withOpacity(0.14)
         : const Color(0xFFFFF1EF);
+    final emphasizedTextColor = isEmphasized
+        ? (isDarkMode ? Colors.redAccent : const Color(0xFFB83227))
+        : null;
     final actionColor = isExpanded
         ? Theme.of(context).colorScheme.primary
         : Theme.of(context).hintColor;
@@ -663,13 +776,52 @@ class _ShuttleScheduleViewState extends State<ShuttleScheduleView> {
                   children: [
                     Expanded(
                       flex: 1,
-                      child: Text('${schedule.round}'),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            '${schedule.round}',
+                            style: TextStyle(color: emphasizedTextColor),
+                          ),
+                          if (isEmphasized) ...[
+                            const SizedBox(width: 4),
+                            Icon(
+                              Icons.access_time_filled_rounded,
+                              size: _nearestScheduleIconSize,
+                              color: emphasizedTextColor,
+                            ),
+                          ],
+                        ],
+                      ),
                     ),
                     Expanded(
-                      flex: 2,
-                      child: Text(
-                        DateFormat('HH:mm').format(schedule.startTime),
-                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      flex: 4,
+                      child: _buildScheduleTimeSection(
+                        startChild: Text(
+                          DateFormat('HH:mm').format(schedule.startTime),
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: emphasizedTextColor,
+                          ),
+                        ),
+                        indicator: Icon(
+                          Icons.arrow_forward_rounded,
+                          size: _timeIndicatorWidth,
+                          color: Theme.of(context).hintColor,
+                        ),
+                        endChild: Text(
+                          DateFormat('HH:mm').format(schedule.endTime),
+                          style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: _endTimeFontSize,
+                            color: emphasizedTextColor ??
+                                Theme.of(context)
+                                    .textTheme
+                                    .bodyMedium
+                                    ?.color
+                                    ?.withOpacity(0.78),
+                          ),
+                        ),
                       ),
                     ),
                     Expanded(

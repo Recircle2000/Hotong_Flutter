@@ -1,5 +1,3 @@
-import 'package:flutter/material.dart';
-
 class ShuttleRoute {
   final int id;
   final String routeName;
@@ -25,6 +23,7 @@ class Schedule {
   final int routeId;
   final String scheduleType;
   final DateTime startTime;
+  final DateTime endTime;
   final int round;
 
   Schedule({
@@ -32,18 +31,36 @@ class Schedule {
     required this.routeId,
     required this.scheduleType,
     required this.startTime,
+    required this.endTime,
     required this.round,
   });
 
   factory Schedule.fromJson(Map<String, dynamic> json) {
-    final timeStr = json['start_time'];
-    DateTime startTime;
+    final startTime = _parseTime(json['start_time']);
+    final endTime = _parseTime(
+      json['end_time'],
+      fallback: startTime,
+    );
+
+    return Schedule(
+      id: json['id'],
+      routeId: json['route_id'],
+      scheduleType: json['schedule_type'],
+      startTime: startTime,
+      endTime: endTime,
+      round: json['round'] ?? 1,
+    );
+  }
+
+  static DateTime _parseTime(dynamic timeValue, {DateTime? fallback}) {
+    final timeStr = timeValue?.toString() ?? '';
+
     try {
       final now = DateTime.now();
       final timeParts = timeStr.split(':');
-      startTime = DateTime(
-        now.year, 
-        now.month, 
+      return DateTime(
+        now.year,
+        now.month,
         now.day,
         int.parse(timeParts[0]),
         int.parse(timeParts[1]),
@@ -51,16 +68,8 @@ class Schedule {
       );
     } catch (e) {
       print('시간 파싱 오류: $timeStr - $e');
-      startTime = DateTime.now();
+      return fallback ?? DateTime.now();
     }
-
-    return Schedule(
-      id: json['id'],
-      routeId: json['route_id'],
-      scheduleType: json['schedule_type'],
-      startTime: startTime,
-      round: json['round'] ?? 1,
-    );
   }
 }
 
@@ -143,4 +152,4 @@ class StationSchedule {
       scheduleId: json['schedule_id'],
     );
   }
-} 
+}
