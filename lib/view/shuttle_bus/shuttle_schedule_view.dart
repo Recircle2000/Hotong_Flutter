@@ -325,7 +325,7 @@ class _ShuttleScheduleViewState extends State<ShuttleScheduleView> {
       return futureSchedules.first.id;
     }
 
-    return viewModel.schedules.last.id;
+    return null;
   }
 
   @override

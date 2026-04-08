@@ -229,9 +229,8 @@ class ShuttleViewModel extends GetxController {
         // 시간 기준으로 정렬
         futureSchedules.sort((a, b) => a.startTime.compareTo(b.startTime));
         selectSchedule(futureSchedules.first.id);
-      } else if (schedules.isNotEmpty) {
-        // 이후 스케줄이 없다면 마지막 스케줄 선택
-        selectSchedule(schedules.last.id);
+      } else {
+        selectedScheduleId.value = -1;
       }
     } catch (e) {
       print('가장 가까운 스케줄 선택 중 오류 발생: $e');
