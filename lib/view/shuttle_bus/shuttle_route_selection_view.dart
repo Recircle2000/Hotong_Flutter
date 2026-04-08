@@ -516,12 +516,15 @@ class _ShuttleRouteSelectionViewState extends State<ShuttleRouteSelectionView> {
   }
 
   Widget _buildIOSRouteSelector(BuildContext context) {
-    return ScaleButton(
-      onTap: () => _showIOSRoutePicker(context),
-      child: Container(
+    return Obx(() {
+      final routes = viewModel.routes.toList(growable: false);
+      final selectedRouteId = viewModel.selectedRouteId.value;
+      final routeKey =
+          routes.map((route) => '${route.id}:${route.routeName}').join('|');
+
+      return Container(
         height: 50,
         decoration: BoxDecoration(
-          // border: Border.all(color: Theme.of(context).dividerColor),
           color: Theme.of(context).cardColor,
           borderRadius: BorderRadius.circular(25),
           boxShadow: [
@@ -532,103 +535,15 @@ class _ShuttleRouteSelectionViewState extends State<ShuttleRouteSelectionView> {
             ),
           ],
         ),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16.0),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Obx(() {
-                if (viewModel.selectedRouteId.value == -1) {
-                  return Text('노선을 선택하세요',
-                      style: TextStyle(color: Theme.of(context).hintColor));
-                } else {
-                  final selectedRoute = viewModel.routes.firstWhere(
-                    (route) => route.id == viewModel.selectedRouteId.value,
-                    orElse: () => ShuttleRoute(
-                        id: -1, routeName: '알 수 없음', direction: ''),
-                  );
-                  return Text('${selectedRoute.routeName}');
-                }
-              }),
-              Icon(Icons.arrow_drop_down, color: Theme.of(context).hintColor),
-            ],
-          ),
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: IOSRoutePopupButtonField(
+          key: ValueKey('$selectedRouteId|$routeKey'),
+          routes: routes,
+          selectedRouteId: selectedRouteId,
+          onRouteChanged: viewModel.selectRoute,
         ),
-      ),
-    );
-  }
-
-  void _showIOSRoutePicker(BuildContext context) {
-    int selectedIndex = 0;
-
-    // 현재 선택된 노선의 인덱스 찾기
-    if (viewModel.selectedRouteId.value != -1) {
-      final index = viewModel.routes
-          .indexWhere((route) => route.id == viewModel.selectedRouteId.value);
-      if (index != -1) {
-        selectedIndex = index;
-      }
-    }
-
-    // 노선이 없는 경우 처리
-    if (viewModel.routes.isEmpty) {
-      Get.snackbar('알림', '사용 가능한 노선이 없습니다',
-          snackPosition: SnackPosition.BOTTOM);
-      return;
-    }
-
-    showCupertinoModalPopup(
-      context: context,
-      builder: (context) => Container(
-        height: 250,
-        color: CupertinoColors.systemBackground.resolveFrom(context),
-        child: Column(
-          children: [
-            Container(
-              height: 50,
-              color: CupertinoColors.systemGrey5.resolveFrom(context),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  CupertinoButton(
-                    child: Text('취소'),
-                    onPressed: () => Navigator.pop(context),
-                  ),
-                  CupertinoButton(
-                    child: Text('확인'),
-                    onPressed: () {
-                      if (viewModel.routes.isNotEmpty) {
-                        viewModel
-                            .selectRoute(viewModel.routes[selectedIndex].id);
-                      }
-                      Navigator.pop(context);
-                    },
-                  ),
-                ],
-              ),
-            ),
-            Expanded(
-              child: CupertinoPicker(
-                itemExtent: 40,
-                scrollController:
-                    FixedExtentScrollController(initialItem: selectedIndex),
-                onSelectedItemChanged: (int index) {
-                  selectedIndex = index;
-                },
-                children: viewModel.routes.map((route) {
-                  return Center(
-                    child: Text(
-                      '${route.routeName}',
-                      style: TextStyle(fontSize: 16),
-                    ),
-                  );
-                }).toList(),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
+      );
+    });
   }
 
   Widget _buildAndroidRouteSelector() {
@@ -1178,6 +1093,62 @@ class IOSCompactDatePickerField extends StatefulWidget {
   @override
   State<IOSCompactDatePickerField> createState() =>
       _IOSCompactDatePickerFieldState();
+}
+
+class IOSRoutePopupButtonField extends StatefulWidget {
+  final List<ShuttleRoute> routes;
+  final int selectedRouteId;
+  final ValueChanged<int> onRouteChanged;
+
+  const IOSRoutePopupButtonField({
+    super.key,
+    required this.routes,
+    required this.selectedRouteId,
+    required this.onRouteChanged,
+  });
+
+  @override
+  State<IOSRoutePopupButtonField> createState() =>
+      _IOSRoutePopupButtonFieldState();
+}
+
+class _IOSRoutePopupButtonFieldState extends State<IOSRoutePopupButtonField> {
+  MethodChannel? _channel;
+
+  @override
+  void dispose() {
+    _channel?.setMethodCallHandler(null);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return UiKitView(
+      viewType: 'hsro/ios_route_popup_button',
+      creationParams: {
+        'selectedRouteId': widget.selectedRouteId,
+        'routes': widget.routes
+            .map((route) => {
+                  'id': route.id,
+                  'title': route.routeName,
+                })
+            .toList(growable: false),
+      },
+      creationParamsCodec: const StandardMessageCodec(),
+      onPlatformViewCreated: _handlePlatformViewCreated,
+    );
+  }
+
+  void _handlePlatformViewCreated(int viewId) {
+    _channel = MethodChannel('hsro/ios_route_popup_button_$viewId');
+    _channel!.setMethodCallHandler((call) async {
+      if (call.method != 'onChanged' || call.arguments == null) {
+        return;
+      }
+
+      widget.onRouteChanged(call.arguments as int);
+    });
+  }
 }
 
 class _IOSCompactDatePickerFieldState extends State<IOSCompactDatePickerField> {
