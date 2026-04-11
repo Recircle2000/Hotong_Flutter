@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
-import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'dart:io' show Platform;
 import '../../viewmodel/shuttle_viewmodel.dart';
@@ -11,6 +10,7 @@ import 'package:intl/intl.dart';
 import 'nearby_stops_view.dart'; // 가까운 정류장 찾기 화면 임포트
 import '../components/scale_button.dart';
 import '../components/emergency_notice_banner.dart';
+import '../components/ios_platform_fields.dart';
 import 'package:tutorial_coach_mark/tutorial_coach_mark.dart';
 
 class ShuttleRouteSelectionView extends StatefulWidget {
@@ -1073,122 +1073,5 @@ class _ShuttleRouteSelectionViewState extends State<ShuttleRouteSelectionView> {
         );
       }
     }
-  }
-}
-
-class IOSCompactDatePickerField extends StatefulWidget {
-  final DateTime initialDate;
-  final DateTime minimumDate;
-  final DateTime maximumDate;
-  final ValueChanged<DateTime> onDateChanged;
-
-  const IOSCompactDatePickerField({
-    super.key,
-    required this.initialDate,
-    required this.minimumDate,
-    required this.maximumDate,
-    required this.onDateChanged,
-  });
-
-  @override
-  State<IOSCompactDatePickerField> createState() =>
-      _IOSCompactDatePickerFieldState();
-}
-
-class IOSRoutePopupButtonField extends StatefulWidget {
-  final List<ShuttleRoute> routes;
-  final int selectedRouteId;
-  final ValueChanged<int> onRouteChanged;
-
-  const IOSRoutePopupButtonField({
-    super.key,
-    required this.routes,
-    required this.selectedRouteId,
-    required this.onRouteChanged,
-  });
-
-  @override
-  State<IOSRoutePopupButtonField> createState() =>
-      _IOSRoutePopupButtonFieldState();
-}
-
-class _IOSRoutePopupButtonFieldState extends State<IOSRoutePopupButtonField> {
-  MethodChannel? _channel;
-
-  @override
-  void dispose() {
-    _channel?.setMethodCallHandler(null);
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return UiKitView(
-      viewType: 'hsro/ios_route_popup_button',
-      creationParams: {
-        'selectedRouteId': widget.selectedRouteId,
-        'routes': widget.routes
-            .map((route) => {
-                  'id': route.id,
-                  'title': route.routeName,
-                })
-            .toList(growable: false),
-      },
-      creationParamsCodec: const StandardMessageCodec(),
-      onPlatformViewCreated: _handlePlatformViewCreated,
-    );
-  }
-
-  void _handlePlatformViewCreated(int viewId) {
-    _channel = MethodChannel('hsro/ios_route_popup_button_$viewId');
-    _channel!.setMethodCallHandler((call) async {
-      if (call.method != 'onChanged' || call.arguments == null) {
-        return;
-      }
-
-      widget.onRouteChanged(call.arguments as int);
-    });
-  }
-}
-
-class _IOSCompactDatePickerFieldState extends State<IOSCompactDatePickerField> {
-  MethodChannel? _channel;
-
-  @override
-  void dispose() {
-    _channel?.setMethodCallHandler(null);
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: 32,
-      child: UiKitView(
-        viewType: 'hsro/ios_compact_date_picker',
-        creationParams: {
-          'initialDate': widget.initialDate.millisecondsSinceEpoch,
-          'minimumDate': widget.minimumDate.millisecondsSinceEpoch,
-          'maximumDate': widget.maximumDate.millisecondsSinceEpoch,
-        },
-        creationParamsCodec: const StandardMessageCodec(),
-        onPlatformViewCreated: _handlePlatformViewCreated,
-      ),
-    );
-  }
-
-  void _handlePlatformViewCreated(int viewId) {
-    _channel = MethodChannel('hsro/ios_compact_date_picker_$viewId');
-    _channel!.setMethodCallHandler((call) async {
-      if (call.method != 'onChanged' || call.arguments == null) {
-        return;
-      }
-
-      final milliseconds = call.arguments as int;
-      final selectedDate = DateTime.fromMillisecondsSinceEpoch(milliseconds);
-      widget.onDateChanged(
-        DateTime(selectedDate.year, selectedDate.month, selectedDate.day),
-      );
-    });
   }
 }

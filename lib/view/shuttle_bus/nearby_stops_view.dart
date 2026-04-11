@@ -8,6 +8,7 @@ import '../../viewmodel/nearby_stops_viewmodel.dart';
 import 'shuttle_route_detail_view.dart'; // 노선 상세 정보 화면 임포트
 import 'naver_map_station_detail_view.dart'; // 네이버 지도 정류장 상세 정보 화면 임포트
 import '../components/scale_button.dart';
+import '../components/ios_platform_fields.dart';
 import 'package:tutorial_coach_mark/tutorial_coach_mark.dart';
 
 class NearbyStopsView extends StatefulWidget {
@@ -1143,66 +1144,5 @@ class _NearbyStopsViewState extends State<NearbyStopsView> {
     } catch (e) {
       return dateStr;
     }
-  }
-}
-
-class IOSCompactDatePickerField extends StatefulWidget {
-  final DateTime initialDate;
-  final DateTime minimumDate;
-  final DateTime maximumDate;
-  final ValueChanged<DateTime> onDateChanged;
-
-  const IOSCompactDatePickerField({
-    super.key,
-    required this.initialDate,
-    required this.minimumDate,
-    required this.maximumDate,
-    required this.onDateChanged,
-  });
-
-  @override
-  State<IOSCompactDatePickerField> createState() =>
-      _IOSCompactDatePickerFieldState();
-}
-
-class _IOSCompactDatePickerFieldState extends State<IOSCompactDatePickerField> {
-  MethodChannel? _channel;
-
-  @override
-  void dispose() {
-    _channel?.setMethodCallHandler(null);
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: 32,
-      child: UiKitView(
-        viewType: 'hsro/ios_compact_date_picker',
-        creationParams: {
-          'initialDate': widget.initialDate.millisecondsSinceEpoch,
-          'minimumDate': widget.minimumDate.millisecondsSinceEpoch,
-          'maximumDate': widget.maximumDate.millisecondsSinceEpoch,
-        },
-        creationParamsCodec: const StandardMessageCodec(),
-        onPlatformViewCreated: _handlePlatformViewCreated,
-      ),
-    );
-  }
-
-  void _handlePlatformViewCreated(int viewId) {
-    _channel = MethodChannel('hsro/ios_compact_date_picker_$viewId');
-    _channel!.setMethodCallHandler((call) async {
-      if (call.method != 'onChanged' || call.arguments == null) {
-        return;
-      }
-
-      final milliseconds = call.arguments as int;
-      final selectedDate = DateTime.fromMillisecondsSinceEpoch(milliseconds);
-      widget.onDateChanged(
-        DateTime(selectedDate.year, selectedDate.month, selectedDate.day),
-      );
-    });
   }
 }
