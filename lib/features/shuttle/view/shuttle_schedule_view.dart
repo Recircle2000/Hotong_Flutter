@@ -357,11 +357,11 @@ class _ShuttleScheduleViewState extends State<ShuttleScheduleView> {
     const shuttleColor = Color(0xFFB83227);
     final brightness = Theme.of(context).brightness;
     final backgroundColor = brightness == Brightness.dark
-        ? shuttleColor.withOpacity(0.2)
-        : shuttleColor.withOpacity(0.1);
+        ? shuttleColor.withValues(alpha: 0.2)
+        : shuttleColor.withValues(alpha: 0.1);
     final primaryTextColor =
         brightness == Brightness.dark ? Colors.redAccent : shuttleColor;
-    final secondaryTextColor = primaryTextColor.withOpacity(0.78);
+    final secondaryTextColor = primaryTextColor.withValues(alpha: 0.78);
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -464,8 +464,8 @@ class _ShuttleScheduleViewState extends State<ShuttleScheduleView> {
     const shuttleColor = Color(0xFFB83227);
     final brightness = Theme.of(context).brightness;
     final backgroundColor = brightness == Brightness.dark
-        ? shuttleColor.withOpacity(0.2)
-        : shuttleColor.withOpacity(0.1);
+        ? shuttleColor.withValues(alpha: 0.2)
+        : shuttleColor.withValues(alpha: 0.1);
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -623,7 +623,7 @@ class _ShuttleScheduleViewState extends State<ShuttleScheduleView> {
                       borderRadius: BorderRadius.circular(25),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.1),
+                          color: Colors.black.withValues(alpha: 0.1),
                           blurRadius: 10,
                           offset: const Offset(0, 0),
                         ),
@@ -638,10 +638,10 @@ class _ShuttleScheduleViewState extends State<ShuttleScheduleView> {
                           decoration: BoxDecoration(
                             color: Theme.of(context).brightness ==
                                     Brightness.dark
-                                ? Theme.of(context).cardColor.withOpacity(0.5)
+                                ? Theme.of(context).cardColor.withValues(alpha: 0.5)
                                 : Theme.of(context)
                                     .scaffoldBackgroundColor
-                                    .withOpacity(0.8),
+                                    .withValues(alpha: 0.8),
                             borderRadius: const BorderRadius.only(
                               topLeft: Radius.circular(25),
                               topRight: Radius.circular(25),
@@ -660,12 +660,12 @@ class _ShuttleScheduleViewState extends State<ShuttleScheduleView> {
                                 flex: 4,
                                 child: _buildScheduleTimeSection(
                                   startChild: const Text(
-                                    '기점 출발 시간',
+                                    '출발 시간',
                                     style:
                                         TextStyle(fontWeight: FontWeight.bold),
                                   ),
                                   endChild: const Text(
-                                    '종점 도착 시간',
+                                    '도착 시간',
                                     style: TextStyle(
                                       fontWeight: FontWeight.bold,
                                       fontSize: _endTimeFontSize,
@@ -690,7 +690,7 @@ class _ShuttleScheduleViewState extends State<ShuttleScheduleView> {
                         Divider(
                           height: 1,
                           thickness: 1,
-                          color: Colors.grey.withOpacity(0.3),
+                          color: Colors.grey.withValues(alpha: 0.3),
                         ),
                         Expanded(
                           child: Container(
@@ -744,7 +744,7 @@ class _ShuttleScheduleViewState extends State<ShuttleScheduleView> {
     final isHighlightActive = _highlightedScheduleId == schedule.id;
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
     final expandedRowColor = isDarkMode
-        ? Theme.of(context).colorScheme.primary.withOpacity(0.14)
+        ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.14)
         : const Color(0xFFFFF1EF);
     final emphasizedTextColor = isEmphasized
         ? (isDarkMode ? Colors.redAccent : const Color(0xFFB83227))
@@ -759,7 +759,7 @@ class _ShuttleScheduleViewState extends State<ShuttleScheduleView> {
       decoration: BoxDecoration(
         border: Border(
           bottom: BorderSide(
-            color: Colors.grey.withOpacity(0.3),
+            color: Colors.grey.withValues(alpha: 0.3),
             width: 1,
           ),
         ),
@@ -823,7 +823,7 @@ class _ShuttleScheduleViewState extends State<ShuttleScheduleView> {
                                     .textTheme
                                     .bodyMedium
                                     ?.color
-                                    ?.withOpacity(0.78),
+                                    ?.withValues(alpha: 0.78),
                           ),
                         ),
                       ),
@@ -935,8 +935,8 @@ class _ShuttleScheduleViewState extends State<ShuttleScheduleView> {
             padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 14),
             decoration: BoxDecoration(
               color: Theme.of(context).brightness == Brightness.dark
-                  ? Theme.of(context).colorScheme.primary.withOpacity(0.14)
-                  : Theme.of(context).colorScheme.primary.withOpacity(0.08),
+                  ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.14)
+                  : Theme.of(context).colorScheme.primary.withValues(alpha: 0.08),
               borderRadius: const BorderRadius.only(
                 topLeft: Radius.circular(16),
                 topRight: Radius.circular(16),
@@ -963,7 +963,7 @@ class _ShuttleScheduleViewState extends State<ShuttleScheduleView> {
                       const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
                     color:
-                        Theme.of(context).colorScheme.primary.withOpacity(0.12),
+                        Theme.of(context).colorScheme.primary.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(999),
                   ),
                   child: Text(
@@ -981,13 +981,13 @@ class _ShuttleScheduleViewState extends State<ShuttleScheduleView> {
           Divider(
             height: 1,
             thickness: 1,
-            color: Colors.grey.withOpacity(0.25),
+            color: Colors.grey.withValues(alpha: 0.25),
           ),
           Container(
             padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
             color: Theme.of(context).brightness == Brightness.dark
-                ? Theme.of(context).cardColor.withOpacity(0.6)
-                : Theme.of(context).scaffoldBackgroundColor.withOpacity(0.9),
+                ? Theme.of(context).cardColor.withValues(alpha: 0.6)
+                : Theme.of(context).scaffoldBackgroundColor.withValues(alpha: 0.9),
             child: const Row(
               children: [
                 Expanded(
@@ -1025,7 +1025,7 @@ class _ShuttleScheduleViewState extends State<ShuttleScheduleView> {
             separatorBuilder: (context, index) => Divider(
               height: 1,
               thickness: 1,
-              color: Colors.grey.withOpacity(0.2),
+              color: Colors.grey.withValues(alpha: 0.2),
             ),
             itemBuilder: (context, index) => _buildInlineStopItem(stops[index]),
           ),
@@ -1041,16 +1041,16 @@ class _ShuttleScheduleViewState extends State<ShuttleScheduleView> {
       margin: const EdgeInsets.fromLTRB(12, 4, 12, 12),
       decoration: BoxDecoration(
         color: isDarkMode
-            ? Theme.of(context).colorScheme.surface.withOpacity(0.72)
+            ? Theme.of(context).colorScheme.surface.withValues(alpha: 0.72)
             : Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: Theme.of(context).colorScheme.primary.withOpacity(0.2),
+          color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.2),
           width: 1,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(isDarkMode ? 0.18 : 0.08),
+            color: Colors.black.withValues(alpha: isDarkMode ? 0.18 : 0.08),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
