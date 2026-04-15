@@ -13,10 +13,14 @@ import 'package:hsro/shared/widgets/scale_button.dart';
 
 class NearbyStopsView extends StatefulWidget {
   final bool startExperienceTour;
+  final int? initialStationId;
+  final String? initialDate;
 
   const NearbyStopsView({
     super.key,
     this.startExperienceTour = false,
+    this.initialStationId,
+    this.initialDate,
   });
 
   @override
@@ -30,7 +34,8 @@ class _NearbyStopsViewState extends State<NearbyStopsView> {
 
   // 셔틀 대표 색상
   final Color shuttleColor = Color(0xFFB83227);
-  final NearbyStopsViewModel viewModel = Get.put(NearbyStopsViewModel());
+  late final String _viewModelTag;
+  late final NearbyStopsViewModel viewModel;
   Worker? _uiMessageWorker;
   final GlobalKey _stationSelectorKey = GlobalKey();
   final GlobalKey _scheduleTableKey = GlobalKey();
@@ -39,6 +44,14 @@ class _NearbyStopsViewState extends State<NearbyStopsView> {
   @override
   void initState() {
     super.initState();
+    _viewModelTag = 'nearby-stops-${identityHashCode(this)}';
+    viewModel = Get.put(
+      NearbyStopsViewModel(
+        initialStationId: widget.initialStationId,
+        initialDate: widget.initialDate,
+      ),
+      tag: _viewModelTag,
+    );
     // ViewModel 메시지를 스낵바로 연결
     _uiMessageWorker =
         ever<NearbyStopsUiMessage?>(viewModel.uiMessage, (message) {
@@ -62,6 +75,9 @@ class _NearbyStopsViewState extends State<NearbyStopsView> {
   @override
   void dispose() {
     _uiMessageWorker?.dispose();
+    if (Get.isRegistered<NearbyStopsViewModel>(tag: _viewModelTag)) {
+      Get.delete<NearbyStopsViewModel>(tag: _viewModelTag, force: true);
+    }
     super.dispose();
   }
 
@@ -344,6 +360,11 @@ class _NearbyStopsViewState extends State<NearbyStopsView> {
       // 위치가 있으면 거리순 정렬 목록 사용
       final stations =
           hasLocation ? viewModel.sortedStations : viewModel.stations;
+      final selectedValue = stations.any(
+        (station) => station.id == viewModel.selectedStationId.value,
+      )
+          ? viewModel.selectedStationId.value
+          : stations.first.id;
 
       if (isLoading) {
         return Center(
@@ -399,9 +420,7 @@ class _NearbyStopsViewState extends State<NearbyStopsView> {
             ),
             child: DropdownButtonHideUnderline(
               child: DropdownButton<int>(
-                value: viewModel.selectedStationId.value != -1
-                    ? viewModel.selectedStationId.value
-                    : stations.first.id,
+                value: selectedValue,
                 isExpanded: true,
                 padding: EdgeInsets.symmetric(horizontal: 12),
                 borderRadius: BorderRadius.circular(8),

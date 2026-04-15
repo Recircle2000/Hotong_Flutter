@@ -9,6 +9,7 @@ import 'package:hsro/features/notice/widgets/emergency_notice_banner.dart';
 import 'package:hsro/features/shuttle/models/shuttle_models.dart';
 import 'package:hsro/features/shuttle/view/nearby_stops_view.dart';
 import 'package:hsro/features/shuttle/view/shuttle_schedule_view.dart';
+import 'package:hsro/features/shuttle/view/shuttle_station_map_view.dart';
 import 'package:hsro/features/shuttle/viewmodel/shuttle_viewmodel.dart';
 import 'package:hsro/shared/widgets/ios_platform_fields.dart';
 import 'package:hsro/shared/widgets/scale_button.dart';
@@ -209,7 +210,11 @@ class _ShuttleRouteSelectionViewState extends State<ShuttleRouteSelectionView> {
                               key: _nearbyButtonKey,
                               child: ScaleButton(
                                 onTap: () {
-                                  Get.to(() => NearbyStopsView());
+                                  Get.to(
+                                    () => NearbyStopsView(
+                                      initialDate: _selectedDateOrNull,
+                                    ),
+                                  );
                                 },
                                 child: Container(
                                   padding: EdgeInsets.symmetric(
@@ -319,7 +324,10 @@ class _ShuttleRouteSelectionViewState extends State<ShuttleRouteSelectionView> {
   Future<void> _openNearbyStopsExperience() async {
     // 체험하기 흐름을 주변 정류장 화면으로 이어감
     final shouldContinue = await Get.to(
-      () => NearbyStopsView(startExperienceTour: widget.startExperienceTour),
+      () => NearbyStopsView(
+        startExperienceTour: widget.startExperienceTour,
+        initialDate: _selectedDateOrNull,
+      ),
     );
     _completeExperienceTour(proceedToNext: shouldContinue == true);
   }
@@ -401,6 +409,19 @@ class _ShuttleRouteSelectionViewState extends State<ShuttleRouteSelectionView> {
       return '${route.routeName}';
     }
     return '';
+  }
+
+  String? get _selectedDateOrNull {
+    final date = viewModel.selectedDate.value;
+    return date.isEmpty ? null : date;
+  }
+
+  void _openStationMap() {
+    Get.to(
+      () => ShuttleStationMapView(
+        initialDate: _selectedDateOrNull,
+      ),
+    );
   }
 
   Widget _buildSelectionArea(BuildContext context) {
@@ -514,11 +535,17 @@ class _ShuttleRouteSelectionViewState extends State<ShuttleRouteSelectionView> {
 
   Widget _buildRouteSelector(BuildContext context) {
     // 플랫폼별 노선 선택 UI 분기
-    if (Platform.isIOS) {
-      return _buildIOSRouteSelector(context);
-    } else {
-      return _buildAndroidRouteSelector();
-    }
+    final selector = Platform.isIOS
+        ? _buildIOSRouteSelector(context)
+        : _buildAndroidRouteSelector();
+
+    return Row(
+      children: [
+        Expanded(child: selector),
+        SizedBox(width: 12),
+        _buildMapShortcutButton(),
+      ],
+    );
   }
 
   Widget _buildIOSRouteSelector(BuildContext context) {
@@ -593,6 +620,33 @@ class _ShuttleRouteSelectionViewState extends State<ShuttleRouteSelectionView> {
           }).toList(),
         );
       }),
+    );
+  }
+
+  Widget _buildMapShortcutButton() {
+    return ScaleButton(
+      onTap: _openStationMap,
+      child: Container(
+        width: 50,
+        height: 50,
+        decoration: BoxDecoration(
+          color: Theme.of(context).cardColor,
+          shape: BoxShape.circle,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 10,
+              offset: const Offset(0, 0),
+            ),
+          ],
+        ),
+        child: Icon(
+          Icons.map_outlined,
+          color: Theme.of(context).brightness == Brightness.dark
+              ? Colors.redAccent
+              : shuttleColor,
+        ),
+      ),
     );
   }
 

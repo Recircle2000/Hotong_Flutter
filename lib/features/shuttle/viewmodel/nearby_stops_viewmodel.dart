@@ -21,11 +21,15 @@ class NearbyStopsViewModel extends GetxController {
   NearbyStopsViewModel({
     ShuttleRepository? shuttleRepository,
     PreferencesService? preferencesService,
+    this.initialStationId,
+    this.initialDate,
   })  : _shuttleRepository = shuttleRepository ?? ShuttleRepository(),
         _preferencesService = preferencesService ?? PreferencesService();
 
   final ShuttleRepository _shuttleRepository;
   final PreferencesService _preferencesService;
+  final int? initialStationId;
+  final String? initialDate;
 
   // 주변 정류장 화면 데이터 상태
   final RxList<ShuttleStation> stations = <ShuttleStation>[].obs;
@@ -48,6 +52,8 @@ class NearbyStopsViewModel extends GetxController {
 
   // 운행 유형 목록
   final List<String> scheduleTypes = ['Weekday', 'Saturday', 'Holiday'];
+
+  bool get _hasInitialStationSelection => initialStationId != null;
 
   // 운행 유형 한글 매핑
   final Map<String, String> scheduleTypeNames = {
@@ -76,7 +82,11 @@ class NearbyStopsViewModel extends GetxController {
   void onInit() {
     super.onInit();
     // 기본 날짜 설정 후 정류장과 위치 정보 준비
-    setDefaultDate();
+    if (initialDate != null && initialDate!.isNotEmpty) {
+      selectedDate.value = initialDate!;
+    } else {
+      setDefaultDate();
+    }
     fetchStations();
     checkLocationPermission();
   }
@@ -142,10 +152,13 @@ class NearbyStopsViewModel extends GetxController {
 
     try {
       stations.value = await _shuttleRepository.fetchStations();
+      if (_hasInitialStationSelection) {
+        await _applyInitialStationSelection();
+      }
 
       // 현재 위치가 있으면 가까운 순으로 정렬
       if (currentPosition.value != null) {
-        sortStationsByDistance();
+        await sortStationsByDistance();
       }
     } catch (e) {
       print('정류장 목록을 불러오는데 실패했습니다: $e');
@@ -220,7 +233,7 @@ class NearbyStopsViewModel extends GetxController {
       currentPosition.value = position;
 
       // 위치 기준으로 정류장 재정렬
-      sortStationsByDistance();
+      await sortStationsByDistance();
       success = true;
 
       // 디버깅용 - 위치 정보 확인
@@ -243,7 +256,7 @@ class NearbyStopsViewModel extends GetxController {
   }
 
   // 정류장을 현재 위치부터의 거리순으로 정렬
-  void sortStationsByDistance() async {
+  Future<void> sortStationsByDistance() async {
     if (currentPosition.value == null || stations.isEmpty) return;
 
     final position = currentPosition.value!;
@@ -266,10 +279,27 @@ class NearbyStopsViewModel extends GetxController {
     _reorderDepartureArrivalStations();
 
     // 첫 진입 시 가장 가까운 정류장을 자동 선택
-    if (sortedStations.isNotEmpty && selectedStationId.value == -1) {
+    if (sortedStations.isNotEmpty &&
+        selectedStationId.value == -1 &&
+        !_hasInitialStationSelection) {
       selectedStationId.value = sortedStations.first.id;
-      fetchStationSchedules(sortedStations.first.id);
+      await fetchStationSchedules(sortedStations.first.id);
     }
+  }
+
+  Future<void> _applyInitialStationSelection() async {
+    final stationId = initialStationId;
+    if (stationId == null) {
+      return;
+    }
+
+    final hasStation = stations.any((station) => station.id == stationId);
+    if (!hasStation) {
+      return;
+    }
+
+    selectedStationId.value = stationId;
+    await fetchStationSchedules(stationId);
   }
 
   // 캠퍼스 설정에 따라 대표 정류장 순서 조정
@@ -460,7 +490,7 @@ class NearbyStopsViewModel extends GetxController {
   // 기존 시간표 조회 메서드
   Future<void> fetchStationSchedules(int stationId) async {
     if (selectedDate.value.isNotEmpty) {
-      fetchStationSchedulesByDate(stationId, selectedDate.value);
+      return fetchStationSchedulesByDate(stationId, selectedDate.value);
     } else {
       // 날짜가 없으면 레거시 API 경로 사용
       selectedStationId.value = stationId;
