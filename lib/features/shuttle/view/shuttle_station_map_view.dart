@@ -9,6 +9,8 @@ import 'package:get/get.dart';
 import 'package:hsro/features/shuttle/models/shuttle_models.dart';
 import 'package:hsro/features/shuttle/repository/shuttle_repository.dart';
 import 'package:hsro/features/shuttle/view/nearby_stops_view.dart';
+import 'package:hsro/features/shuttle/view/naver_map_station_detail_view.dart';
+import 'package:hsro/features/shuttle/viewmodel/shuttle_viewmodel.dart';
 
 class ShuttleStationMapView extends StatefulWidget {
   final String? initialDate;
@@ -50,30 +52,41 @@ class _ShuttleStationMapViewState extends State<ShuttleStationMapView> {
       title: '아산-천안',
       assetPath: 'assets/shuttle_routes/shuttle_asan-cheonan.json',
       color: Color(0xFF6D4C41),
+      routeAliases: [
+        '아산-천안',
+        'asan-cheonan',
+        '아캠→천캠',
+        '아캠천캠',
+        '아산천안',
+      ],
     ),
     _RouteOverlayDefinition(
       id: 'ktx',
-      title: 'KTX',
+      title: 'KTX순환',
       assetPath: 'assets/shuttle_routes/shuttle_KTX.json',
       color: Color(0xFF00838F),
+      routeAliases: ['ktx'],
     ),
     _RouteOverlayDefinition(
       id: 'onyang',
       title: '온양방향',
       assetPath: 'assets/shuttle_routes/shuttle_온양방향.json',
       color: Color(0xFF2E7D32),
+      routeAliases: ['온양방향', '온양'],
     ),
     _RouteOverlayDefinition(
       id: 'dongnam_school',
       title: '동남구 등교',
       assetPath: 'assets/shuttle_routes/shuttle_동남구 등교.json',
       color: Color(0xFF1565C0),
+      routeAliases: ['동남구 등교', '동남구'],
     ),
     _RouteOverlayDefinition(
       id: 'seobuk_school',
       title: '서북구 등교',
       assetPath: 'assets/shuttle_routes/shuttle_서북구 등교.json',
       color: Color(0xFFE65100),
+      routeAliases: ['서북구 등교', '서북구'],
     ),
   ];
 
@@ -100,6 +113,7 @@ class _ShuttleStationMapViewState extends State<ShuttleStationMapView> {
   final List<_RouteOverlayData> _routeOverlays = [];
   final Map<int, String> _routeNameById = {};
   final Map<int, Future<_StationRouteSummary>> _routeSummaryCache = {};
+  final Map<int, Set<String>> _stationRouteNamesByStationId = {};
   final Set<String> _selectedRouteIds = {};
   String? _expandedGroupId;
   int? _expandedStationId;
@@ -163,6 +177,7 @@ class _ShuttleStationMapViewState extends State<ShuttleStationMapView> {
       _routeOverlays
         ..clear()
         ..addAll(routeOverlays);
+      _stationRouteNamesByStationId.clear();
 
       final availableRouteIds =
           _routeOverlays.map((routeOverlay) => routeOverlay.id).toSet();
@@ -241,9 +256,10 @@ class _ShuttleStationMapViewState extends State<ShuttleStationMapView> {
           type: NOverlayType.arrowheadPathOverlay);
       await mapController.clearOverlays(type: NOverlayType.marker);
 
+      final visibleMarkerGroups = await _resolveVisibleMarkerGroups();
       final overlays = <NAddableOverlay>{};
       overlays.addAll(_buildRouteOverlays());
-      for (final group in _markerGroups) {
+      for (final group in visibleMarkerGroups) {
         final markerPosition = _resolveMarkerPosition(group);
         final marker = _markerIcon != null
             ? NMarker(
@@ -363,7 +379,7 @@ class _ShuttleStationMapViewState extends State<ShuttleStationMapView> {
     }
 
     try {
-      final points = _collectVisibleMapPoints();
+      final points = await _collectVisibleMapPoints();
       if (points.isEmpty) {
         await mapController.updateCamera(
           NCameraUpdate.withParams(
@@ -400,9 +416,10 @@ class _ShuttleStationMapViewState extends State<ShuttleStationMapView> {
     }
   }
 
-  List<NLatLng> _collectVisibleMapPoints() {
+  Future<List<NLatLng>> _collectVisibleMapPoints() async {
+    final visibleMarkerGroups = await _resolveVisibleMarkerGroups();
     final points =
-        _markerGroups.map(_resolveMarkerPosition).toList(growable: true);
+        visibleMarkerGroups.map(_resolveMarkerPosition).toList(growable: true);
 
     for (final routeOverlay in _selectedRouteOverlays) {
       points.addAll(routeOverlay.coords);
@@ -414,6 +431,58 @@ class _ShuttleStationMapViewState extends State<ShuttleStationMapView> {
   List<_RouteOverlayData> get _selectedRouteOverlays => _routeOverlays
       .where((routeOverlay) => _selectedRouteIds.contains(routeOverlay.id))
       .toList(growable: false);
+
+  Future<List<_StationMarkerGroup>> _resolveVisibleMarkerGroups() async {
+    if (_selectedRouteIds.isEmpty) {
+      return _markerGroups;
+    }
+
+    final selectedDefinitions = _selectedRouteOverlays
+        .map((routeOverlay) => routeOverlay.definition)
+        .toList(growable: false);
+    await _ensureStationRouteNamesLoaded();
+
+    return _markerGroups.where((group) {
+      return group.options.any((option) {
+        final routeNames = _stationRouteNamesByStationId[option.station.id] ??
+            const <String>{};
+        return selectedDefinitions.any(
+          (definition) => definition.matchesRouteNames(routeNames),
+        );
+      });
+    }).toList(growable: false);
+  }
+
+  Future<void> _ensureStationRouteNamesLoaded() async {
+    final missingStationIds = _markerGroups
+        .expand((group) => group.options.map((option) => option.station.id))
+        .where(
+          (stationId) => !_stationRouteNamesByStationId.containsKey(stationId),
+        )
+        .toSet()
+        .toList(growable: false);
+
+    if (missingStationIds.isEmpty) {
+      return;
+    }
+
+    await Future.wait(missingStationIds.map(_loadStationRouteNames));
+  }
+
+  Future<void> _loadStationRouteNames(int stationId) async {
+    try {
+      final schedules = await _repository.fetchStationSchedules(stationId);
+      final routeNames = schedules
+          .map(
+            (schedule) =>
+                _routeNameById[schedule.routeId] ?? '노선 ${schedule.routeId}',
+          )
+          .toSet();
+      _stationRouteNamesByStationId[stationId] = routeNames;
+    } catch (_) {
+      _stationRouteNamesByStationId[stationId] = const <String>{};
+    }
+  }
 
   NLatLng _resolveMarkerPosition(_StationMarkerGroup group) {
     final selectedOption = _selectedOptionForGroup(group);
@@ -949,6 +1018,41 @@ class _ShuttleStationMapViewState extends State<ShuttleStationMapView> {
                 const SizedBox(height: 24),
                 SizedBox(
                   width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: () {
+                      if (!Get.isRegistered<ShuttleViewModel>()) {
+                        Get.put(ShuttleViewModel());
+                      }
+                      Navigator.of(sheetContext).pop();
+                      Get.to(
+                        () => NaverMapStationDetailView(
+                          stationId: station.id,
+                        ),
+                      );
+                    },
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: _shuttleColor,
+                      side: BorderSide(
+                        color: _shuttleColor.withValues(alpha: 0.35),
+                      ),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                    ),
+                    icon: const Icon(Icons.info_outline),
+                    label: const Text(
+                      '자세한 정보 보기',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
                   child: ElevatedButton.icon(
                     onPressed: () {
                       Navigator.of(sheetContext).pop();
@@ -1030,7 +1134,7 @@ class _ShuttleStationMapViewState extends State<ShuttleStationMapView> {
                     ),
                     const SizedBox(height: 18),
                     const Text(
-                      '노선도 보기',
+                      '노선도 필터링',
                       style: TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.bold,
@@ -1038,7 +1142,7 @@ class _ShuttleStationMapViewState extends State<ShuttleStationMapView> {
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      '지도에 표시할 노선을 선택하세요.',
+                      '중간 정류장 출발 - 도착 노선은 시간표를 확인해주세요.',
                       style: TextStyle(
                         color: Theme.of(context).hintColor,
                       ),
@@ -1160,7 +1264,7 @@ class _ShuttleStationMapViewState extends State<ShuttleStationMapView> {
                         ),
                         icon: const Icon(Icons.alt_route),
                         label: Text(
-                          tempSelectedIds.isEmpty ? '노선 숨기기' : '선택한 노선 보기',
+                          tempSelectedIds.isEmpty ? '필터 해제' : '선택한 노선 적용',
                           style: const TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
@@ -1262,15 +1366,15 @@ class _ShuttleStationMapViewState extends State<ShuttleStationMapView> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               const Text(
-                                '노선도 보기',
+                                '노선도 필터링',
                                 style: TextStyle(
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
                               Text(
                                 _selectedRouteIds.isEmpty
-                                    ? '노선 표시 안 함'
-                                    : '${_selectedRouteIds.length}개 노선 표시 중',
+                                    ? '모든 정류장 표시 중'
+                                    : '${_selectedRouteIds.length}개 노선 필터 적용',
                                 style: TextStyle(
                                   fontSize: 12,
                                   color: Theme.of(context).hintColor,
@@ -1402,13 +1506,37 @@ class _RouteOverlayDefinition {
   final String title;
   final String assetPath;
   final Color color;
+  final List<String> routeAliases;
 
   const _RouteOverlayDefinition({
     required this.id,
     required this.title,
     required this.assetPath,
     required this.color,
+    this.routeAliases = const [],
   });
+
+  bool matchesRouteNames(Set<String> routeNames) {
+    final aliases = routeAliases.isEmpty ? [title] : routeAliases;
+    final normalizedAliases =
+        aliases.map(_normalizeRouteName).toList(growable: false);
+
+    for (final routeName in routeNames) {
+      final normalizedRouteName = _normalizeRouteName(routeName);
+      for (final alias in normalizedAliases) {
+        if (normalizedRouteName.contains(alias) ||
+            alias.contains(normalizedRouteName)) {
+          return true;
+        }
+      }
+    }
+
+    return false;
+  }
+
+  static String _normalizeRouteName(String value) {
+    return value.toLowerCase().replaceAll(RegExp(r'[^0-9a-z가-힣]'), '');
+  }
 }
 
 class _RouteOverlayData {
