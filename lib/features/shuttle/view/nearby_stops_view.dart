@@ -360,11 +360,6 @@ class _NearbyStopsViewState extends State<NearbyStopsView> {
       // 위치가 있으면 거리순 정렬 목록 사용
       final stations =
           hasLocation ? viewModel.sortedStations : viewModel.stations;
-      final selectedValue = stations.any(
-        (station) => station.id == viewModel.selectedStationId.value,
-      )
-          ? viewModel.selectedStationId.value
-          : stations.first.id;
 
       if (isLoading) {
         return Center(
@@ -377,6 +372,12 @@ class _NearbyStopsViewState extends State<NearbyStopsView> {
           child: Text('정류장 정보를 불러올 수 없습니다.'),
         );
       }
+
+      final selectedValue = stations.any(
+        (station) => station.id == viewModel.selectedStationId.value,
+      )
+          ? viewModel.selectedStationId.value
+          : stations.first.id;
 
       // 정류장 목록이 준비되면 드롭다운으로 선택
       return Column(

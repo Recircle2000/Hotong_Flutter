@@ -1,6 +1,9 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_naver_map/flutter_naver_map.dart';
 import 'package:get/get.dart';
 import 'package:hsro/features/shuttle/models/shuttle_models.dart';
@@ -22,8 +25,53 @@ class ShuttleStationMapView extends StatefulWidget {
 class _ShuttleStationMapViewState extends State<ShuttleStationMapView> {
   static const Color _shuttleColor = Color(0xFFB83227);
   static const NLatLng _fallbackCenter = NLatLng(36.7841, 127.1291);
+  static const NLatLng _initialFallbackCenter = NLatLng(36.7841, 127.1328);
   static const Size _markerSize = Size(30, 30);
+  static const EdgeInsets _mapContentPadding = EdgeInsets.only(
+    left: 16,
+    right: 16,
+    bottom: 260,
+  );
+  static const EdgeInsets _initialBoundsPadding = EdgeInsets.fromLTRB(
+    28,
+    24,
+    4,
+    64,
+  );
+  static const List<_RouteOverlayDefinition> _routeOverlayDefinitions = [
+    _RouteOverlayDefinition(
+      id: 'asan_cheonan',
+      title: '아산-천안',
+      assetPath: 'assets/shuttle_routes/shuttle_asan-cheonan.json',
+      color: Color(0xFF6D4C41),
+    ),
+    _RouteOverlayDefinition(
+      id: 'ktx',
+      title: 'KTX',
+      assetPath: 'assets/shuttle_routes/shuttle_KTX.json',
+      color: Color(0xFF00838F),
+    ),
+    _RouteOverlayDefinition(
+      id: 'onyang',
+      title: '온양방향',
+      assetPath: 'assets/shuttle_routes/shuttle_온양방향.json',
+      color: Color(0xFF2E7D32),
+    ),
+    _RouteOverlayDefinition(
+      id: 'dongnam_school',
+      title: '동남구 등교',
+      assetPath: 'assets/shuttle_routes/shuttle_동남구 등교.json',
+      color: Color(0xFF1565C0),
+    ),
+    _RouteOverlayDefinition(
+      id: 'seobuk_school',
+      title: '서북구 등교',
+      assetPath: 'assets/shuttle_routes/shuttle_서북구 등교.json',
+      color: Color(0xFFE65100),
+    ),
+  ];
 
+//인접 정류장 묶음
   static const Map<String, List<String>> _groupedStationNames = {
     '롯데캐슬': ['롯데캐슬 [아캠방향]', '롯데캐슬 [천캠방향]'],
     '천안아산역': ['천안아산역 [아캠방향]', '천안아산역 [천캠방향]'],
@@ -33,7 +81,7 @@ class _ShuttleStationMapViewState extends State<ShuttleStationMapView> {
     '아산캠퍼스': ['아산캠퍼스 [출발]', '아산캠퍼스 [도착]'],
     '천안캠퍼스': ['천안캠퍼스 [출발]', '천안캠퍼스 [도착]'],
   };
-
+//방향 혼동 방지
   static const Map<String, String> _customDirectionLabels = {
     '배방역': '배방역 - 온양온천역 방향',
     '배방역 건너': '배방역 건너 - 아캠방향',
@@ -43,8 +91,12 @@ class _ShuttleStationMapViewState extends State<ShuttleStationMapView> {
 
   final ShuttleRepository _repository = ShuttleRepository();
   final List<_StationMarkerGroup> _markerGroups = [];
+  final List<_RouteOverlayData> _routeOverlays = [];
   final Map<int, String> _routeNameById = {};
   final Map<int, Future<_StationRouteSummary>> _routeSummaryCache = {};
+  final Set<String> _selectedRouteIds = {};
+  String? _expandedGroupId;
+  int? _expandedStationId;
 
   NaverMapController? _mapController;
   NOverlayImage? _markerIcon;
@@ -79,6 +131,7 @@ class _ShuttleStationMapViewState extends State<ShuttleStationMapView> {
       final results = await Future.wait<dynamic>([
         _repository.fetchStations(),
         _repository.fetchRoutes(),
+        _loadRouteOverlays(),
       ]);
 
       if (!mounted) {
@@ -89,6 +142,7 @@ class _ShuttleStationMapViewState extends State<ShuttleStationMapView> {
           .where((station) => station.latitude != 0 && station.longitude != 0)
           .toList(growable: false);
       final routes = results[1] as List<ShuttleRoute>;
+      final routeOverlays = results[2] as List<_RouteOverlayData>;
 
       _routeNameById
         ..clear()
@@ -100,6 +154,19 @@ class _ShuttleStationMapViewState extends State<ShuttleStationMapView> {
         ..clear()
         ..addAll(_buildMarkerGroups(stations));
 
+      _routeOverlays
+        ..clear()
+        ..addAll(routeOverlays);
+
+      final availableRouteIds =
+          _routeOverlays.map((routeOverlay) => routeOverlay.id).toSet();
+      _selectedRouteIds.removeWhere(
+        (routeId) => !availableRouteIds.contains(routeId),
+      );
+      if (_selectedRouteIds.isEmpty) {
+        _selectedRouteIds.addAll(availableRouteIds);
+      }
+
       if (mounted) {
         setState(() {
           _isLoading = false;
@@ -108,7 +175,7 @@ class _ShuttleStationMapViewState extends State<ShuttleStationMapView> {
 
       await _prepareMarkerIcon();
       _queueOverlayRefresh();
-      await _moveCameraToMarkerBounds();
+      await _moveCameraToVisibleBounds(initial: true);
     } catch (error) {
       if (!mounted) {
         return;
@@ -166,21 +233,26 @@ class _ShuttleStationMapViewState extends State<ShuttleStationMapView> {
 
     _isRefreshingOverlays = true;
     try {
+      await mapController.clearOverlays(type: NOverlayType.pathOverlay);
+      await mapController.clearOverlays(
+          type: NOverlayType.arrowheadPathOverlay);
       await mapController.clearOverlays(type: NOverlayType.marker);
 
       final overlays = <NAddableOverlay>{};
+      overlays.addAll(_buildRouteOverlays());
       for (final group in _markerGroups) {
+        final markerPosition = _resolveMarkerPosition(group);
         final marker = _markerIcon != null
             ? NMarker(
                 id: group.id,
-                position: group.position,
+                position: markerPosition,
                 icon: _markerIcon,
                 size: _markerSize,
                 anchor: const NPoint(0.5, 0.9),
               )
             : NMarker(
                 id: group.id,
-                position: group.position,
+                position: markerPosition,
                 iconTintColor: _shuttleColor,
                 size: _markerSize,
                 anchor: const NPoint(0.5, 1.0),
@@ -201,30 +273,114 @@ class _ShuttleStationMapViewState extends State<ShuttleStationMapView> {
     }
   }
 
-  Future<void> _moveCameraToMarkerBounds() async {
+  Set<NAddableOverlay> _buildRouteOverlays() {
+    if (_selectedRouteOverlays.isEmpty) {
+      return const <NAddableOverlay>{};
+    }
+
+    final visibleRoutes = _selectedRouteOverlays
+        .where((routeOverlay) => routeOverlay.coords.isNotEmpty)
+        .toList(growable: false);
+
+    final overlays = <NAddableOverlay>{};
+    for (int index = 0; index < visibleRoutes.length; index++) {
+      final routeOverlay = visibleRoutes[index];
+      final pathOverlay = NArrowheadPathOverlay(
+        id: 'shuttle_route_${routeOverlay.id}',
+        coords: _buildDisplayRouteCoords(
+          routeOverlay.coords,
+          routeIndex: index,
+          routeCount: visibleRoutes.length,
+        ),
+        width: 6,
+        color: routeOverlay.color,
+        outlineWidth: 1.8,
+        outlineColor: Colors.white.withValues(alpha: 0.95),
+        headSizeRatio: 2.2,
+      );
+      pathOverlay.setGlobalZIndex(-100000 + (visibleRoutes.length - index));
+      overlays.add(pathOverlay);
+    }
+
+    return overlays;
+  }
+
+  List<NLatLng> _buildDisplayRouteCoords(
+    List<NLatLng> coords, {
+    required int routeIndex,
+    required int routeCount,
+  }) {
+    if (coords.length < 2 || routeCount <= 1) {
+      return coords;
+    }
+
+    final centeredIndex = routeIndex - ((routeCount - 1) / 2);
+    if (centeredIndex == 0) {
+      return coords;
+    }
+
+    const double laneSpacingMeters = 6;
+    final offsetMeters = centeredIndex * laneSpacingMeters;
+
+    return List<NLatLng>.generate(coords.length, (pointIndex) {
+      final current = coords[pointIndex];
+      final prev = pointIndex > 0 ? coords[pointIndex - 1] : coords[pointIndex];
+      final next = pointIndex < coords.length - 1
+          ? coords[pointIndex + 1]
+          : coords[pointIndex];
+
+      final dx = next.longitude - prev.longitude;
+      final dy = next.latitude - prev.latitude;
+      final length = math.sqrt(dx * dx + dy * dy);
+      if (length == 0) {
+        return current;
+      }
+
+      final normalX = -dy / length;
+      final normalY = dx / length;
+      final latRadians = current.latitude * math.pi / 180;
+      final metersPerLatDegree = 111320.0;
+      final metersPerLngDegree =
+          metersPerLatDegree * math.cos(latRadians).abs();
+      if (metersPerLngDegree == 0) {
+        return current;
+      }
+
+      return NLatLng(
+        current.latitude + (normalY * offsetMeters / metersPerLatDegree),
+        current.longitude + (normalX * offsetMeters / metersPerLngDegree),
+      );
+    });
+  }
+
+  Future<void> _moveCameraToVisibleBounds({bool initial = false}) async {
     final mapController = _mapController;
     if (!_isMapReady || mapController == null) {
       return;
     }
 
     try {
-      if (_markerGroups.isEmpty) {
+      final points = _collectVisibleMapPoints();
+      if (points.isEmpty) {
         await mapController.updateCamera(
           NCameraUpdate.withParams(
-            target: _fallbackCenter,
-            zoom: 11.8,
+            target: initial ? _initialFallbackCenter : _fallbackCenter,
+            zoom: initial ? 17 : 11.8,
           ),
         );
         return;
       }
 
-      final points =
-          _markerGroups.map((group) => group.position).toList(growable: false);
       final update = points.length == 1
-          ? NCameraUpdate.withParams(target: points.first, zoom: 15)
+          ? NCameraUpdate.withParams(
+              target: points.first,
+              zoom: initial ? 17.2 : 15,
+            )
           : NCameraUpdate.fitBounds(
               NLatLngBounds.from(points),
-              padding: const EdgeInsets.all(48),
+              padding: initial
+                  ? _initialBoundsPadding
+                  : const EdgeInsets.fromLTRB(48, 96, 48, 96),
             );
 
       update.setAnimation(
@@ -234,10 +390,140 @@ class _ShuttleStationMapViewState extends State<ShuttleStationMapView> {
     } catch (_) {
       await mapController.updateCamera(
         NCameraUpdate.withParams(
-          target: _fallbackCenter,
-          zoom: 11.8,
+          target: initial ? _initialFallbackCenter : _fallbackCenter,
+          zoom: initial ? 17 : 11.8,
         ),
       );
+    }
+  }
+
+  List<NLatLng> _collectVisibleMapPoints() {
+    final points =
+        _markerGroups.map(_resolveMarkerPosition).toList(growable: true);
+
+    for (final routeOverlay in _selectedRouteOverlays) {
+      points.addAll(routeOverlay.coords);
+    }
+
+    return points;
+  }
+
+  List<_RouteOverlayData> get _selectedRouteOverlays => _routeOverlays
+      .where((routeOverlay) => _selectedRouteIds.contains(routeOverlay.id))
+      .toList(growable: false);
+
+  NLatLng _resolveMarkerPosition(_StationMarkerGroup group) {
+    final selectedOption = _selectedOptionForGroup(group);
+    if (selectedOption == null) {
+      return group.position;
+    }
+
+    return NLatLng(
+      selectedOption.station.latitude,
+      selectedOption.station.longitude,
+    );
+  }
+
+  _StationDirectionOption? _selectedOptionForGroup(_StationMarkerGroup group) {
+    if (_expandedGroupId != group.id || _expandedStationId == null) {
+      return null;
+    }
+
+    for (final option in group.options) {
+      if (option.station.id == _expandedStationId) {
+        return option;
+      }
+    }
+
+    return null;
+  }
+
+  Future<List<_RouteOverlayData>> _loadRouteOverlays() async {
+    final routeOverlays = <_RouteOverlayData>[];
+
+    for (final definition in _routeOverlayDefinitions) {
+      try {
+        final rawJson = await rootBundle.loadString(definition.assetPath);
+        final coords = _parseRouteCoords(rawJson);
+        if (coords.isEmpty) {
+          continue;
+        }
+
+        routeOverlays.add(
+          _RouteOverlayData(
+            definition: definition,
+            coords: coords,
+          ),
+        );
+      } catch (error) {
+        debugPrint(
+          'Failed to load shuttle route asset: ${definition.assetPath} ($error)',
+        );
+      }
+    }
+
+    return routeOverlays;
+  }
+
+  List<NLatLng> _parseRouteCoords(String rawJson) {
+    final decoded = jsonDecode(rawJson);
+    if (decoded is! Map<String, dynamic>) {
+      return const <NLatLng>[];
+    }
+
+    final features = decoded['features'];
+    if (features is! List) {
+      return const <NLatLng>[];
+    }
+
+    final coords = <NLatLng>[];
+    for (final feature in features) {
+      if (feature is! Map<String, dynamic>) {
+        continue;
+      }
+
+      final geometry = feature['geometry'];
+      if (geometry is! Map<String, dynamic>) {
+        continue;
+      }
+
+      final type = geometry['type'];
+      final rawCoordinates = geometry['coordinates'];
+      if (type == 'LineString' && rawCoordinates is List) {
+        _appendLineStringCoords(rawCoordinates, coords);
+      } else if (type == 'MultiLineString' && rawCoordinates is List) {
+        for (final segment in rawCoordinates) {
+          if (segment is List) {
+            _appendLineStringCoords(segment, coords);
+          }
+        }
+      }
+    }
+
+    return coords;
+  }
+
+  void _appendLineStringCoords(List rawCoordinates, List<NLatLng> coords) {
+    for (final entry in rawCoordinates) {
+      if (entry is! List || entry.length < 2) {
+        continue;
+      }
+
+      final lng = entry[0];
+      final lat = entry[1];
+      if (lng is! num || lat is! num) {
+        continue;
+      }
+
+      final point = NLatLng(lat.toDouble(), lng.toDouble());
+      if (coords.isNotEmpty) {
+        final lastPoint = coords.last;
+        if (lastPoint.latitude == point.latitude &&
+            lastPoint.longitude == point.longitude) {
+          continue;
+        }
+      }
+      coords.add(point);
     }
   }
 
@@ -365,6 +651,7 @@ class _ShuttleStationMapViewState extends State<ShuttleStationMapView> {
 
   Future<void> _handleMarkerTap(_StationMarkerGroup group) async {
     if (group.options.length == 1) {
+      await _focusMarkerForBottomSheet(group.position);
       await _showStationDetailSheet(group.title, group.options.first);
       return;
     }
@@ -374,7 +661,54 @@ class _ShuttleStationMapViewState extends State<ShuttleStationMapView> {
       return;
     }
 
+    setState(() {
+      _expandedGroupId = group.id;
+      _expandedStationId = selectedOption.station.id;
+    });
+    _queueOverlayRefresh();
+    await _focusMarkerForBottomSheet(
+      NLatLng(
+        selectedOption.station.latitude,
+        selectedOption.station.longitude,
+      ),
+    );
+
     await _showStationDetailSheet(group.title, selectedOption);
+
+    if (!mounted) {
+      return;
+    }
+
+    final shouldCollapse = _expandedGroupId == group.id &&
+        _expandedStationId == selectedOption.station.id;
+    if (shouldCollapse) {
+      setState(() {
+        _expandedGroupId = null;
+        _expandedStationId = null;
+      });
+      _queueOverlayRefresh();
+    }
+  }
+
+  Future<void> _focusMarkerForBottomSheet(NLatLng markerPosition) async {
+    final mapController = _mapController;
+    if (!_isMapReady || mapController == null) {
+      return;
+    }
+
+    try {
+      final currentCamera = await mapController.getCameraPosition();
+      final targetZoom = currentCamera.zoom < 15.5 ? 15.5 : currentCamera.zoom;
+
+      final update = NCameraUpdate.withParams(
+        target: markerPosition,
+        zoom: targetZoom,
+      );
+      update.setAnimation(duration: const Duration(milliseconds: 320));
+      await mapController.updateCamera(update);
+    } catch (_) {
+      // 카메라 이동 실패 시 시트 동작은 계속 진행
+    }
   }
 
   Future<_StationDirectionOption?> _showDirectionPicker(
@@ -387,6 +721,8 @@ class _ShuttleStationMapViewState extends State<ShuttleStationMapView> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (sheetContext) {
+        final selectedOption = _selectedOptionForGroup(group);
+
         return SafeArea(
           top: false,
           child: Padding(
@@ -422,22 +758,46 @@ class _ShuttleStationMapViewState extends State<ShuttleStationMapView> {
                 ),
                 const SizedBox(height: 12),
                 ...group.options.map(
-                  (option) => ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: Text(
-                      option.label,
-                      style: const TextStyle(fontWeight: FontWeight.w600),
-                    ),
-                    subtitle: option.subtitle == null
-                        ? null
-                        : Text(
-                            option.subtitle!,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                    trailing: const Icon(Icons.chevron_right),
-                    onTap: () => Navigator.of(sheetContext).pop(option),
-                  ),
+                  (option) {
+                    final isSelected =
+                        selectedOption?.station.id == option.station.id;
+
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      decoration: BoxDecoration(
+                        color: isSelected
+                            ? _shuttleColor.withValues(alpha: 0.08)
+                            : Colors.transparent,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: isSelected
+                              ? _shuttleColor.withValues(alpha: 0.22)
+                              : Colors.transparent,
+                        ),
+                      ),
+                      child: ListTile(
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                        ),
+                        title: Text(
+                          option.label,
+                          style: const TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                        subtitle: option.subtitle == null
+                            ? null
+                            : Text(
+                                option.subtitle!,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                        trailing: Icon(
+                          isSelected ? Icons.check_circle : Icons.chevron_right,
+                          color: isSelected ? _shuttleColor : null,
+                        ),
+                        onTap: () => Navigator.of(sheetContext).pop(option),
+                      ),
+                    );
+                  },
                 ),
               ],
             ),
@@ -498,7 +858,7 @@ class _ShuttleStationMapViewState extends State<ShuttleStationMapView> {
                     padding:
                         const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                     decoration: BoxDecoration(
-                      color: _shuttleColor.withOpacity(0.08),
+                      color: _shuttleColor.withValues(alpha: 0.08),
                       borderRadius: BorderRadius.circular(999),
                     ),
                     child: Text(
@@ -564,10 +924,10 @@ class _ShuttleStationMapViewState extends State<ShuttleStationMapView> {
                                 vertical: 8,
                               ),
                               decoration: BoxDecoration(
-                                color: _shuttleColor.withOpacity(0.08),
+                                color: _shuttleColor.withValues(alpha: 0.08),
                                 borderRadius: BorderRadius.circular(999),
                                 border: Border.all(
-                                  color: _shuttleColor.withOpacity(0.2),
+                                  color: _shuttleColor.withValues(alpha: 0.2),
                                 ),
                               ),
                               child: Text(
@@ -622,6 +982,212 @@ class _ShuttleStationMapViewState extends State<ShuttleStationMapView> {
     );
   }
 
+  Future<void> _showRouteSelectionSheet() async {
+    if (_routeOverlays.isEmpty) {
+      return;
+    }
+
+    final initialSelection = Set<String>.from(_selectedRouteIds);
+    final selectedRouteIds = await showModalBottomSheet<Set<String>>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Theme.of(context).cardColor,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (sheetContext) {
+        final tempSelectedIds = Set<String>.from(initialSelection);
+
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            final allSelected = tempSelectedIds.length == _routeOverlays.length;
+
+            return SafeArea(
+              top: false,
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(
+                  20,
+                  12,
+                  20,
+                  20 + MediaQuery.of(sheetContext).padding.bottom,
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Center(
+                      child: Container(
+                        width: 44,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade400,
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+                    const Text(
+                      '노선도 보기',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      '지도에 표시할 노선을 선택하세요.',
+                      style: TextStyle(
+                        color: Theme.of(context).hintColor,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        TextButton(
+                          onPressed: () {
+                            setSheetState(() {
+                              if (allSelected) {
+                                tempSelectedIds.clear();
+                              } else {
+                                tempSelectedIds
+                                  ..clear()
+                                  ..addAll(
+                                    _routeOverlays.map(
+                                      (routeOverlay) => routeOverlay.id,
+                                    ),
+                                  );
+                              }
+                            });
+                          },
+                          child: Text(allSelected ? '모두 해제' : '전체 선택'),
+                        ),
+                        const Spacer(),
+                        Text(
+                          '${tempSelectedIds.length}/${_routeOverlays.length}개 표시',
+                          style: TextStyle(
+                            color: Theme.of(context).hintColor,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    ..._routeOverlays.map(
+                      (routeOverlay) {
+                        final isSelected =
+                            tempSelectedIds.contains(routeOverlay.id);
+
+                        return AnimatedContainer(
+                          duration: const Duration(milliseconds: 180),
+                          margin: const EdgeInsets.only(bottom: 10),
+                          decoration: BoxDecoration(
+                            color: isSelected
+                                ? routeOverlay.color.withValues(alpha: 0.08)
+                                : Colors.transparent,
+                            borderRadius: BorderRadius.circular(18),
+                            border: Border.all(
+                              color: isSelected
+                                  ? routeOverlay.color.withValues(alpha: 0.35)
+                                  : Theme.of(context)
+                                      .dividerColor
+                                      .withValues(alpha: 0.3),
+                            ),
+                          ),
+                          child: CheckboxListTile(
+                            value: isSelected,
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 2,
+                            ),
+                            activeColor: routeOverlay.color,
+                            checkboxShape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            controlAffinity: ListTileControlAffinity.trailing,
+                            title: Row(
+                              children: [
+                                Container(
+                                  width: 12,
+                                  height: 12,
+                                  decoration: BoxDecoration(
+                                    color: routeOverlay.color,
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Text(
+                                    routeOverlay.title,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            onChanged: (_) {
+                              setSheetState(() {
+                                if (isSelected) {
+                                  tempSelectedIds.remove(routeOverlay.id);
+                                } else {
+                                  tempSelectedIds.add(routeOverlay.id);
+                                }
+                              });
+                            },
+                          ),
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 8),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        onPressed: () {
+                          Navigator.of(sheetContext).pop(
+                            Set<String>.from(tempSelectedIds),
+                          );
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: _shuttleColor,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                        ),
+                        icon: const Icon(Icons.alt_route),
+                        label: Text(
+                          tempSelectedIds.isEmpty ? '노선 숨기기' : '선택한 노선 보기',
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+
+    if (!mounted || selectedRouteIds == null) {
+      return;
+    }
+
+    setState(() {
+      _selectedRouteIds
+        ..clear()
+        ..addAll(selectedRouteIds);
+    });
+
+    _queueOverlayRefresh();
+    await _moveCameraToVisibleBounds();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -634,20 +1200,20 @@ class _ShuttleStationMapViewState extends State<ShuttleStationMapView> {
             key: ValueKey(Theme.of(context).brightness),
             options: NaverMapViewOptions(
               initialCameraPosition: const NCameraPosition(
-                target: _fallbackCenter,
-                zoom: 11.8,
+                target: _initialFallbackCenter,
+                zoom: 17,
               ),
               mapType: NMapType.basic,
               nightModeEnable: Theme.of(context).brightness == Brightness.dark,
               maxZoom: 18,
               minZoom: 9,
-              contentPadding: EdgeInsets.zero,
+              contentPadding: _mapContentPadding,
               rotationGesturesEnable: false,
               tiltGesturesEnable: false,
               scaleBarEnable: false,
               indoorEnable: false,
               indoorLevelPickerEnable: false,
-              locationButtonEnable: true,
+              locationButtonEnable: false,
             ),
             onMapReady: (controller) async {
               _mapController = controller;
@@ -657,12 +1223,80 @@ class _ShuttleStationMapViewState extends State<ShuttleStationMapView> {
               );
               await _prepareMarkerIcon();
               _queueOverlayRefresh();
-              await _moveCameraToMarkerBounds();
+              await _moveCameraToVisibleBounds(initial: true);
             },
+          ),
+          if (_routeOverlays.isNotEmpty && !_isLoading)
+            Positioned(
+              right: 16,
+              bottom: 96,
+              child: SafeArea(
+                top: false,
+                child: Material(
+                  color: Theme.of(context).cardColor,
+                  borderRadius: BorderRadius.circular(18),
+                  elevation: 6,
+                  shadowColor: Colors.black.withValues(alpha: 0.16),
+                  child: InkWell(
+                    onTap: _showRouteSelectionSheet,
+                    borderRadius: BorderRadius.circular(18),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 12,
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(
+                            Icons.alt_route,
+                            color: _shuttleColor,
+                          ),
+                          const SizedBox(width: 10),
+                          Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                '노선도 보기',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              Text(
+                                _selectedRouteIds.isEmpty
+                                    ? '노선 표시 안 함'
+                                    : '${_selectedRouteIds.length}개 노선 표시 중',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Theme.of(context).hintColor,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          Positioned(
+            right: 16,
+            bottom: 28,
+            child: SafeArea(
+              top: false,
+              child: NMyLocationButtonWidget(
+                mapController: _mapController,
+                nightMode: Theme.of(context).brightness == Brightness.dark,
+                borderRadius: const BorderRadius.all(Radius.circular(18)),
+                elevation: 6,
+              ),
+            ),
           ),
           if (_isLoading)
             Container(
-              color: Colors.black.withOpacity(0.08),
+              color: Colors.black.withValues(alpha: 0.08),
               child: const Center(
                 child: CircularProgressIndicator.adaptive(),
               ),
@@ -677,7 +1311,7 @@ class _ShuttleStationMapViewState extends State<ShuttleStationMapView> {
                     borderRadius: BorderRadius.circular(24),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.12),
+                        color: Colors.black.withValues(alpha: 0.12),
                         blurRadius: 16,
                         offset: const Offset(0, 8),
                       ),
@@ -757,4 +1391,32 @@ class _StationRouteSummary {
     this.routeNames = const [],
     this.errorMessage,
   });
+}
+
+class _RouteOverlayDefinition {
+  final String id;
+  final String title;
+  final String assetPath;
+  final Color color;
+
+  const _RouteOverlayDefinition({
+    required this.id,
+    required this.title,
+    required this.assetPath,
+    required this.color,
+  });
+}
+
+class _RouteOverlayData {
+  final _RouteOverlayDefinition definition;
+  final List<NLatLng> coords;
+
+  const _RouteOverlayData({
+    required this.definition,
+    required this.coords,
+  });
+
+  String get id => definition.id;
+  String get title => definition.title;
+  Color get color => definition.color;
 }
