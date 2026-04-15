@@ -32,6 +32,12 @@ class _ShuttleStationMapViewState extends State<ShuttleStationMapView> {
     right: 16,
     bottom: 260,
   );
+  static const EdgeInsets _logoMargin = EdgeInsets.fromLTRB(
+    -4,
+    16,
+    12,
+    -244,
+  );
   static const EdgeInsets _initialBoundsPadding = EdgeInsets.fromLTRB(
     28,
     24,
@@ -163,9 +169,6 @@ class _ShuttleStationMapViewState extends State<ShuttleStationMapView> {
       _selectedRouteIds.removeWhere(
         (routeId) => !availableRouteIds.contains(routeId),
       );
-      if (_selectedRouteIds.isEmpty) {
-        _selectedRouteIds.addAll(availableRouteIds);
-      }
 
       if (mounted) {
         setState(() {
@@ -1207,6 +1210,7 @@ class _ShuttleStationMapViewState extends State<ShuttleStationMapView> {
               nightModeEnable: Theme.of(context).brightness == Brightness.dark,
               maxZoom: 18,
               minZoom: 9,
+              logoMargin: _logoMargin,
               contentPadding: _mapContentPadding,
               rotationGesturesEnable: false,
               tiltGesturesEnable: false,
