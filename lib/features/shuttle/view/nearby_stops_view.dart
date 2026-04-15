@@ -2,8 +2,10 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dart:io' show Platform;
+import 'package:flutter/scheduler.dart';
 import 'package:intl/intl.dart';
 import 'package:get/get.dart';
+import 'package:hsro/features/home/view/home_view.dart';
 import 'package:tutorial_coach_mark/tutorial_coach_mark.dart';
 import 'package:hsro/features/shuttle/view/naver_map_station_detail_view.dart';
 import 'package:hsro/features/shuttle/view/shuttle_route_detail_view.dart';
@@ -40,6 +42,21 @@ class _NearbyStopsViewState extends State<NearbyStopsView> {
   final GlobalKey _stationSelectorKey = GlobalKey();
   final GlobalKey _scheduleTableKey = GlobalKey();
   bool _isExperienceTourRunning = false;
+
+  void _navigateHome() {
+    final navigator = Navigator.of(context);
+    if (navigator.canPop()) {
+      navigator.popUntil((route) => route.isFirst);
+      return;
+    }
+
+    SchedulerBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
+      }
+      Get.offAll(() => const HomeView());
+    });
+  }
 
   @override
   void initState() {
@@ -86,6 +103,13 @@ class _NearbyStopsViewState extends State<NearbyStopsView> {
     return Scaffold(
       appBar: AppBar(
         title: Text('내 주변 정류장 찾기'),
+        actions: [
+          IconButton(
+            tooltip: '홈으로 이동',
+            icon: const Icon(Icons.home_rounded),
+            onPressed: _navigateHome,
+          ),
+        ],
       ),
       body: SafeArea(
         child: Padding(
