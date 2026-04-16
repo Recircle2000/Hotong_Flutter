@@ -20,6 +20,27 @@ class ShuttleRoute {
   }
 }
 
+class StationRouteMembership {
+  // 정류장별 노선 매핑 정보 모델
+  final int stationId;
+  final List<int> routeIds;
+
+  StationRouteMembership({
+    required this.stationId,
+    required this.routeIds,
+  });
+
+  factory StationRouteMembership.fromJson(Map<String, dynamic> json) {
+    // 서버 응답을 정류장별 노선 매핑 모델로 변환
+    return StationRouteMembership(
+      stationId: json['station_id'],
+      routeIds: (json['route_ids'] as List<dynamic>)
+          .map((routeId) => routeId as int)
+          .toList(growable: false),
+    );
+  }
+}
+
 class Schedule {
   // 특정 날짜의 셔틀 운행 회차 정보 모델
   final int id;
@@ -71,8 +92,7 @@ class Schedule {
         int.parse(timeParts[1]),
         int.parse(timeParts[2]),
       );
-    } catch (e) {
-      print('시간 파싱 오류: $timeStr - $e');
+    } catch (_) {
       return fallback ?? DateTime.now();
     }
   }

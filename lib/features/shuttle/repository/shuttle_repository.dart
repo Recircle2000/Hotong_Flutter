@@ -96,6 +96,29 @@ class ShuttleRepository {
         .toList();
   }
 
+  Future<List<StationRouteMembership>> fetchStationRouteMemberships() async {
+    // 정류장별 노선 매핑 조회
+    final response = await _get(
+      '/shuttle/stations/route-memberships',
+      headers: _utf8Headers,
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception(
+        'Failed to load station route memberships (${response.statusCode})',
+      );
+    }
+
+    final List<dynamic> data = _decodeList(response.bodyBytes);
+    return data
+        .map(
+          (item) => StationRouteMembership.fromJson(
+            Map<String, dynamic>.from(item),
+          ),
+        )
+        .toList();
+  }
+
   Future<Map<String, dynamic>?> fetchScheduleTypeByDate(String date) async {
     // 날짜 기준 평일/토요일/공휴일 유형 조회
     final response = await _get(
