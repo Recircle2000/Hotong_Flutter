@@ -88,22 +88,26 @@ class _ShuttleStationMapViewState extends State<ShuttleStationMapView> {
     ),
   ];
 
-//인접 정류장 묶음
-  static const Map<String, List<String>> _groupedStationNames = {
-    '롯데캐슬': ['롯데캐슬 [아캠방향]', '롯데캐슬 [천캠방향]'],
-    '천안아산역': ['천안아산역 [아캠방향]', '천안아산역 [천캠방향]'],
-    '배방역': ['배방역', '배방역 건너'],
-    '천안 충무병원': ['천안 충무병원 맞은편', '천안 충무병원'],
-    '천안역': ['천안역 [아캠방향]', '천안역 [천캠방향]'],
-    '아산캠퍼스': ['아산캠퍼스 [출발]', '아산캠퍼스 [도착]'],
-    '천안캠퍼스': ['천안캠퍼스 [출발]', '천안캠퍼스 [도착]'],
+// 인접 정류장 묶음
+  static const Map<String, Set<int>> _groupedStationIds = {
+    '롯데캐슬': {16, 21},
+    '천안아산역': {2, 15},
+    '배방역': {17, 18},
+    '천안 충무병원': {5, 10},
+    '천안역': {6, 11},
+    '아산캠퍼스': {1, 13},
+    '천안캠퍼스': {8, 14},
+  };
+  static final Map<int, String> _groupNameByStationId = {
+    for (final entry in _groupedStationIds.entries)
+      for (final stationId in entry.value) stationId: entry.key,
   };
 //방향 혼동 방지
   static const Map<String, String> _customDirectionLabels = {
-    '배방역': '배방역 - 온양온천역 방향',
-    '배방역 건너': '배방역 건너 - 아캠방향',
-    '천안 충무병원 맞은편': '천안충무병원 맞은편 - 아캠방향',
-    '천안 충무병원': '천안충무병원 - 천캠방향',
+    '배방역': '온양온천역 방향',
+    '배방역 건너': '아캠방향',
+    '천안 충무병원 맞은편': '아캠방향',
+    '천안 충무병원': '천캠방향',
   };
 
   final ShuttleRepository _repository = ShuttleRepository();
@@ -597,7 +601,7 @@ class _ShuttleStationMapViewState extends State<ShuttleStationMapView> {
     final groups = <_StationMarkerGroup>[];
 
     for (final station in stations) {
-      final groupKey = _resolveGroupKey(station.name);
+      final groupKey = _resolveGroupKey(station.id);
       if (groupKey == null) {
         groups.add(
           _StationMarkerGroup(
@@ -653,28 +657,32 @@ class _ShuttleStationMapViewState extends State<ShuttleStationMapView> {
     return groups;
   }
 
-  String? _resolveGroupKey(String stationName) {
-    for (final entry in _groupedStationNames.entries) {
-      if (entry.value.contains(stationName)) {
-        return entry.key;
-      }
-    }
-    return null;
+  String? _resolveGroupKey(int stationId) {
+    return _groupNameByStationId[stationId];
   }
 
   String _resolveDirectionLabel(ShuttleStation station) {
-    final customLabel = _customDirectionLabels[station.name];
+    final stationName = station.name.trim();
+    final customLabel = _customDirectionLabels[stationName];
     if (customLabel != null) {
       return customLabel;
     }
 
-    final match = RegExp(r'\[(.*?)\]').firstMatch(station.name);
+    // 이름 표기가 조금 달라도 배방역 그룹은 방향 라벨을 고정해 혼동을 막는다.
+    if (stationName.contains('배방역 건너')) {
+      return '배방역 건너 - 아캠방향';
+    }
+    if (stationName == '배방역' || stationName.contains('배방역')) {
+      return '배방역 - 온양온천역 방향';
+    }
+
+    final match = RegExp(r'\[(.*?)\]').firstMatch(stationName);
     if (match != null) {
-      return match.group(1) ?? station.name;
+      return match.group(1) ?? stationName;
     }
 
     final description = _trimmedOrNull(station.description);
-    return description ?? station.name;
+    return description ?? stationName;
   }
 
   String? _trimmedOrNull(String? value) {
@@ -905,6 +913,10 @@ class _ShuttleStationMapViewState extends State<ShuttleStationMapView> {
   ) {
     final station = option.station;
     final routeNames = _routeNamesForStation(station.id);
+    final titleChipLabel = option.label.trim();
+    final shouldShowTitleChip = titleChipLabel.isNotEmpty &&
+        titleChipLabel != station.name.trim() &&
+        titleChipLabel != groupTitle.trim();
 
     return showModalBottomSheet<bool>(
       context: context,
@@ -915,6 +927,31 @@ class _ShuttleStationMapViewState extends State<ShuttleStationMapView> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (sheetContext) {
+        final hintColor = Theme.of(context).hintColor;
+        final subtleBorderColor = Colors.black.withValues(alpha: 0.06);
+
+        void openStationDetail() {
+          if (!Get.isRegistered<ShuttleViewModel>()) {
+            Get.put(ShuttleViewModel());
+          }
+          Navigator.of(sheetContext).pop(false);
+          Get.to(
+            () => NaverMapStationDetailView(
+              stationId: station.id,
+            ),
+          );
+        }
+
+        void openNearbyStops() {
+          Navigator.of(sheetContext).pop();
+          Get.to(
+            () => NearbyStopsView(
+              initialStationId: station.id,
+              initialDate: widget.initialDate,
+            ),
+          );
+        }
+
         return SafeArea(
           top: false,
           child: Padding(
@@ -938,170 +975,175 @@ class _ShuttleStationMapViewState extends State<ShuttleStationMapView> {
                     ),
                   ),
                 ),
-                const SizedBox(height: 18),
-                Text(
-                  station.name,
-                  style: const TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
+                const SizedBox(height: 14),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
+                  decoration: BoxDecoration(
+                    color: _shuttleColor.withValues(alpha: 0.04),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: subtleBorderColor),
                   ),
-                ),
-                const SizedBox(height: 8),
-                if (groupTitle != station.name)
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: _shuttleColor.withValues(alpha: 0.08),
-                      borderRadius: BorderRadius.circular(999),
-                    ),
-                    child: Text(
-                      option.label,
-                      style: const TextStyle(
-                        color: _shuttleColor,
-                        fontWeight: FontWeight.w600,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        station.name,
+                        style: const TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                          height: 1.2,
+                        ),
                       ),
-                    ),
-                  ),
-                if (_trimmedOrNull(station.description) != null) ...[
-                  const SizedBox(height: 12),
-                  Text(
-                    station.description!.trim(),
-                    style: const TextStyle(height: 1.45),
-                  ),
-                ],
-                const SizedBox(height: 20),
-                const Text(
-                  '지나는 노선',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                if (routeNames.isEmpty)
-                  Text(
-                    '운행 중인 노선 정보가 없습니다.',
-                    style: TextStyle(color: Theme.of(context).hintColor),
-                  )
-                else
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: routeNames
-                        .map(
-                          (routeName) => Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 8,
-                            ),
-                            decoration: BoxDecoration(
-                              color: _shuttleColor.withValues(alpha: 0.08),
-                              borderRadius: BorderRadius.circular(999),
-                              border: Border.all(
-                                color: _shuttleColor.withValues(alpha: 0.2),
-                              ),
-                            ),
-                            child: Text(
-                              routeName,
-                              style: const TextStyle(
-                                color: _shuttleColor,
-                                fontWeight: FontWeight.w600,
-                              ),
+                      if (shouldShowTitleChip) ...[
+                        const SizedBox(height: 10),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 6,
+                          ),
+                          decoration: BoxDecoration(
+                            color: _shuttleColor.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                          child: Text(
+                            titleChipLabel,
+                            style: const TextStyle(
+                              color: _shuttleColor,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
                             ),
                           ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 14),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).cardColor,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: subtleBorderColor),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(
+                            Icons.alt_route,
+                            size: 18,
+                            color: _shuttleColor,
+                          ),
+                          const SizedBox(width: 8),
+                          const Text(
+                            '지나는 노선',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      if (routeNames.isEmpty)
+                        Text(
+                          '운행 중인 노선 정보가 없습니다.',
+                          style: TextStyle(color: hintColor),
                         )
-                        .toList(growable: false),
-                  ),
-                const SizedBox(height: 24),
-                SizedBox(
-                  width: double.infinity,
-                  child: _buildScaledButton(
-                    onTap: () {
-                      if (!Get.isRegistered<ShuttleViewModel>()) {
-                        Get.put(ShuttleViewModel());
-                      }
-                      Navigator.of(sheetContext).pop(false);
-                      Get.to(
-                        () => NaverMapStationDetailView(
-                          stationId: station.id,
+                      else
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: routeNames
+                              .map(
+                                (routeName) => Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 8,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: _shuttleColor.withValues(alpha: 0.08),
+                                    borderRadius: BorderRadius.circular(999),
+                                    border: Border.all(
+                                      color: _shuttleColor.withValues(
+                                        alpha: 0.18,
+                                      ),
+                                    ),
+                                  ),
+                                  child: Text(
+                                    routeName,
+                                    style: const TextStyle(
+                                      color: _shuttleColor,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                              )
+                              .toList(growable: false),
                         ),
-                      );
-                    },
-                    child: OutlinedButton.icon(
-                      onPressed: () {
-                        if (!Get.isRegistered<ShuttleViewModel>()) {
-                          Get.put(ShuttleViewModel());
-                        }
-                        Navigator.of(sheetContext).pop(false);
-                        Get.to(
-                          () => NaverMapStationDetailView(
-                            stationId: station.id,
-                          ),
-                        );
-                      },
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: _shuttleColor,
-                        side: BorderSide(
-                          color: _shuttleColor.withValues(alpha: 0.35),
-                        ),
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                      ),
-                      icon: const Icon(Icons.info_outline),
-                      label: const Text(
-                        '자세한 정보 보기',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
+                    ],
                   ),
                 ),
-                const SizedBox(height: 12),
-                SizedBox(
-                  width: double.infinity,
-                  child: _buildScaledButton(
-                    onTap: () {
-                      Navigator.of(sheetContext).pop();
-                      Get.to(
-                        () => NearbyStopsView(
-                          initialStationId: station.id,
-                          initialDate: widget.initialDate,
-                        ),
-                      );
-                    },
-                    child: ElevatedButton.icon(
-                      onPressed: () {
-                        Navigator.of(sheetContext).pop();
-                        Get.to(
-                          () => NearbyStopsView(
-                            initialStationId: station.id,
-                            initialDate: widget.initialDate,
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _buildScaledButton(
+                        onTap: openStationDetail,
+                        child: OutlinedButton.icon(
+                          onPressed: openStationDetail,
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: _shuttleColor,
+                            side: BorderSide(
+                              color: _shuttleColor.withValues(alpha: 0.28),
+                            ),
+                            padding: const EdgeInsets.symmetric(vertical: 15),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
                           ),
-                        );
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: _shuttleColor,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                      ),
-                      icon: const Icon(Icons.schedule),
-                      label: const Text(
-                        '시간표 보기',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
+                          icon: const Icon(Icons.info_outline),
+                          label: const Text(
+                            '상세 정보',
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                         ),
                       ),
                     ),
-                  ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: _buildScaledButton(
+                        onTap: openNearbyStops,
+                        child: ElevatedButton.icon(
+                          onPressed: openNearbyStops,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: _shuttleColor,
+                            foregroundColor: Colors.white,
+                            elevation: 0,
+                            padding: const EdgeInsets.symmetric(vertical: 15),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                          ),
+                          icon: const Icon(Icons.schedule),
+                          label: const Text(
+                            '시간표 보기',
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
