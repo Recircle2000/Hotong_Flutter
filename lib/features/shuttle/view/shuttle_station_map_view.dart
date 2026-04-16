@@ -11,6 +11,7 @@ import 'package:hsro/features/shuttle/repository/shuttle_repository.dart';
 import 'package:hsro/features/shuttle/view/nearby_stops_view.dart';
 import 'package:hsro/features/shuttle/view/naver_map_station_detail_view.dart';
 import 'package:hsro/features/shuttle/viewmodel/shuttle_viewmodel.dart';
+import 'package:hsro/shared/widgets/scale_button.dart';
 
 class ShuttleStationMapView extends StatefulWidget {
   final String? initialDate;
@@ -847,26 +848,31 @@ class _ShuttleStationMapViewState extends State<ShuttleStationMapView> {
                               : Colors.transparent,
                         ),
                       ),
-                      child: ListTile(
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                        ),
-                        title: Text(
-                          option.label,
-                          style: const TextStyle(fontWeight: FontWeight.w600),
-                        ),
-                        subtitle: option.subtitle == null
-                            ? null
-                            : Text(
-                                option.subtitle!,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                        trailing: Icon(
-                          isSelected ? Icons.check_circle : Icons.chevron_right,
-                          color: isSelected ? _shuttleColor : null,
-                        ),
+                      child: _buildScaledButton(
                         onTap: () => Navigator.of(sheetContext).pop(option),
+                        child: ListTile(
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                          ),
+                          title: Text(
+                            option.label,
+                            style: const TextStyle(fontWeight: FontWeight.w600),
+                          ),
+                          subtitle: option.subtitle == null
+                              ? null
+                              : Text(
+                                  option.subtitle!,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                          trailing: Icon(
+                            isSelected
+                                ? Icons.check_circle
+                                : Icons.chevron_right,
+                            color: isSelected ? _shuttleColor : null,
+                          ),
+                          onTap: () => Navigator.of(sheetContext).pop(option),
+                        ),
                       ),
                     );
                   },
@@ -1018,8 +1024,8 @@ class _ShuttleStationMapViewState extends State<ShuttleStationMapView> {
                 const SizedBox(height: 24),
                 SizedBox(
                   width: double.infinity,
-                  child: OutlinedButton.icon(
-                    onPressed: () {
+                  child: _buildScaledButton(
+                    onTap: () {
                       if (!Get.isRegistered<ShuttleViewModel>()) {
                         Get.put(ShuttleViewModel());
                       }
@@ -1030,22 +1036,35 @@ class _ShuttleStationMapViewState extends State<ShuttleStationMapView> {
                         ),
                       );
                     },
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: _shuttleColor,
-                      side: BorderSide(
-                        color: _shuttleColor.withValues(alpha: 0.35),
+                    child: OutlinedButton.icon(
+                      onPressed: () {
+                        if (!Get.isRegistered<ShuttleViewModel>()) {
+                          Get.put(ShuttleViewModel());
+                        }
+                        Navigator.of(sheetContext).pop();
+                        Get.to(
+                          () => NaverMapStationDetailView(
+                            stationId: station.id,
+                          ),
+                        );
+                      },
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: _shuttleColor,
+                        side: BorderSide(
+                          color: _shuttleColor.withValues(alpha: 0.35),
+                        ),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
                       ),
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                    ),
-                    icon: const Icon(Icons.info_outline),
-                    label: const Text(
-                      '자세한 정보 보기',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
+                      icon: const Icon(Icons.info_outline),
+                      label: const Text(
+                        '자세한 정보 보기',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
                   ),
@@ -1053,8 +1072,8 @@ class _ShuttleStationMapViewState extends State<ShuttleStationMapView> {
                 const SizedBox(height: 12),
                 SizedBox(
                   width: double.infinity,
-                  child: ElevatedButton.icon(
-                    onPressed: () {
+                  child: _buildScaledButton(
+                    onTap: () {
                       Navigator.of(sheetContext).pop();
                       Get.to(
                         () => NearbyStopsView(
@@ -1063,20 +1082,31 @@ class _ShuttleStationMapViewState extends State<ShuttleStationMapView> {
                         ),
                       );
                     },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: _shuttleColor,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
+                    child: ElevatedButton.icon(
+                      onPressed: () {
+                        Navigator.of(sheetContext).pop();
+                        Get.to(
+                          () => NearbyStopsView(
+                            initialStationId: station.id,
+                            initialDate: widget.initialDate,
+                          ),
+                        );
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: _shuttleColor,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
                       ),
-                    ),
-                    icon: const Icon(Icons.schedule),
-                    label: const Text(
-                      '시간표 보기',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
+                      icon: const Icon(Icons.schedule),
+                      label: const Text(
+                        '시간표 보기',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
                   ),
@@ -1150,8 +1180,8 @@ class _ShuttleStationMapViewState extends State<ShuttleStationMapView> {
                     const SizedBox(height: 8),
                     Row(
                       children: [
-                        TextButton(
-                          onPressed: () {
+                        _buildScaledButton(
+                          onTap: () {
                             setSheetState(() {
                               if (allSelected) {
                                 tempSelectedIds.clear();
@@ -1166,7 +1196,24 @@ class _ShuttleStationMapViewState extends State<ShuttleStationMapView> {
                               }
                             });
                           },
-                          child: Text(allSelected ? '모두 해제' : '전체 선택'),
+                          child: TextButton(
+                            onPressed: () {
+                              setSheetState(() {
+                                if (allSelected) {
+                                  tempSelectedIds.clear();
+                                } else {
+                                  tempSelectedIds
+                                    ..clear()
+                                    ..addAll(
+                                      _routeOverlays.map(
+                                        (routeOverlay) => routeOverlay.id,
+                                      ),
+                                    );
+                                }
+                              });
+                            },
+                            child: Text(allSelected ? '모두 해제' : '전체 선택'),
+                          ),
                         ),
                         const Spacer(),
                         Text(
@@ -1200,39 +1247,8 @@ class _ShuttleStationMapViewState extends State<ShuttleStationMapView> {
                                       .withValues(alpha: 0.3),
                             ),
                           ),
-                          child: CheckboxListTile(
-                            value: isSelected,
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 14,
-                              vertical: 2,
-                            ),
-                            activeColor: routeOverlay.color,
-                            checkboxShape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            controlAffinity: ListTileControlAffinity.trailing,
-                            title: Row(
-                              children: [
-                                Container(
-                                  width: 12,
-                                  height: 12,
-                                  decoration: BoxDecoration(
-                                    color: routeOverlay.color,
-                                    shape: BoxShape.circle,
-                                  ),
-                                ),
-                                const SizedBox(width: 10),
-                                Expanded(
-                                  child: Text(
-                                    routeOverlay.title,
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            onChanged: (_) {
+                          child: _buildScaledButton(
+                            onTap: () {
                               setSheetState(() {
                                 if (isSelected) {
                                   tempSelectedIds.remove(routeOverlay.id);
@@ -1241,6 +1257,49 @@ class _ShuttleStationMapViewState extends State<ShuttleStationMapView> {
                                 }
                               });
                             },
+                            child: CheckboxListTile(
+                              value: isSelected,
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 2,
+                              ),
+                              activeColor: routeOverlay.color,
+                              checkboxShape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              controlAffinity:
+                                  ListTileControlAffinity.trailing,
+                              title: Row(
+                                children: [
+                                  Container(
+                                    width: 12,
+                                    height: 12,
+                                    decoration: BoxDecoration(
+                                      color: routeOverlay.color,
+                                      shape: BoxShape.circle,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: Text(
+                                      routeOverlay.title,
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              onChanged: (_) {
+                                setSheetState(() {
+                                  if (isSelected) {
+                                    tempSelectedIds.remove(routeOverlay.id);
+                                  } else {
+                                    tempSelectedIds.add(routeOverlay.id);
+                                  }
+                                });
+                              },
+                            ),
                           ),
                         );
                       },
@@ -1248,26 +1307,33 @@ class _ShuttleStationMapViewState extends State<ShuttleStationMapView> {
                     const SizedBox(height: 8),
                     SizedBox(
                       width: double.infinity,
-                      child: ElevatedButton.icon(
-                        onPressed: () {
+                      child: _buildScaledButton(
+                        onTap: () {
                           Navigator.of(sheetContext).pop(
                             Set<String>.from(tempSelectedIds),
                           );
                         },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: _shuttleColor,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
+                        child: ElevatedButton.icon(
+                          onPressed: () {
+                            Navigator.of(sheetContext).pop(
+                              Set<String>.from(tempSelectedIds),
+                            );
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: _shuttleColor,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
                           ),
-                        ),
-                        icon: const Icon(Icons.alt_route),
-                        label: Text(
-                          tempSelectedIds.isEmpty ? '필터 해제' : '선택한 노선 적용',
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
+                          icon: const Icon(Icons.alt_route),
+                          label: Text(
+                            tempSelectedIds.isEmpty ? '필터 해제' : '선택한 노선 적용',
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ),
                       ),
@@ -1293,6 +1359,20 @@ class _ShuttleStationMapViewState extends State<ShuttleStationMapView> {
 
     _queueOverlayRefresh();
     await _moveCameraToVisibleBounds();
+  }
+
+  Widget _buildScaledButton({
+    required VoidCallback onTap,
+    required Widget child,
+    bool enableFeedback = true,
+  }) {
+    return ScaleButton(
+      onTap: onTap,
+      enableFeedback: enableFeedback,
+      child: AbsorbPointer(
+        child: child,
+      ),
+    );
   }
 
   @override
@@ -1340,14 +1420,13 @@ class _ShuttleStationMapViewState extends State<ShuttleStationMapView> {
               bottom: 96,
               child: SafeArea(
                 top: false,
-                child: Material(
-                  color: Theme.of(context).cardColor,
-                  borderRadius: BorderRadius.circular(18),
-                  elevation: 6,
-                  shadowColor: Colors.black.withValues(alpha: 0.16),
-                  child: InkWell(
-                    onTap: _showRouteSelectionSheet,
+                child: ScaleButton(
+                  onTap: _showRouteSelectionSheet,
+                  child: Material(
+                    color: Theme.of(context).cardColor,
                     borderRadius: BorderRadius.circular(18),
+                    elevation: 6,
+                    shadowColor: Colors.black.withValues(alpha: 0.16),
                     child: Padding(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 14,
@@ -1366,7 +1445,7 @@ class _ShuttleStationMapViewState extends State<ShuttleStationMapView> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               const Text(
-                                '노선도 필터링',
+                                '노선 필터',
                                 style: TextStyle(
                                   fontWeight: FontWeight.bold,
                                 ),
@@ -1374,7 +1453,7 @@ class _ShuttleStationMapViewState extends State<ShuttleStationMapView> {
                               Text(
                                 _selectedRouteIds.isEmpty
                                     ? '모든 정류장 표시 중'
-                                    : '${_selectedRouteIds.length}개 노선 필터 적용',
+                                    : '${_selectedRouteIds.length}개 노선 표시 중',
                                 style: TextStyle(
                                   fontSize: 12,
                                   color: Theme.of(context).hintColor,
@@ -1445,13 +1524,16 @@ class _ShuttleStationMapViewState extends State<ShuttleStationMapView> {
                           ),
                         ),
                         const SizedBox(height: 16),
-                        ElevatedButton(
-                          onPressed: _loadMapData,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: _shuttleColor,
-                            foregroundColor: Colors.white,
+                        _buildScaledButton(
+                          onTap: _loadMapData,
+                          child: ElevatedButton(
+                            onPressed: _loadMapData,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: _shuttleColor,
+                              foregroundColor: Colors.white,
+                            ),
+                            child: const Text('다시 시도'),
                           ),
-                          child: const Text('다시 시도'),
                         ),
                       ],
                     ),
