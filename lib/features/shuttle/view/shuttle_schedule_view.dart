@@ -35,6 +35,8 @@ class _ShuttleScheduleViewState extends State<ShuttleScheduleView> {
   static const double _arrowToEndTimeSpacing = 20.0;
   static const double _endTimeFontSize = 13.0;
   static const double _nearestScheduleIconSize = 14.0;
+  static const Duration _arrivalBasisAnimationDuration =
+      Duration(milliseconds: 220);
 
   final ShuttleViewModel viewModel = Get.find<ShuttleViewModel>();
   final ScrollController _scheduleScrollController = ScrollController();
@@ -351,8 +353,12 @@ class _ShuttleScheduleViewState extends State<ShuttleScheduleView> {
   Future<ShuttleStation?> _showAndroidArrivalStationPicker(
     List<ShuttleStation> stations,
   ) {
+    final sheetColor = Theme.of(context).cardColor;
+
     return showModalBottomSheet<ShuttleStation>(
       context: context,
+      backgroundColor: sheetColor,
+      elevation: 0,
       clipBehavior: Clip.antiAlias,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
@@ -361,74 +367,77 @@ class _ShuttleScheduleViewState extends State<ShuttleScheduleView> {
         final maxHeight = MediaQuery.of(context).size.height * 0.7;
 
         return SafeArea(
-          child: SizedBox(
-            height: maxHeight,
-            child: Column(
-              children: [
-                Padding(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                  child: Row(
-                    children: [
-                      const Expanded(
-                        child: Text(
-                          '도착 기준 정류장',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w700,
+          child: ColoredBox(
+            color: sheetColor,
+            child: SizedBox(
+              height: maxHeight,
+              child: Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 14),
+                    child: Row(
+                      children: [
+                        const Expanded(
+                          child: Text(
+                            '도착 기준 정류장',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                            ),
                           ),
                         ),
-                      ),
-                      IconButton(
-                        tooltip: '닫기',
-                        icon: const Icon(Icons.close_rounded),
-                        onPressed: () => Navigator.pop(context),
-                      ),
-                    ],
-                  ),
-                ),
-                Divider(
-                  height: 1,
-                  thickness: 1,
-                  color: Colors.grey.withValues(alpha: 0.25),
-                ),
-                Expanded(
-                  child: ListView.separated(
-                    itemCount: stations.length,
-                    separatorBuilder: (context, index) => Divider(
-                      height: 1,
-                      thickness: 1,
-                      color: Colors.grey.withValues(alpha: 0.18),
+                        IconButton(
+                          tooltip: '닫기',
+                          icon: const Icon(Icons.close_rounded),
+                          onPressed: () => Navigator.pop(context),
+                        ),
+                      ],
                     ),
-                    itemBuilder: (context, index) {
-                      final station = stations[index];
-                      final isSelected =
-                          _selectedArrivalStationId == station.id;
-
-                      return ListTile(
-                        leading: Text(
-                          '${index + 1}',
-                          style: TextStyle(
-                            color: Theme.of(context).colorScheme.primary,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        title: Text(
-                          station.name,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        trailing: isSelected
-                            ? Icon(
-                                Icons.check_rounded,
-                                color: Theme.of(context).colorScheme.primary,
-                              )
-                            : null,
-                        onTap: () => Navigator.pop(context, station),
-                      );
-                    },
                   ),
-                ),
-              ],
+                  Divider(
+                    height: 1,
+                    thickness: 1,
+                    color: Colors.grey.withValues(alpha: 0.25),
+                  ),
+                  Expanded(
+                    child: ListView.separated(
+                      itemCount: stations.length,
+                      separatorBuilder: (context, index) => Divider(
+                        height: 1,
+                        thickness: 1,
+                        color: Colors.grey.withValues(alpha: 0.18),
+                      ),
+                      itemBuilder: (context, index) {
+                        final station = stations[index];
+                        final isSelected =
+                            _selectedArrivalStationId == station.id;
+
+                        return ListTile(
+                          leading: Text(
+                            '${index + 1}',
+                            style: TextStyle(
+                              color: Theme.of(context).colorScheme.primary,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          title: Text(
+                            station.name,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          trailing: isSelected
+                              ? Icon(
+                                  Icons.check_rounded,
+                                  color: Theme.of(context).colorScheme.primary,
+                                )
+                              : null,
+                          onTap: () => Navigator.pop(context, station),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         );
@@ -997,58 +1006,67 @@ class _ShuttleScheduleViewState extends State<ShuttleScheduleView> {
 
   Widget _buildArrivalBasisBar() {
     final stationName = _selectedArrivalStationName;
-    if (stationName == null) {
-      return const SizedBox.shrink();
-    }
-
     final colorScheme = Theme.of(context).colorScheme;
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
 
-    return InkWell(
-      onTap: _isLoadingArrivalBasis ? null : _showArrivalStationPicker,
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
-        color: colorScheme.primary.withValues(alpha: isDarkMode ? 0.16 : 0.08),
-        child: Row(
-          children: [
-            Icon(
-              Icons.location_on_rounded,
-              size: 15,
-              color: colorScheme.primary,
-            ),
-            const SizedBox(width: 6),
-            Text(
-              '도착 시간 기준',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-                color: colorScheme.primary,
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                stationName,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: Theme.of(context).textTheme.bodyMedium?.color,
+    return ClipRect(
+      child: AnimatedSize(
+        duration: _arrivalBasisAnimationDuration,
+        curve: Curves.easeOutCubic,
+        alignment: Alignment.topCenter,
+        child: stationName == null
+            ? const SizedBox(width: double.infinity)
+            : InkWell(
+                onTap:
+                    _isLoadingArrivalBasis ? null : _showArrivalStationPicker,
+                child: Container(
+                  width: double.infinity,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
+                  color: colorScheme.primary
+                      .withValues(alpha: isDarkMode ? 0.16 : 0.08),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.location_on_rounded,
+                        size: 15,
+                        color: colorScheme.primary,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        '도착 시간 기준',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: colorScheme.primary,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          stationName,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color:
+                                Theme.of(context).textTheme.bodyMedium?.color,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Icon(
+                        Platform.isIOS
+                            ? CupertinoIcons.chevron_down
+                            : Icons.expand_more_rounded,
+                        size: 15,
+                        color: colorScheme.primary,
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(width: 6),
-            Icon(
-              Platform.isIOS
-                  ? CupertinoIcons.chevron_down
-                  : Icons.expand_more_rounded,
-              size: 15,
-              color: colorScheme.primary,
-            ),
-          ],
-        ),
       ),
     );
   }
