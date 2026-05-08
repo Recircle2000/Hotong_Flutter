@@ -953,61 +953,103 @@ class _ShuttleScheduleViewState extends State<ShuttleScheduleView> {
   }
 
   Widget _buildArrivalBasisHeader() {
-    final label = _selectedArrivalStationName == null
-        ? '도착 시간'
-        : '$_selectedArrivalStationName 기준';
     final isCustomBasis = _selectedArrivalStationId != null;
     final activeColor = Theme.of(context).colorScheme.primary;
     final textColor = isCustomBasis ? activeColor : null;
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final maxLabelWidth = constraints.hasBoundedWidth
-            ? (constraints.maxWidth - 24)
-                .clamp(0.0, constraints.maxWidth)
-                .toDouble()
-            : 120.0;
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: _isLoadingArrivalBasis ? null : _showArrivalStationPicker,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            '도착 시간',
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: _endTimeFontSize,
+              color: textColor,
+            ),
+          ),
+          const SizedBox(width: 4),
+          if (_isLoadingArrivalBasis)
+            SizedBox(
+              width: 14,
+              height: 14,
+              child: CircularProgressIndicator.adaptive(
+                strokeWidth: 2,
+                valueColor: AlwaysStoppedAnimation<Color>(activeColor),
+              ),
+            )
+          else
+            Icon(
+              Platform.isIOS
+                  ? CupertinoIcons.chevron_down
+                  : Icons.expand_more_rounded,
+              size: 14,
+              color: textColor ?? Theme.of(context).hintColor,
+            ),
+        ],
+      ),
+    );
+  }
 
-        return GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onTap: _isLoadingArrivalBasis ? null : _showArrivalStationPicker,
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ConstrainedBox(
-                constraints: BoxConstraints(maxWidth: maxLabelWidth),
-                child: Text(
-                  label,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: _endTimeFontSize,
-                    color: textColor,
-                  ),
+  Widget _buildArrivalBasisBar() {
+    final stationName = _selectedArrivalStationName;
+    if (stationName == null) {
+      return const SizedBox.shrink();
+    }
+
+    final colorScheme = Theme.of(context).colorScheme;
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+
+    return InkWell(
+      onTap: _isLoadingArrivalBasis ? null : _showArrivalStationPicker,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
+        color: colorScheme.primary.withValues(alpha: isDarkMode ? 0.16 : 0.08),
+        child: Row(
+          children: [
+            Icon(
+              Icons.location_on_rounded,
+              size: 15,
+              color: colorScheme.primary,
+            ),
+            const SizedBox(width: 6),
+            Text(
+              '도착 시간 기준',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: colorScheme.primary,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                stationName,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: Theme.of(context).textTheme.bodyMedium?.color,
                 ),
               ),
-              const SizedBox(width: 4),
-              if (_isLoadingArrivalBasis)
-                SizedBox(
-                  width: 14,
-                  height: 14,
-                  child: CircularProgressIndicator.adaptive(
-                    strokeWidth: 2,
-                    valueColor: AlwaysStoppedAnimation<Color>(activeColor),
-                  ),
-                )
-              else
-                Icon(
-                  Platform.isIOS
-                      ? CupertinoIcons.chevron_down
-                      : Icons.expand_more_rounded,
-                  size: 14,
-                  color: textColor ?? Theme.of(context).hintColor,
-                ),
-            ],
-          ),
-        );
-      },
+            ),
+            const SizedBox(width: 6),
+            Icon(
+              Platform.isIOS
+                  ? CupertinoIcons.chevron_down
+                  : Icons.expand_more_rounded,
+              size: 15,
+              color: colorScheme.primary,
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -1094,6 +1136,7 @@ class _ShuttleScheduleViewState extends State<ShuttleScheduleView> {
                             ],
                           ),
                         ),
+                        _buildArrivalBasisBar(),
                         Divider(
                           height: 1,
                           thickness: 1,
