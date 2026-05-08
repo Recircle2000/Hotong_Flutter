@@ -280,6 +280,62 @@ class ShuttleViewModel extends GetxController {
     }
   }
 
+  Future<List<StationSchedule>?> fetchStationSchedulesByDateForRoute({
+    required int stationId,
+    required int routeId,
+    required String date,
+  }) async {
+    try {
+      final data = await _shuttleRepository.fetchStationSchedulesByDate(
+        stationId: stationId,
+        date: date,
+      );
+      final List<dynamic> rawSchedules = List<dynamic>.from(
+        data['schedules'] as List<dynamic>? ?? <dynamic>[],
+      );
+      final schedules = rawSchedules
+          .map(
+            (item) => StationSchedule.fromJson(
+              Map<String, dynamic>.from(item as Map),
+            ),
+          )
+          .where((schedule) => schedule.routeId == routeId)
+          .toList()
+        ..sort((a, b) => a.arrivalTime.compareTo(b.arrivalTime));
+
+      return schedules;
+    } catch (e) {
+      print('정류장 기준 도착 시간을 불러오는데 실패했습니다: $e');
+      return null;
+    }
+  }
+
+  Future<List<ShuttleStation>?> fetchStationsForRoute(int routeId) async {
+    try {
+      final results = await Future.wait([
+        _shuttleRepository.fetchStations(),
+        _shuttleRepository.fetchStationRouteMemberships(),
+      ]);
+      final stationList = results[0] as List<ShuttleStation>;
+      final memberships = results[1] as List<StationRouteMembership>;
+      final routeIdsByStationId = <int, Set<int>>{};
+
+      for (final membership in memberships) {
+        routeIdsByStationId[membership.stationId] = membership.routeIds.toSet();
+      }
+
+      return stationList
+          .where(
+            (station) =>
+                routeIdsByStationId[station.id]?.contains(routeId) ?? false,
+          )
+          .toList(growable: false);
+    } catch (e) {
+      print('노선별 정류장 목록을 불러오는데 실패했습니다: $e');
+      return null;
+    }
+  }
+
   // 정류장 목록 조회
   Future<void> fetchStations() async {
     isLoadingStations.value = true;
