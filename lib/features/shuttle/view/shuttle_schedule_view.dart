@@ -4,7 +4,6 @@ import 'dart:io' show Platform;
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:hsro/features/shuttle/models/shuttle_models.dart';
@@ -30,6 +29,8 @@ class ShuttleScheduleView extends StatefulWidget {
 }
 
 class _ShuttleScheduleViewState extends State<ShuttleScheduleView> {
+  static const MethodChannel _iosArrivalStationPickerChannel =
+      MethodChannel('hsro/ios_arrival_station_picker');
   static const double _timeToArrowSpacing = 8.0;
   static const double _timeIndicatorWidth = 18.0;
   static const double _arrowToEndTimeSpacing = 20.0;
@@ -326,6 +327,56 @@ class _ShuttleScheduleViewState extends State<ShuttleScheduleView> {
   }
 
   Future<ShuttleStation?> _showIOSArrivalStationPicker(
+    List<ShuttleStation> stations,
+  ) async {
+    try {
+      final selectedStationId =
+          await _iosArrivalStationPickerChannel.invokeMethod<int>(
+        'show',
+        {
+          'title': '도착 기준 정류장',
+          'cancelTitle': '취소',
+          'selectedStationId': _selectedArrivalStationId,
+          'stations': stations
+              .asMap()
+              .entries
+              .map(
+                (entry) => {
+                  'id': entry.value.id,
+                  'title': '${entry.key + 1}. ${entry.value.name}',
+                },
+              )
+              .toList(growable: false),
+        },
+      );
+
+      if (selectedStationId == null) {
+        return null;
+      }
+
+      for (final station in stations) {
+        if (station.id == selectedStationId) {
+          return station;
+        }
+      }
+    } on MissingPluginException catch (error) {
+      debugPrint('iOS 도착 정류장 선택기 채널 없음: $error');
+      if (!mounted) {
+        return null;
+      }
+      return _showFlutterArrivalStationPickerFallback(stations);
+    } on PlatformException catch (error) {
+      debugPrint('iOS 도착 정류장 선택기 호출 실패: $error');
+      if (!mounted) {
+        return null;
+      }
+      return _showFlutterArrivalStationPickerFallback(stations);
+    }
+
+    return null;
+  }
+
+  Future<ShuttleStation?> _showFlutterArrivalStationPickerFallback(
     List<ShuttleStation> stations,
   ) {
     return showCupertinoModalPopup<ShuttleStation>(
@@ -1161,10 +1212,23 @@ class _ShuttleScheduleViewState extends State<ShuttleScheduleView> {
                           color: Colors.grey.withValues(alpha: 0.3),
                         ),
                         Expanded(
-                          child: Container(
-                            child: ClipRect(
-                              child: isIOS
-                                  ? ListView.builder(
+                          child: ClipRect(
+                            child: isIOS
+                                ? ListView.builder(
+                                    controller: _scheduleScrollController,
+                                    itemCount: viewModel.schedules.length,
+                                    itemBuilder: (context, index) =>
+                                        _buildScheduleItem(
+                                      context,
+                                      index,
+                                      emphasizedScheduleId,
+                                    ),
+                                  )
+                                : Scrollbar(
+                                    interactive: true,
+                                    thumbVisibility: true,
+                                    controller: _scheduleScrollController,
+                                    child: ListView.builder(
                                       controller: _scheduleScrollController,
                                       itemCount: viewModel.schedules.length,
                                       itemBuilder: (context, index) =>
@@ -1173,23 +1237,8 @@ class _ShuttleScheduleViewState extends State<ShuttleScheduleView> {
                                         index,
                                         emphasizedScheduleId,
                                       ),
-                                    )
-                                  : Scrollbar(
-                                      interactive: true,
-                                      thumbVisibility: true,
-                                      controller: _scheduleScrollController,
-                                      child: ListView.builder(
-                                        controller: _scheduleScrollController,
-                                        itemCount: viewModel.schedules.length,
-                                        itemBuilder: (context, index) =>
-                                            _buildScheduleItem(
-                                          context,
-                                          index,
-                                          emphasizedScheduleId,
-                                        ),
-                                      ),
                                     ),
-                            ),
+                                  ),
                           ),
                         ),
                       ],
