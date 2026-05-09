@@ -5,8 +5,8 @@ import 'dart:io' show Platform;
 
 class PlatformUtils {
   // Swift AppDelegate에 등록한 채널 이름과 정확히 같아야 Flutter -> iOS 호출이 연결된다.
-  static const MethodChannel _iosDisclaimerDialogChannel =
-      MethodChannel('hsro/ios_disclaimer_dialog');
+  static const MethodChannel _iosAlertDialogChannel =
+      MethodChannel('hsro/ios_alert_dialog');
 
   // 간결한 면책 문구
   static const String shortDisclaimer = '호서대학교 비공식 앱';
@@ -68,32 +68,51 @@ class PlatformUtils {
     );
   }
 
-  // iOS 면책 다이얼로그
-  static Future<void> showIOSDisclaimerDialog(BuildContext context) async {
+  // UIKit의 UIAlertController로 iOS 기본 알림창을 띄운다.
+  static Future<bool> showIOSNativeAlertDialog({
+    required String title,
+    required String message,
+    String buttonTitle = '확인',
+  }) async {
+    if (!Platform.isIOS) {
+      return false;
+    }
+
     try {
-      // iOS에서는 Flutter 다이얼로그 대신 UIKit의 UIAlertController를 띄우도록 요청한다.
-      await _iosDisclaimerDialogChannel.invokeMethod<void>(
+      await _iosAlertDialogChannel.invokeMethod<void>(
         'show',
         <String, String>{
-          'title': '이 앱은 비공식 입니다.',
-          'message': fullDisclaimer,
-          'buttonTitle': '확인',
+          'title': title,
+          'message': message,
+          'buttonTitle': buttonTitle,
         },
       );
-      return;
+      return true;
     } on PlatformException {
-      // 네이티브 다이얼로그 표시 중 오류가 나면 기존 Flutter 다이얼로그로 대체한다.
-      if (!context.mounted) {
-        return;
-      }
-      return _showFlutterIOSDisclaimerDialog(context);
+      return false;
     } on MissingPluginException {
-      // iOS가 아니거나 채널 등록 전인 테스트 환경에서도 화면이 깨지지 않게 한다.
-      if (!context.mounted) {
-        return;
-      }
-      return _showFlutterIOSDisclaimerDialog(context);
+      return false;
     }
+  }
+
+  // iOS 면책 다이얼로그
+  static Future<void> showIOSDisclaimerDialog(BuildContext context) async {
+    // iOS에서는 Flutter 다이얼로그 대신 UIKit의 UIAlertController를 먼저 시도한다.
+    final didShowNativeDialog = await showIOSNativeAlertDialog(
+      title: '이 앱은 비공식 입니다.',
+      message: fullDisclaimer,
+    );
+
+    if (didShowNativeDialog) {
+      return;
+    }
+
+    // 채널 등록 전인 테스트 환경에서도 화면이 깨지지 않게 기존 Flutter 다이얼로그로 대체한다.
+    if (!context.mounted) {
+      return;
+    }
+
+    return _showFlutterIOSDisclaimerDialog(context);
   }
 
   // iOS 네이티브 채널을 사용할 수 없을 때의 Flutter fallback
