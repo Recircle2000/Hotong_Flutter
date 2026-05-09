@@ -6,6 +6,7 @@ import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:hsro/features/notice/models/notice_model.dart';
 import 'package:hsro/features/notice/viewmodel/notice_viewmodel.dart';
+import 'package:hsro/shared/widgets/auto_scroll_text.dart';
 
 class NoticeDetailView extends StatelessWidget {
   final Notice notice;
@@ -15,7 +16,6 @@ class NoticeDetailView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
     final noticeViewModel = Get.find<NoticeViewModel>();
 
     return Scaffold(
@@ -38,31 +38,178 @@ class NoticeDetailView extends StatelessWidget {
           onPressed: () => Get.back(),
         ),
       ),
-      body: SingleChildScrollView(
-        child: Container(
-          padding: const EdgeInsets.all(20.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // 제목, 게시 시각, 카테고리 영역
-              Container(
-                padding: const EdgeInsets.symmetric(vertical: 16),
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          final noticeTypeLabel =
+              noticeViewModel.getNoticeTypeDisplayName(notice.noticeType);
+          final noticeTypeColor =
+              noticeViewModel.getNoticeTypeColor(notice.noticeType);
+          final headerMaxExtent = _calculateNoticeHeaderMaxExtent(
+            context: context,
+            availableWidth: constraints.maxWidth,
+            title: notice.title,
+          );
+
+          return CustomScrollView(
+            slivers: [
+              SliverPersistentHeader(
+                pinned: true,
+                delegate: _NoticeHeaderDelegate(
+                  notice: notice,
+                  noticeTypeLabel: noticeTypeLabel,
+                  noticeTypeColor: noticeTypeColor,
+                  expandedExtent: headerMaxExtent,
+                ),
+              ),
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 24, 20, 32),
+                  child: MarkdownBody(
+                    // 공지 본문은 마크다운으로 렌더링
+                    data: notice.content,
+                    styleSheet: MarkdownStyleSheet.fromTheme(theme).copyWith(
+                      p: theme.textTheme.bodyLarge?.copyWith(
+                        fontSize:
+                            (theme.textTheme.bodyLarge?.fontSize ?? 16) - 1,
+                        height: 1.7,
+                        letterSpacing: 0.6,
+                      ),
+                    ),
+                    onTapLink: (text, href, title) async {
+                      // 링크가 있으면 외부 브라우저로 열기
+                      if (href != null && await canLaunchUrl(Uri.parse(href))) {
+                        await launchUrl(
+                          Uri.parse(href),
+                          mode: LaunchMode.externalApplication,
+                        );
+                      }
+                    },
+                    sizedImageBuilder: (config) {
+                      // 마크다운 이미지에 확대 보기와 플레이스홀더 적용
+                      return _NoticeMarkdownImage(
+                        imageUrl: config.uri.toString(),
+                        width: config.width,
+                        height: config.height,
+                      );
+                    },
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+double _calculateNoticeHeaderMaxExtent({
+  required BuildContext context,
+  required double availableWidth,
+  required String title,
+}) {
+  final theme = Theme.of(context);
+  final titleStyle = theme.textTheme.headlineSmall?.copyWith(
+        fontWeight: FontWeight.bold,
+        height: 1.4,
+      ) ??
+      const TextStyle(
+        fontSize: 24,
+        fontWeight: FontWeight.bold,
+        height: 1.4,
+      );
+  final contentWidth =
+      availableWidth > 40 ? availableWidth - 40 : availableWidth;
+  final titlePainter = TextPainter(
+    text: TextSpan(text: title, style: titleStyle),
+    maxLines: 3,
+    textDirection: Directionality.of(context),
+    textScaler: MediaQuery.textScalerOf(context),
+  )..layout(maxWidth: contentWidth);
+
+  const verticalPadding = 33.0;
+  const titleToMetaGap = 12.0;
+  const metaRowHeight = 28.0;
+  const dividerHeight = 1.0;
+  const layoutBuffer = 2.0;
+  final expandedExtent = verticalPadding +
+      titlePainter.height +
+      titleToMetaGap +
+      metaRowHeight +
+      dividerHeight +
+      layoutBuffer;
+
+  final minExpandedExtent = _NoticeHeaderDelegate.minHeaderExtent + 36;
+  final resolvedExtent = expandedExtent.ceilToDouble();
+
+  return resolvedExtent < minExpandedExtent
+      ? minExpandedExtent
+      : resolvedExtent;
+}
+
+class _NoticeHeaderDelegate extends SliverPersistentHeaderDelegate {
+  const _NoticeHeaderDelegate({
+    required this.notice,
+    required this.noticeTypeLabel,
+    required this.noticeTypeColor,
+    required this.expandedExtent,
+  });
+
+  static const double minHeaderExtent = 64;
+
+  final Notice notice;
+  final String noticeTypeLabel;
+  final Color noticeTypeColor;
+  final double expandedExtent;
+
+  @override
+  double get minExtent => minHeaderExtent;
+
+  @override
+  double get maxExtent => expandedExtent;
+
+  @override
+  Widget build(
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final denominator = maxExtent - minExtent;
+    final collapseProgress = denominator <= 0
+        ? 1.0
+        : (shrinkOffset / denominator).clamp(0.0, 1.0).toDouble();
+    final expandedOpacity =
+        (1 - collapseProgress * 1.35).clamp(0.0, 1.0).toDouble();
+    final compactOpacity =
+        ((collapseProgress - 0.4) / 0.6).clamp(0.0, 1.0).toDouble();
+
+    return Material(
+      color: theme.scaffoldBackgroundColor,
+      child: Stack(
+        clipBehavior: Clip.hardEdge,
+        children: [
+          Positioned(
+            top: -shrinkOffset * 0.18,
+            left: 0,
+            right: 0,
+            height: maxExtent,
+            child: Opacity(
+              opacity: expandedOpacity,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 17),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          child: Text(
-                            notice.title,
-                            style: theme.textTheme.headlineSmall?.copyWith(
-                              fontWeight: FontWeight.bold,
-                              height: 1.4,
-                            ),
-                          ),
-                        ),
-                      ],
+                    Text(
+                      notice.title,
+                      maxLines: 3,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.headlineSmall?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        height: 1.4,
+                      ),
                     ),
                     const SizedBox(height: 12),
                     Row(
@@ -73,72 +220,119 @@ class NoticeDetailView extends StatelessWidget {
                           color: colorScheme.onSurfaceVariant,
                         ),
                         const SizedBox(width: 6),
-                        Text(
-                          notice.createdAt.toLocal().toString().split('.')[0],
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            color: colorScheme.onSurfaceVariant,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                        const Spacer(),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 10, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: noticeViewModel
-                                .getNoticeTypeColor(notice.noticeType),
-                            borderRadius: BorderRadius.circular(16),
-                          ),
+                        Expanded(
                           child: Text(
-                            noticeViewModel
-                                .getNoticeTypeDisplayName(notice.noticeType),
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
+                            notice.createdAt.toLocal().toString().split('.')[0],
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: colorScheme.onSurfaceVariant,
+                              fontWeight: FontWeight.w500,
                             ),
                           ),
+                        ),
+                        const SizedBox(width: 12),
+                        _NoticeTypeBadge(
+                          label: noticeTypeLabel,
+                          color: noticeTypeColor,
                         ),
                       ],
                     ),
                   ],
                 ),
               ),
-              Divider(
-                height: 1,
-                thickness: 1,
-                color: colorScheme.surfaceContainerHighest,
-              ),
-              const SizedBox(height: 24),
-              MarkdownBody(
-                // 공지 본문은 마크다운으로 렌더링
-                data: notice.content,
-                styleSheet: MarkdownStyleSheet.fromTheme(theme).copyWith(
-                  p: theme.textTheme.bodyLarge?.copyWith(
-                    fontSize: (theme.textTheme.bodyLarge?.fontSize ?? 16) - 1,
-                    height: 1.7,
-                    letterSpacing: 0.6,
-                  ),
+            ),
+          ),
+          Positioned.fill(
+            child: Opacity(
+              opacity: compactOpacity,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 10, 20, 11),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: AutoScrollText(
+                        text: notice.title,
+                        style: theme.textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.w700,
+                              height: 1.25,
+                            ) ??
+                            const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                              height: 1.25,
+                            ),
+                        height: 24,
+                        scrollDuration: const Duration(seconds: 5),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    _NoticeTypeBadge(
+                      label: noticeTypeLabel,
+                      color: noticeTypeColor,
+                      compact: true,
+                    ),
+                  ],
                 ),
-                onTapLink: (text, href, title) async {
-                  // 링크가 있으면 외부 브라우저로 열기
-                  if (href != null && await canLaunchUrl(Uri.parse(href))) {
-                    await launchUrl(
-                      Uri.parse(href),
-                      mode: LaunchMode.externalApplication,
-                    );
-                  }
-                },
-                sizedImageBuilder: (config) {
-                  // 마크다운 이미지에 확대 보기와 플레이스홀더 적용
-                  return _NoticeMarkdownImage(
-                    imageUrl: config.uri.toString(),
-                    width: config.width,
-                    height: config.height,
-                  );
-                },
               ),
-            ],
+            ),
+          ),
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: Divider(
+              height: 1,
+              thickness: 1,
+              color: colorScheme.surfaceContainerHighest,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  bool shouldRebuild(covariant _NoticeHeaderDelegate oldDelegate) {
+    return notice != oldDelegate.notice ||
+        noticeTypeLabel != oldDelegate.noticeTypeLabel ||
+        noticeTypeColor != oldDelegate.noticeTypeColor ||
+        expandedExtent != oldDelegate.expandedExtent;
+  }
+}
+
+class _NoticeTypeBadge extends StatelessWidget {
+  const _NoticeTypeBadge({
+    required this.label,
+    required this.color,
+    this.compact = false,
+  });
+
+  final String label;
+  final Color color;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    return ConstrainedBox(
+      constraints: BoxConstraints(maxWidth: compact ? 88 : 120),
+      child: Container(
+        padding: EdgeInsets.symmetric(
+          horizontal: compact ? 8 : 10,
+          vertical: compact ? 5 : 6,
+        ),
+        decoration: BoxDecoration(
+          color: color,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Text(
+          label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: compact ? 11 : 12,
+            fontWeight: FontWeight.w600,
           ),
         ),
       ),
