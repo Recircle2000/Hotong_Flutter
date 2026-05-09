@@ -4,6 +4,7 @@ import Flutter
 @main
 @objc class AppDelegate: FlutterAppDelegate {
   private var arrivalStationPickerChannel: FlutterMethodChannel?
+  private var disclaimerDialogChannel: FlutterMethodChannel?
   private var arrivalStationPickerDismissDelegate: IOSArrivalStationPickerDismissDelegate?
 
   override func application(
@@ -38,6 +39,12 @@ import Flutter
   }
 
   private func registerMethodChannels() {
+    registerArrivalStationPickerChannel()
+    // Flutter MethodChannel은 기능별로 분리해두면 호출 인자와 응답 타입을 관리하기 쉽다.
+    registerDisclaimerDialogChannel()
+  }
+
+  private func registerArrivalStationPickerChannel() {
     guard let registrar = registrar(forPlugin: "IOSArrivalStationPicker") else {
       return
     }
@@ -66,6 +73,39 @@ import Flutter
     }
 
     arrivalStationPickerChannel = channel
+  }
+
+  private func registerDisclaimerDialogChannel() {
+    // Flutter 쪽 MethodChannel('hsro/ios_disclaimer_dialog')와 같은 이름으로 등록한다.
+    guard let registrar = registrar(forPlugin: "IOSDisclaimerDialog") else {
+      return
+    }
+
+    let channel = FlutterMethodChannel(
+      name: "hsro/ios_disclaimer_dialog",
+      binaryMessenger: registrar.messenger()
+    )
+
+    channel.setMethodCallHandler { [weak self] call, result in
+      // 지금 채널에서는 면책 다이얼로그 표시 요청 하나만 처리한다.
+      guard call.method == "show" else {
+        result(FlutterMethodNotImplemented)
+        return
+      }
+
+      guard let self = self else {
+        result(FlutterError(
+          code: "channel_unavailable",
+          message: "면책 다이얼로그 채널을 사용할 수 없습니다.",
+          details: nil
+        ))
+        return
+      }
+
+      self.showDisclaimerDialog(call: call, result: result)
+    }
+
+    disclaimerDialogChannel = channel
   }
 
   private func showArrivalStationPicker(call: FlutterMethodCall, result: @escaping FlutterResult) {
@@ -154,6 +194,46 @@ import Flutter
 
       navigationController.presentationController?.delegate = dismissDelegate
       presenter.present(navigationController, animated: true)
+    }
+  }
+
+  private func showDisclaimerDialog(call: FlutterMethodCall, result: @escaping FlutterResult) {
+    // Dart에서 넘긴 Map 인자를 Swift에서 사용할 타입으로 꺼낸다.
+    guard let args = call.arguments as? [String: Any],
+          let title = args["title"] as? String,
+          let message = args["message"] as? String else {
+      result(FlutterError(
+        code: "invalid_arguments",
+        message: "면책 다이얼로그 문구가 올바르지 않습니다.",
+        details: nil
+      ))
+      return
+    }
+
+    let buttonTitle = args["buttonTitle"] as? String ?? "확인"
+
+    DispatchQueue.main.async { [weak self] in
+      // UIKit 화면 표시는 항상 현재 최상단 ViewController에서 메인 스레드로 수행한다.
+      guard let self = self, let presenter = self.topViewController() else {
+        result(FlutterError(
+          code: "presentation_failed",
+          message: "면책 다이얼로그를 표시할 수 없습니다.",
+          details: nil
+        ))
+        return
+      }
+
+      let alertController = UIAlertController(
+        title: title,
+        message: message,
+        preferredStyle: .alert
+      )
+      alertController.addAction(UIAlertAction(title: buttonTitle, style: .default) { _ in
+        // 사용자가 확인을 누른 뒤에 Dart의 await가 끝나도록 result를 완료한다.
+        result(nil)
+      })
+
+      presenter.present(alertController, animated: true)
     }
   }
 
