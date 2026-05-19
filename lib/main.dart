@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -5,6 +7,7 @@ import 'package:flutter_naver_map/flutter_naver_map.dart';
 import 'package:get/get.dart';
 import 'package:hsro/app/app.dart';
 import 'package:hsro/core/services/location_service.dart';
+import 'package:hsro/core/utils/bus_static_data_loader.dart';
 import 'package:hsro/core/utils/bus_times_loader.dart';
 import 'package:hsro/core/utils/env_config.dart';
 import 'package:hsro/features/settings/viewmodel/settings_viewmodel.dart';
@@ -42,4 +45,5 @@ void main() async {
   await BusTimesLoader.updateBusTimesIfNeeded();
 
   runApp(const MyApp());
+  unawaited(BusStaticDataLoader.updateIfNeeded());
 }

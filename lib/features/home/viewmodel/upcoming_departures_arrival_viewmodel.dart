@@ -1,10 +1,10 @@
 import 'dart:async';
 import 'dart:convert';
 
-import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:get/get.dart';
+import 'package:hsro/core/utils/bus_static_data_loader.dart';
 import 'package:hsro/core/utils/bus_times_loader.dart';
 import 'package:hsro/core/utils/env_config.dart';
 import 'package:hsro/features/settings/viewmodel/settings_viewmodel.dart';
@@ -927,11 +927,8 @@ class UpcomingDeparturesArrivalViewModel extends GetxController
       return cached;
     }
 
-    final String jsonText = await rootBundle.loadString(
-      'assets/bus_stops/$routeKey.json',
-    );
     final Map<String, dynamic> decoded =
-        jsonDecode(jsonText) as Map<String, dynamic>;
+        await BusStaticDataLoader.loadStopJson(routeKey);
     final List<dynamic> rawItems = List<dynamic>.from(
       decoded['response']?['body']?['items']?['item'] as List<dynamic>? ??
           <dynamic>[],

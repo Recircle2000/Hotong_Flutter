@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:hsro/core/utils/bus_static_data_loader.dart';
 import 'package:hsro/core/utils/bus_times_loader.dart';
 import 'package:hsro/features/guide/view/guide_selection_view.dart';
 import 'package:hsro/features/settings/viewmodel/settings_viewmodel.dart';
@@ -389,10 +390,24 @@ class SettingsView extends StatelessWidget {
                     return const SizedBox.shrink();
                   }
                   final version = snapshot.data!['version'] ?? '-';
-                  // 시내버스 데이터 버전 뱃지
+                  // 시내버스 시간표 데이터 버전 뱃지
                   return _buildInfoBadge(
                     context,
-                    '시내버스 $version',
+                    '시내버스시간표 $version',
+                  );
+                },
+              ),
+              FutureBuilder<String?>(
+                future: BusStaticDataLoader.loadActiveVersion(),
+                builder: (context, snapshot) {
+                  if (!snapshot.hasData) {
+                    return const SizedBox.shrink();
+                  }
+                  final version = snapshot.data ?? '-';
+                  // 시내버스 노선/정류장 데이터 버전 뱃지
+                  return _buildInfoBadge(
+                    context,
+                    '시내버스노선 $version',
                   );
                 },
               ),

@@ -1,8 +1,7 @@
 import 'dart:async';
-import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart'; // rootBundle 사용
 import 'package:get/get.dart';
+import 'package:hsro/core/utils/bus_static_data_loader.dart';
 import 'package:hsro/core/utils/bus_times_loader.dart';
 import 'package:hsro/features/notice/viewmodel/notice_viewmodel.dart';
 import 'package:hsro/features/settings/viewmodel/settings_viewmodel.dart';
@@ -365,8 +364,7 @@ class UpcomingDepartureViewModel extends GetxController
       // 현재 캠퍼스 기준 출발지 필터 결정
       final currentCampus = this.currentCampus;
       final Map<String, dynamic> busData = await BusTimesLoader.loadBusTimes();
-      final Map<String, DateTime> realLastBusTimePerRoute =
-          {};
+      final Map<String, DateTime> realLastBusTimePerRoute = {};
       final now = DateTime.now();
       final today = DateTime(now.year, now.month, now.day);
       final upcomingBuses = <BusDeparture>[];
@@ -609,19 +607,15 @@ class UpcomingDepartureViewModel extends GetxController
 
   Future<void> loadCeanStopSequences() async {
     // 천안 하행 노선 정류장 순서 로드
-    final stopFile24 =
-        await rootBundle.loadString('assets/bus_stops/24_DOWN.json');
-    final stops24 =
-        (json.decode(stopFile24)['response']['body']['items']['item'] as List)
-            .map<String>((e) => e['nodeord'].toString())
-            .toList();
+    final stopData24 = await BusStaticDataLoader.loadStopJson('24_DOWN');
+    final stops24 = (stopData24['response']['body']['items']['item'] as List)
+        .map<String>((e) => e['nodeord'].toString())
+        .toList();
     // 81_DOWN
-    final stopFile81 =
-        await rootBundle.loadString('assets/bus_stops/81_DOWN.json');
-    final stops81 =
-        (json.decode(stopFile81)['response']['body']['items']['item'] as List)
-            .map<String>((e) => e['nodeord'].toString())
-            .toList();
+    final stopData81 = await BusStaticDataLoader.loadStopJson('81_DOWN');
+    final stops81 = (stopData81['response']['body']['items']['item'] as List)
+        .map<String>((e) => e['nodeord'].toString())
+        .toList();
     // '각원사회차지'(회차지) 제외, '각원사'~'호서대(천안)' 범위만!
     var idx24Start = stops24.indexOf('2');
     var idx24End = stops24.indexOf('7');
