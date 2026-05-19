@@ -4,6 +4,7 @@ import 'package:get/get.dart';
 import 'package:hsro/features/notice/models/emergency_notice_model.dart';
 import 'package:hsro/features/notice/view/emergency_notice_detail_view.dart';
 import 'package:hsro/features/notice/viewmodel/emergency_notice_viewmodel.dart';
+import 'package:hsro/shared/widgets/auto_scroll_text.dart';
 
 class EmergencyNoticeBanner extends StatefulWidget {
   const EmergencyNoticeBanner({
@@ -23,7 +24,6 @@ class _EmergencyNoticeBannerState extends State<EmergencyNoticeBanner> {
   @override
   void initState() {
     super.initState();
-    // 공용 긴급 공지 ViewModel 재사용
     _viewModel = Get.isRegistered<EmergencyNoticeViewModel>()
         ? Get.find<EmergencyNoticeViewModel>()
         : Get.put(EmergencyNoticeViewModel());
@@ -33,14 +33,12 @@ class _EmergencyNoticeBannerState extends State<EmergencyNoticeBanner> {
   @override
   void didUpdateWidget(covariant EmergencyNoticeBanner oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // 배너 카테고리가 바뀌면 해당 카테고리 공지 다시 조회
     if (oldWidget.category != widget.category) {
       _loadNotice();
     }
   }
 
   void _loadNotice() {
-    // 배너는 항상 최신 상태로 강제 갱신
     _viewModel.fetchLatestNotice(widget.category, force: true);
   }
 
@@ -52,70 +50,100 @@ class _EmergencyNoticeBannerState extends State<EmergencyNoticeBanner> {
     final bannerColor = isDark
         ? colorScheme.errorContainer.withValues(alpha: 0.45)
         : colorScheme.errorContainer;
-    final borderColor = isDark
-        ? colorScheme.error.withValues(alpha: 0.55)
-        : colorScheme.error.withValues(alpha: 0.28);
     final foregroundColor = colorScheme.onErrorContainer;
 
     return Obx(() {
-      // 로딩 중이거나 공지가 없으면 배너 숨김
-      if (_viewModel.isLoadingFor(widget.category)) {
-        return const SizedBox.shrink();
-      }
+      final notice = _viewModel.isLoadingFor(widget.category)
+          ? null
+          : _viewModel.noticeFor(widget.category);
 
-      final notice = _viewModel.noticeFor(widget.category);
-      if (notice == null) {
-        return const SizedBox.shrink();
-      }
-
-      return Container(
-        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        decoration: BoxDecoration(
-          color: bannerColor,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: borderColor),
-        ),
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            borderRadius: BorderRadius.circular(14),
-            onTap: () {
-              // 배너 탭 시 긴급 공지 상세 화면 이동
-              Get.to(() => EmergencyNoticeDetailView(notice: notice));
-            },
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.notification_important_rounded,
-                    size: 18,
-                    color: foregroundColor,
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      notice.title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        fontWeight: FontWeight.w700,
-                        color: foregroundColor,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-                  Icon(
-                    Icons.chevron_right_rounded,
-                    size: 18,
-                    color: foregroundColor,
-                  ),
-                ],
+      return AnimatedSwitcher(
+        duration: const Duration(milliseconds: 280),
+        reverseDuration: const Duration(milliseconds: 180),
+        switchInCurve: Curves.easeOutCubic,
+        switchOutCurve: Curves.easeInCubic,
+        transitionBuilder: (child, animation) {
+          return SizeTransition(
+            sizeFactor: animation,
+            axisAlignment: -1,
+            child: FadeTransition(
+              opacity: animation,
+              child: child,
+            ),
+          );
+        },
+        child: notice == null
+            ? const SizedBox.shrink(key: ValueKey('empty'))
+            : _buildBannerContent(
+                context: context,
+                notice: notice,
+                bannerColor: bannerColor,
+                foregroundColor: foregroundColor,
               ),
+      );
+    });
+  }
+
+  Widget _buildBannerContent({
+    required BuildContext context,
+    required EmergencyNotice notice,
+    required Color bannerColor,
+    required Color foregroundColor,
+  }) {
+    final theme = Theme.of(context);
+    final titleStyle = theme.textTheme.bodyMedium?.copyWith(
+          fontWeight: FontWeight.w700,
+          color: foregroundColor,
+        ) ??
+        TextStyle(
+          fontSize: 14,
+          fontWeight: FontWeight.w700,
+          color: foregroundColor,
+        );
+
+    return Container(
+      key: ValueKey(notice.id),
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 8),
+      decoration: BoxDecoration(
+        color: bannerColor,
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () {
+            Get.to(() => EmergencyNoticeDetailView(notice: notice));
+          },
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.notification_important_rounded,
+                  size: 18,
+                  color: foregroundColor,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: AutoScrollText(
+                    text: notice.title,
+                    style: titleStyle,
+                    height: 20,
+                    pauseDuration: const Duration(milliseconds: 1200),
+                    scrollDuration: const Duration(seconds: 4),
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Icon(
+                  Icons.chevron_right_rounded,
+                  size: 18,
+                  color: foregroundColor,
+                ),
+              ],
             ),
           ),
         ),
-      );
-    });
+      ),
+    );
   }
 }
