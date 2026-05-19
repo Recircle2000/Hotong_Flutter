@@ -167,44 +167,63 @@ class _BusMapViewState extends State<BusMapView> {
 
             // 웹소켓은 연결됐지만 운행 버스가 없는 경우 안내 표시
             Obx(() {
-              if (controller.stationNames.isNotEmpty &&
-                  controller.hasReceivedWebSocketData.value &&
-                  controller.markers.isEmpty) {
-                return Container(
-                  margin: const EdgeInsets.symmetric(
-                      horizontal: 16.0, vertical: 8.0),
-                  padding: const EdgeInsets.all(12.0),
-                  decoration: BoxDecoration(
-                    color: Colors.orange.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                      color: Colors.orange.withOpacity(0.3),
-                      width: 1,
+              final shouldShowNoRunningBusBanner =
+                  controller.stationNames.isNotEmpty &&
+                      controller.hasReceivedWebSocketData.value &&
+                      controller.markers.isEmpty;
+
+              return AnimatedSwitcher(
+                duration: const Duration(milliseconds: 280),
+                reverseDuration: const Duration(milliseconds: 180),
+                switchInCurve: Curves.easeOutCubic,
+                switchOutCurve: Curves.easeInCubic,
+                transitionBuilder: (child, animation) {
+                  return SizeTransition(
+                    sizeFactor: animation,
+                    axisAlignment: -1,
+                    child: FadeTransition(
+                      opacity: animation,
+                      child: child,
                     ),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.info_outline,
-                        color: Colors.orange[700],
-                        size: 20,
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          '현재 노선에 운행 중인 버스가 없습니다.',
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: Colors.orange[700],
-                            fontWeight: FontWeight.w500,
-                          ),
+                  );
+                },
+                child: shouldShowNoRunningBusBanner
+                    ? Container(
+                        key: const ValueKey('no-running-bus-banner'),
+                        width: double.infinity,
+                        margin: const EdgeInsets.only(bottom: 8),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
                         ),
+                        decoration: BoxDecoration(
+                          color: Colors.orange.withValues(alpha: 0.1),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.info_outline,
+                              color: Colors.orange[700],
+                              size: 20,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                '현재 노선에 운행 중인 버스가 없습니다.',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: Colors.orange[700],
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
+                    : const SizedBox.shrink(
+                        key: ValueKey('no-running-bus-banner-empty'),
                       ),
-                    ],
-                  ),
-                );
-              }
-              return const SizedBox.shrink();
+              );
             }),
 
             // 정류장 목록 메인 영역
