@@ -178,6 +178,7 @@ class _ShuttleRouteSelectionViewState extends State<ShuttleRouteSelectionView> {
                             }
                           },
                           child: Container(
+                            width: double.infinity,
                             padding: EdgeInsets.symmetric(
                                 horizontal: 50, vertical: 15),
                             decoration: BoxDecoration(
@@ -192,6 +193,7 @@ class _ShuttleRouteSelectionViewState extends State<ShuttleRouteSelectionView> {
                             ),
                             child: Text(
                               '시간표 조회',
+                              textAlign: TextAlign.center,
                               style: TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.bold,
@@ -226,6 +228,7 @@ class _ShuttleRouteSelectionViewState extends State<ShuttleRouteSelectionView> {
                                   );
                                 },
                                 child: Container(
+                                  width: double.infinity,
                                   padding: EdgeInsets.symmetric(
                                       horizontal: 40, vertical: 15),
                                   decoration: BoxDecoration(
@@ -240,7 +243,7 @@ class _ShuttleRouteSelectionViewState extends State<ShuttleRouteSelectionView> {
                                     ],
                                   ),
                                   child: Row(
-                                    mainAxisSize: MainAxisSize.min,
+                                    mainAxisAlignment: MainAxisAlignment.center,
                                     children: [
                                       Icon(Icons.location_on,
                                           color: Colors.white),
