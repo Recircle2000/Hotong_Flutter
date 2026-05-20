@@ -379,7 +379,7 @@ class SettingsView extends StatelessWidget {
                   // 앱 버전 뱃지
                   return _buildInfoBadge(
                     context,
-                    '버전 ${snapshot.data!.version}',
+                    '앱 ${snapshot.data!.version}',
                   );
                 },
               ),
