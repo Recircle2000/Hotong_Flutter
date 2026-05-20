@@ -310,26 +310,9 @@ class ShuttleViewModel extends GetxController {
     }
   }
 
-  Future<List<ShuttleStation>?> fetchStationsForRoute(int routeId) async {
+  Future<List<RouteStation>?> fetchStationsForRoute(int routeId) async {
     try {
-      final results = await Future.wait([
-        _shuttleRepository.fetchStations(),
-        _shuttleRepository.fetchStationRouteMemberships(),
-      ]);
-      final stationList = results[0] as List<ShuttleStation>;
-      final memberships = results[1] as List<StationRouteMembership>;
-      final routeIdsByStationId = <int, Set<int>>{};
-
-      for (final membership in memberships) {
-        routeIdsByStationId[membership.stationId] = membership.routeIds.toSet();
-      }
-
-      return stationList
-          .where(
-            (station) =>
-                routeIdsByStationId[station.id]?.contains(routeId) ?? false,
-          )
-          .toList(growable: false);
+      return await _shuttleRepository.fetchRouteStations(routeId);
     } catch (e) {
       print('노선별 정류장 목록을 불러오는데 실패했습니다: $e');
       return null;

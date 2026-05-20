@@ -56,7 +56,7 @@ class _ShuttleScheduleViewState extends State<ShuttleScheduleView> {
   String? _selectedArrivalStationName;
   bool _isLoadingArrivalBasis = false;
   final Map<int, String> _arrivalTimeByScheduleId = <int, String>{};
-  List<ShuttleStation>? _arrivalBasisStations;
+  List<RouteStation>? _arrivalBasisStations;
 
   @override
   void initState() {
@@ -166,7 +166,7 @@ class _ShuttleScheduleViewState extends State<ShuttleScheduleView> {
     );
   }
 
-  Future<List<ShuttleStation>?> _ensureArrivalBasisStationsLoaded() async {
+  Future<List<RouteStation>?> _ensureArrivalBasisStationsLoaded() async {
     final cachedStations = _arrivalBasisStations;
     if (cachedStations != null && cachedStations.isNotEmpty) {
       return cachedStations;
@@ -186,25 +186,14 @@ class _ShuttleScheduleViewState extends State<ShuttleScheduleView> {
         return null;
       }
 
-      final stopOrderByStationId = await _resolveStopOrderByStationId();
-      if (!mounted) {
-        return null;
-      }
-
       final selectableStations = stations
           .where(
             (station) =>
-                stopOrderByStationId[station.id] != 1 &&
+                station.stopOrder != 1 &&
                 !_isDepartureStationName(station.name),
           )
           .toList()
-        ..sort(
-          (a, b) => _compareArrivalBasisStations(
-            a,
-            b,
-            stopOrderByStationId,
-          ),
-        );
+        ..sort(_compareArrivalBasisStations);
 
       if (selectableStations.isEmpty) {
         return null;
@@ -224,73 +213,13 @@ class _ShuttleScheduleViewState extends State<ShuttleScheduleView> {
     }
   }
 
-  Future<Map<int, int>> _resolveStopOrderByStationId() async {
-    final stopOrderByStationId = <int, int>{};
-
-    for (final stops in _inlineStopsCache.values) {
-      _mergeStopOrders(stopOrderByStationId, stops);
-    }
-
-    if (stopOrderByStationId.isNotEmpty || viewModel.schedules.isEmpty) {
-      return stopOrderByStationId;
-    }
-
-    final firstSchedule = viewModel.schedules.first;
-    if (_noStopsScheduleIds.contains(firstSchedule.id)) {
-      return stopOrderByStationId;
-    }
-
-    final stops = await viewModel.fetchScheduleStopsForInline(firstSchedule.id);
-    if (!mounted) {
-      return stopOrderByStationId;
-    }
-
-    if (stops == null || stops.isEmpty) {
-      _noStopsScheduleIds.add(firstSchedule.id);
-      return stopOrderByStationId;
-    }
-
-    _inlineStopsCache[firstSchedule.id] = stops;
-    _noStopsScheduleIds.remove(firstSchedule.id);
-    _mergeStopOrders(stopOrderByStationId, stops);
-
-    return stopOrderByStationId;
-  }
-
-  void _mergeStopOrders(
-    Map<int, int> stopOrderByStationId,
-    Iterable<ScheduleStop> stops,
-  ) {
-    for (final stop in stops) {
-      final stationId = stop.stationId;
-      if (stationId == null) {
-        continue;
-      }
-
-      final currentOrder = stopOrderByStationId[stationId];
-      if (currentOrder == null || stop.stopOrder < currentOrder) {
-        stopOrderByStationId[stationId] = stop.stopOrder;
-      }
-    }
-  }
-
   int _compareArrivalBasisStations(
-    ShuttleStation a,
-    ShuttleStation b,
-    Map<int, int> stopOrderByStationId,
+    RouteStation a,
+    RouteStation b,
   ) {
-    final aOrder = stopOrderByStationId[a.id];
-    final bOrder = stopOrderByStationId[b.id];
-
-    if (aOrder != null && bOrder != null) {
-      final orderComparison = aOrder.compareTo(bOrder);
-      if (orderComparison != 0) {
-        return orderComparison;
-      }
-    } else if (aOrder != null) {
-      return -1;
-    } else if (bOrder != null) {
-      return 1;
+    final orderComparison = a.stopOrder.compareTo(b.stopOrder);
+    if (orderComparison != 0) {
+      return orderComparison;
     }
 
     return a.id.compareTo(b.id);
@@ -326,8 +255,8 @@ class _ShuttleScheduleViewState extends State<ShuttleScheduleView> {
     await _selectArrivalBasisStation(selectedStation);
   }
 
-  Future<ShuttleStation?> _showIOSArrivalStationPicker(
-    List<ShuttleStation> stations,
+  Future<RouteStation?> _showIOSArrivalStationPicker(
+    List<RouteStation> stations,
   ) async {
     try {
       final selectedStationId =
@@ -376,10 +305,10 @@ class _ShuttleScheduleViewState extends State<ShuttleScheduleView> {
     return null;
   }
 
-  Future<ShuttleStation?> _showFlutterArrivalStationPickerFallback(
-    List<ShuttleStation> stations,
+  Future<RouteStation?> _showFlutterArrivalStationPickerFallback(
+    List<RouteStation> stations,
   ) {
-    return showCupertinoModalPopup<ShuttleStation>(
+    return showCupertinoModalPopup<RouteStation>(
       context: context,
       builder: (context) => CupertinoActionSheet(
         title: const Text('도착 기준 정류장'),
@@ -401,12 +330,12 @@ class _ShuttleScheduleViewState extends State<ShuttleScheduleView> {
     );
   }
 
-  Future<ShuttleStation?> _showAndroidArrivalStationPicker(
-    List<ShuttleStation> stations,
+  Future<RouteStation?> _showAndroidArrivalStationPicker(
+    List<RouteStation> stations,
   ) {
     final sheetColor = Theme.of(context).cardColor;
 
-    return showModalBottomSheet<ShuttleStation>(
+    return showModalBottomSheet<RouteStation>(
       context: context,
       backgroundColor: sheetColor,
       elevation: 0,
@@ -496,7 +425,7 @@ class _ShuttleScheduleViewState extends State<ShuttleScheduleView> {
     );
   }
 
-  Future<void> _selectArrivalBasisStation(ShuttleStation station) async {
+  Future<void> _selectArrivalBasisStation(RouteStation station) async {
     if (_selectedArrivalStationId == station.id &&
         _arrivalTimeByScheduleId.isNotEmpty) {
       return;

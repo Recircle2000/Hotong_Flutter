@@ -123,6 +123,31 @@ class ScheduleStop {
   }
 }
 
+class RouteStation {
+  // 노선별 정류장 순서 정보 모델
+  final int stopOrder;
+  final int stationId;
+  final String stationName;
+
+  RouteStation({
+    required this.stopOrder,
+    required this.stationId,
+    required this.stationName,
+  });
+
+  int get id => stationId;
+  String get name => stationName;
+
+  factory RouteStation.fromJson(Map<String, dynamic> json) {
+    // 서버 응답을 노선별 정류장 정보로 변환
+    return RouteStation(
+      stopOrder: json['stop_order'],
+      stationId: json['station_id'],
+      stationName: json['station_name'],
+    );
+  }
+}
+
 class ShuttleStation {
   // 셔틀 정류장 상세 정보 모델
   final int id;
