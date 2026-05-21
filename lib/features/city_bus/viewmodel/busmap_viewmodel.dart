@@ -1,9 +1,9 @@
 import 'package:flutter/widgets.dart';
 import 'dart:convert';
-import 'package:flutter/services.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:get/get.dart';
+import 'package:hsro/core/utils/bus_static_data_loader.dart';
 import 'package:hsro/core/utils/bus_times_loader.dart';
 import 'package:hsro/core/utils/env_config.dart';
 import 'package:hsro/features/city_bus/models/bus_city_model.dart';
@@ -266,12 +266,10 @@ class BusMapViewModel extends GetxController with WidgetsBindingObserver {
   Future<void> fetchRouteData([String? routeKey]) async {
     final String targetRoute = routeKey ?? selectedRoute.value;
     try {
-      final geoJsonFile = 'assets/bus_routes/$targetRoute.json';
-      final geoJsonData = await rootBundle.loadString(geoJsonFile);
+      final geoJson = await BusStaticDataLoader.loadRouteGeoJson(targetRoute);
       if (selectedRoute.value != targetRoute) {
         return;
       }
-      final geoJson = jsonDecode(geoJsonData);
 
       final coordinates = geoJson['features'][0]['geometry']['coordinates'];
       final polylinePoints = coordinates
@@ -305,12 +303,10 @@ class BusMapViewModel extends GetxController with WidgetsBindingObserver {
       currentPositions.clear();
       detailedBusPositions.clear();
 
-      final jsonFile = 'assets/bus_stops/$targetRoute.json';
-      final jsonData = await rootBundle.loadString(jsonFile);
+      final data = await BusStaticDataLoader.loadStopJson(targetRoute);
       if (selectedRoute.value != targetRoute) {
         return;
       }
-      final data = jsonDecode(jsonData);
 
       final stations = data['response']['body']['items']['item'] as List;
 

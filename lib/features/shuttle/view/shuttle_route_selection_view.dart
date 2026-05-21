@@ -4,6 +4,7 @@ import 'package:get/get.dart';
 import 'dart:io' show Platform;
 import 'package:intl/intl.dart';
 import 'package:tutorial_coach_mark/tutorial_coach_mark.dart';
+import 'package:hsro/core/utils/platform_utils.dart';
 import 'package:hsro/features/notice/models/emergency_notice_model.dart';
 import 'package:hsro/features/notice/widgets/emergency_notice_banner.dart';
 import 'package:hsro/features/shuttle/models/shuttle_models.dart';
@@ -134,6 +135,10 @@ class _ShuttleRouteSelectionViewState extends State<ShuttleRouteSelectionView> {
                                       viewModel.selectedRouteId.value,
                                       viewModel.selectedDate.value)
                                   .then((success) {
+                                if (!context.mounted) {
+                                  return;
+                                }
+
                                 if (!success) {
                                   // 해당 날짜 운행 정보가 없으면 안내 팝업 표시
                                   _showNoScheduleAlert(context);
@@ -148,13 +153,17 @@ class _ShuttleRouteSelectionViewState extends State<ShuttleRouteSelectionView> {
                                 }
                               });
                             } catch (e) {
-                              print('날짜 포맷 변환 오류: $e');
+                              debugPrint('날짜 포맷 변환 오류: $e');
                               // 파싱 오류가 나도 조회 자체는 계속 시도
                               viewModel
                                   .fetchSchedules(
                                       viewModel.selectedRouteId.value,
                                       viewModel.selectedDate.value)
                                   .then((success) {
+                                if (!context.mounted) {
+                                  return;
+                                }
+
                                 if (!success) {
                                   _showNoScheduleAlert(context);
                                 } else {
@@ -169,6 +178,7 @@ class _ShuttleRouteSelectionViewState extends State<ShuttleRouteSelectionView> {
                             }
                           },
                           child: Container(
+                            width: double.infinity,
                             padding: EdgeInsets.symmetric(
                                 horizontal: 50, vertical: 15),
                             decoration: BoxDecoration(
@@ -183,6 +193,7 @@ class _ShuttleRouteSelectionViewState extends State<ShuttleRouteSelectionView> {
                             ),
                             child: Text(
                               '시간표 조회',
+                              textAlign: TextAlign.center,
                               style: TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.bold,
@@ -217,6 +228,7 @@ class _ShuttleRouteSelectionViewState extends State<ShuttleRouteSelectionView> {
                                   );
                                 },
                                 child: Container(
+                                  width: double.infinity,
                                   padding: EdgeInsets.symmetric(
                                       horizontal: 40, vertical: 15),
                                   decoration: BoxDecoration(
@@ -231,7 +243,7 @@ class _ShuttleRouteSelectionViewState extends State<ShuttleRouteSelectionView> {
                                     ],
                                   ),
                                   child: Row(
-                                    mainAxisSize: MainAxisSize.min,
+                                    mainAxisAlignment: MainAxisAlignment.center,
                                     children: [
                                       Icon(Icons.location_on,
                                           color: Colors.white),
@@ -1066,7 +1078,7 @@ class _ShuttleRouteSelectionViewState extends State<ShuttleRouteSelectionView> {
   }
 
   // 404 에러 - 해당 날짜에 운행하는 셔틀 노선이 없음을 알리는 팝업
-  void _showNoScheduleAlert(BuildContext context) {
+  Future<void> _showNoScheduleAlert(BuildContext context) async {
     try {
       final date = DateFormat('yyyy-MM-dd').parse(viewModel.selectedDate.value);
       final formattedDate =
@@ -1075,66 +1087,69 @@ class _ShuttleRouteSelectionViewState extends State<ShuttleRouteSelectionView> {
 
       final message = '$formattedDate에\n$routeName 노선의 운행 정보가 없습니다.';
 
-      if (Platform.isIOS) {
-        showCupertinoDialog(
-          context: context,
-          builder: (context) => CupertinoAlertDialog(
-            title: Text('운행 정보 없음'),
-            content: Text(message),
-            actions: [
-              CupertinoDialogAction(
-                child: Text('확인'),
-                onPressed: () => Navigator.pop(context),
-              ),
-            ],
-          ),
-        );
-      } else {
-        showDialog(
-          context: context,
-          builder: (context) => AlertDialog(
-            title: Text('운행 정보 없음'),
-            content: Text(message),
-            actions: [
-              TextButton(
-                child: Text('확인'),
-                onPressed: () => Navigator.pop(context),
-              ),
-            ],
-          ),
-        );
-      }
+      return _showNoScheduleMessage(
+        context,
+        title: '운행 정보 없음',
+        message: message,
+      );
     } catch (e) {
       // 날짜 형식 변환 오류 시 기본 메시지 표시
-      if (Platform.isIOS) {
-        showCupertinoDialog(
-          context: context,
-          builder: (context) => CupertinoAlertDialog(
-            title: Text('알림'),
-            content: Text('해당 날짜에 운행하는 셔틀노선이 없습니다.'),
-            actions: [
-              CupertinoDialogAction(
-                child: Text('확인'),
-                onPressed: () => Navigator.pop(context),
-              ),
-            ],
-          ),
-        );
-      } else {
-        showDialog(
-          context: context,
-          builder: (context) => AlertDialog(
-            title: Text('알림'),
-            content: Text('해당 날짜에 운행하는 셔틀노선이 없습니다.'),
-            actions: [
-              TextButton(
-                child: Text('확인'),
-                onPressed: () => Navigator.pop(context),
-              ),
-            ],
-          ),
-        );
-      }
+      return _showNoScheduleMessage(
+        context,
+        title: '알림',
+        message: '해당 날짜에 운행하는 셔틀노선이 없습니다.',
+      );
     }
+  }
+
+  Future<void> _showNoScheduleMessage(
+    BuildContext context, {
+    required String title,
+    required String message,
+  }) async {
+    if (!context.mounted) {
+      return;
+    }
+
+    if (Platform.isIOS) {
+      // iOS에서는 UIKit의 UIAlertController를 먼저 사용한다.
+      final didShowNativeDialog = await PlatformUtils.showIOSNativeAlertDialog(
+        title: title,
+        message: message,
+      );
+
+      if (didShowNativeDialog || !context.mounted) {
+        return;
+      }
+
+      // 채널을 사용할 수 없는 환경에서는 기존 Flutter iOS 팝업으로 대체한다.
+      return showCupertinoDialog(
+        context: context,
+        builder: (context) => CupertinoAlertDialog(
+          title: Text(title),
+          content: Text(message),
+          actions: [
+            CupertinoDialogAction(
+              child: Text('확인'),
+              onPressed: () => Navigator.pop(context),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(title),
+        content: Text(message),
+        actions: [
+          TextButton(
+            child: Text('확인'),
+            onPressed: () => Navigator.pop(context),
+          ),
+        ],
+      ),
+    );
   }
 }

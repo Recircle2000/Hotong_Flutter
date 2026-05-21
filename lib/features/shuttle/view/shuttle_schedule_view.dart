@@ -1,9 +1,9 @@
+// 운행 시간표 View
 import 'dart:async';
 import 'dart:io' show Platform;
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:hsro/features/shuttle/models/shuttle_models.dart';
@@ -29,11 +29,15 @@ class ShuttleScheduleView extends StatefulWidget {
 }
 
 class _ShuttleScheduleViewState extends State<ShuttleScheduleView> {
+  static const MethodChannel _iosArrivalStationPickerChannel =
+      MethodChannel('hsro/ios_arrival_station_picker');
   static const double _timeToArrowSpacing = 8.0;
   static const double _timeIndicatorWidth = 18.0;
   static const double _arrowToEndTimeSpacing = 20.0;
   static const double _endTimeFontSize = 13.0;
   static const double _nearestScheduleIconSize = 14.0;
+  static const Duration _arrivalBasisAnimationDuration =
+      Duration(milliseconds: 220);
 
   final ShuttleViewModel viewModel = Get.find<ShuttleViewModel>();
   final ScrollController _scheduleScrollController = ScrollController();
@@ -48,6 +52,11 @@ class _ShuttleScheduleViewState extends State<ShuttleScheduleView> {
       <int, List<ScheduleStop>>{};
   // 정류장 정보가 없던 회차는 다시 조회하지 않도록 기록
   final Set<int> _noStopsScheduleIds = <int>{};
+  int? _selectedArrivalStationId;
+  String? _selectedArrivalStationName;
+  bool _isLoadingArrivalBasis = false;
+  final Map<int, String> _arrivalTimeByScheduleId = <int, String>{};
+  List<RouteStation>? _arrivalBasisStations;
 
   @override
   void initState() {
@@ -154,6 +163,338 @@ class _ShuttleScheduleViewState extends State<ShuttleScheduleView> {
       targetOffset,
       duration: const Duration(milliseconds: 250),
       curve: Curves.easeOutCubic,
+    );
+  }
+
+  Future<List<RouteStation>?> _ensureArrivalBasisStationsLoaded() async {
+    final cachedStations = _arrivalBasisStations;
+    if (cachedStations != null && cachedStations.isNotEmpty) {
+      return cachedStations;
+    }
+
+    setState(() {
+      _isLoadingArrivalBasis = true;
+    });
+
+    try {
+      final stations = await viewModel.fetchStationsForRoute(widget.routeId);
+      if (!mounted) {
+        return null;
+      }
+
+      if (stations == null || stations.isEmpty) {
+        return null;
+      }
+
+      final selectableStations = stations
+          .where(
+            (station) =>
+                station.stopOrder != 1 &&
+                !_isDepartureStationName(station.name),
+          )
+          .toList()
+        ..sort(_compareArrivalBasisStations);
+
+      if (selectableStations.isEmpty) {
+        return null;
+      }
+
+      setState(() {
+        _arrivalBasisStations = selectableStations;
+      });
+
+      return selectableStations;
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoadingArrivalBasis = false;
+        });
+      }
+    }
+  }
+
+  int _compareArrivalBasisStations(
+    RouteStation a,
+    RouteStation b,
+  ) {
+    final orderComparison = a.stopOrder.compareTo(b.stopOrder);
+    if (orderComparison != 0) {
+      return orderComparison;
+    }
+
+    return a.id.compareTo(b.id);
+  }
+
+  bool _isDepartureStationName(String stationName) {
+    return stationName.contains('[출발]');
+  }
+
+  Future<void> _showArrivalStationPicker() async {
+    if (_isLoadingArrivalBasis) {
+      return;
+    }
+
+    HapticFeedback.lightImpact();
+    final stations = await _ensureArrivalBasisStationsLoaded();
+    if (!mounted) {
+      return;
+    }
+
+    if (stations == null || stations.isEmpty) {
+      _showArrivalBasisMessage('이 노선의 경유 정류장 정보를 불러올 수 없습니다.');
+      return;
+    }
+
+    final selectedStation = Platform.isIOS
+        ? await _showIOSArrivalStationPicker(stations)
+        : await _showAndroidArrivalStationPicker(stations);
+    if (!mounted || selectedStation == null) {
+      return;
+    }
+
+    await _selectArrivalBasisStation(selectedStation);
+  }
+
+  Future<RouteStation?> _showIOSArrivalStationPicker(
+    List<RouteStation> stations,
+  ) async {
+    try {
+      final selectedStationId =
+          await _iosArrivalStationPickerChannel.invokeMethod<int>(
+        'show',
+        {
+          'title': '도착 기준 정류장',
+          'cancelTitle': '취소',
+          'selectedStationId': _selectedArrivalStationId,
+          'stations': stations
+              .asMap()
+              .entries
+              .map(
+                (entry) => {
+                  'id': entry.value.id,
+                  'title': '${entry.key + 1}. ${entry.value.name}',
+                },
+              )
+              .toList(growable: false),
+        },
+      );
+
+      if (selectedStationId == null) {
+        return null;
+      }
+
+      for (final station in stations) {
+        if (station.id == selectedStationId) {
+          return station;
+        }
+      }
+    } on MissingPluginException catch (error) {
+      debugPrint('iOS 도착 정류장 선택기 채널 없음: $error');
+      if (!mounted) {
+        return null;
+      }
+      return _showFlutterArrivalStationPickerFallback(stations);
+    } on PlatformException catch (error) {
+      debugPrint('iOS 도착 정류장 선택기 호출 실패: $error');
+      if (!mounted) {
+        return null;
+      }
+      return _showFlutterArrivalStationPickerFallback(stations);
+    }
+
+    return null;
+  }
+
+  Future<RouteStation?> _showFlutterArrivalStationPickerFallback(
+    List<RouteStation> stations,
+  ) {
+    return showCupertinoModalPopup<RouteStation>(
+      context: context,
+      builder: (context) => CupertinoActionSheet(
+        title: const Text('도착 기준 정류장'),
+        actions: stations
+            .asMap()
+            .entries
+            .map(
+              (entry) => CupertinoActionSheetAction(
+                onPressed: () => Navigator.pop(context, entry.value),
+                child: Text('${entry.key + 1}. ${entry.value.name}'),
+              ),
+            )
+            .toList(),
+        cancelButton: CupertinoActionSheetAction(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('취소'),
+        ),
+      ),
+    );
+  }
+
+  Future<RouteStation?> _showAndroidArrivalStationPicker(
+    List<RouteStation> stations,
+  ) {
+    final sheetColor = Theme.of(context).cardColor;
+
+    return showModalBottomSheet<RouteStation>(
+      context: context,
+      backgroundColor: sheetColor,
+      elevation: 0,
+      clipBehavior: Clip.antiAlias,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        final maxHeight = MediaQuery.of(context).size.height * 0.7;
+
+        return SafeArea(
+          child: ColoredBox(
+            color: sheetColor,
+            child: SizedBox(
+              height: maxHeight,
+              child: Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 14),
+                    child: Row(
+                      children: [
+                        const Expanded(
+                          child: Text(
+                            '도착 기준 정류장',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                        IconButton(
+                          tooltip: '닫기',
+                          icon: const Icon(Icons.close_rounded),
+                          onPressed: () => Navigator.pop(context),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Divider(
+                    height: 1,
+                    thickness: 1,
+                    color: Colors.grey.withValues(alpha: 0.25),
+                  ),
+                  Expanded(
+                    child: ListView.separated(
+                      itemCount: stations.length,
+                      separatorBuilder: (context, index) => Divider(
+                        height: 1,
+                        thickness: 1,
+                        color: Colors.grey.withValues(alpha: 0.18),
+                      ),
+                      itemBuilder: (context, index) {
+                        final station = stations[index];
+                        final isSelected =
+                            _selectedArrivalStationId == station.id;
+
+                        return ListTile(
+                          leading: Text(
+                            '${index + 1}',
+                            style: TextStyle(
+                              color: Theme.of(context).colorScheme.primary,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          title: Text(
+                            station.name,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          trailing: isSelected
+                              ? Icon(
+                                  Icons.check_rounded,
+                                  color: Theme.of(context).colorScheme.primary,
+                                )
+                              : null,
+                          onTap: () => Navigator.pop(context, station),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _selectArrivalBasisStation(RouteStation station) async {
+    if (_selectedArrivalStationId == station.id &&
+        _arrivalTimeByScheduleId.isNotEmpty) {
+      return;
+    }
+
+    setState(() {
+      _isLoadingArrivalBasis = true;
+    });
+
+    try {
+      final stationSchedules =
+          await viewModel.fetchStationSchedulesByDateForRoute(
+        stationId: station.id,
+        routeId: widget.routeId,
+        date: widget.date,
+      );
+      if (!mounted) {
+        return;
+      }
+
+      if (stationSchedules == null) {
+        _showArrivalBasisMessage('도착 시간을 불러오지 못했습니다.');
+        return;
+      }
+
+      final arrivalTimes = <int, String>{};
+      for (final schedule in stationSchedules) {
+        arrivalTimes[schedule.scheduleId] = schedule.arrivalTime;
+      }
+
+      if (arrivalTimes.isEmpty) {
+        _showArrivalBasisMessage('선택한 정류장의 운행 정보가 없습니다.');
+        return;
+      }
+
+      setState(() {
+        _selectedArrivalStationId = station.id;
+        _selectedArrivalStationName = station.name;
+        _arrivalTimeByScheduleId
+          ..clear()
+          ..addAll(arrivalTimes);
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoadingArrivalBasis = false;
+        });
+      }
+    }
+  }
+
+  String _arrivalTimeForSchedule(Schedule schedule) {
+    final arrivalTime = _arrivalTimeByScheduleId[schedule.id];
+    if (arrivalTime != null && arrivalTime.isNotEmpty) {
+      return _formatArrivalTime(arrivalTime);
+    }
+
+    if (_selectedArrivalStationId != null) {
+      return '--:--';
+    }
+
+    return DateFormat('HH:mm').format(schedule.endTime);
+  }
+
+  void _showArrivalBasisMessage(String message) {
+    Get.snackbar(
+      '도착 기준',
+      message,
+      snackPosition: SnackPosition.BOTTOM,
     );
   }
 
@@ -600,6 +941,116 @@ class _ShuttleScheduleViewState extends State<ShuttleScheduleView> {
     }
   }
 
+  Widget _buildArrivalBasisHeader() {
+    final isCustomBasis = _selectedArrivalStationId != null;
+    final activeColor = Theme.of(context).colorScheme.primary;
+    final textColor = isCustomBasis ? activeColor : null;
+
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: _isLoadingArrivalBasis ? null : _showArrivalStationPicker,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            '도착 시간',
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: _endTimeFontSize,
+              color: textColor,
+            ),
+          ),
+          const SizedBox(width: 4),
+          if (_isLoadingArrivalBasis)
+            SizedBox(
+              width: 14,
+              height: 14,
+              child: CircularProgressIndicator.adaptive(
+                strokeWidth: 2,
+                valueColor: AlwaysStoppedAnimation<Color>(activeColor),
+              ),
+            )
+          else
+            Icon(
+              Platform.isIOS
+                  ? CupertinoIcons.chevron_down
+                  : Icons.expand_more_rounded,
+              size: 14,
+              color: textColor ?? Theme.of(context).hintColor,
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildArrivalBasisBar() {
+    final stationName = _selectedArrivalStationName;
+    final colorScheme = Theme.of(context).colorScheme;
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+
+    return ClipRect(
+      child: AnimatedSize(
+        duration: _arrivalBasisAnimationDuration,
+        curve: Curves.easeOutCubic,
+        alignment: Alignment.topCenter,
+        child: stationName == null
+            ? const SizedBox(width: double.infinity)
+            : InkWell(
+                onTap:
+                    _isLoadingArrivalBasis ? null : _showArrivalStationPicker,
+                child: Container(
+                  width: double.infinity,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
+                  color: colorScheme.primary
+                      .withValues(alpha: isDarkMode ? 0.16 : 0.08),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.location_on_rounded,
+                        size: 15,
+                        color: colorScheme.primary,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        '도착 시간 기준',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: colorScheme.primary,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          stationName,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color:
+                                Theme.of(context).textTheme.bodyMedium?.color,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Icon(
+                        Platform.isIOS
+                            ? CupertinoIcons.chevron_down
+                            : Icons.expand_more_rounded,
+                        size: 15,
+                        color: colorScheme.primary,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+      ),
+    );
+  }
+
   Widget _buildScheduleList() {
     final isIOS = Platform.isIOS;
 
@@ -636,12 +1087,14 @@ class _ShuttleScheduleViewState extends State<ShuttleScheduleView> {
                           padding: const EdgeInsets.symmetric(
                               vertical: 12, horizontal: 16),
                           decoration: BoxDecoration(
-                            color: Theme.of(context).brightness ==
-                                    Brightness.dark
-                                ? Theme.of(context).cardColor.withValues(alpha: 0.5)
-                                : Theme.of(context)
-                                    .scaffoldBackgroundColor
-                                    .withValues(alpha: 0.8),
+                            color:
+                                Theme.of(context).brightness == Brightness.dark
+                                    ? Theme.of(context)
+                                        .cardColor
+                                        .withValues(alpha: 0.5)
+                                    : Theme.of(context)
+                                        .scaffoldBackgroundColor
+                                        .withValues(alpha: 0.8),
                             borderRadius: const BorderRadius.only(
                               topLeft: Radius.circular(25),
                               topRight: Radius.circular(25),
@@ -664,13 +1117,7 @@ class _ShuttleScheduleViewState extends State<ShuttleScheduleView> {
                                     style:
                                         TextStyle(fontWeight: FontWeight.bold),
                                   ),
-                                  endChild: const Text(
-                                    '도착 시간',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: _endTimeFontSize,
-                                    ),
-                                  ),
+                                  endChild: _buildArrivalBasisHeader(),
                                 ),
                               ),
                               const Expanded(
@@ -687,16 +1134,30 @@ class _ShuttleScheduleViewState extends State<ShuttleScheduleView> {
                             ],
                           ),
                         ),
+                        _buildArrivalBasisBar(),
                         Divider(
                           height: 1,
                           thickness: 1,
                           color: Colors.grey.withValues(alpha: 0.3),
                         ),
                         Expanded(
-                          child: Container(
-                            child: ClipRect(
-                              child: isIOS
-                                  ? ListView.builder(
+                          child: ClipRect(
+                            child: isIOS
+                                ? ListView.builder(
+                                    controller: _scheduleScrollController,
+                                    itemCount: viewModel.schedules.length,
+                                    itemBuilder: (context, index) =>
+                                        _buildScheduleItem(
+                                      context,
+                                      index,
+                                      emphasizedScheduleId,
+                                    ),
+                                  )
+                                : Scrollbar(
+                                    interactive: true,
+                                    thumbVisibility: true,
+                                    controller: _scheduleScrollController,
+                                    child: ListView.builder(
                                       controller: _scheduleScrollController,
                                       itemCount: viewModel.schedules.length,
                                       itemBuilder: (context, index) =>
@@ -705,23 +1166,8 @@ class _ShuttleScheduleViewState extends State<ShuttleScheduleView> {
                                         index,
                                         emphasizedScheduleId,
                                       ),
-                                    )
-                                  : Scrollbar(
-                                      interactive: true,
-                                      thumbVisibility: true,
-                                      controller: _scheduleScrollController,
-                                      child: ListView.builder(
-                                        controller: _scheduleScrollController,
-                                        itemCount: viewModel.schedules.length,
-                                        itemBuilder: (context, index) =>
-                                            _buildScheduleItem(
-                                          context,
-                                          index,
-                                          emphasizedScheduleId,
-                                        ),
-                                      ),
                                     ),
-                            ),
+                                  ),
                           ),
                         ),
                       ],
@@ -814,7 +1260,7 @@ class _ShuttleScheduleViewState extends State<ShuttleScheduleView> {
                           color: Theme.of(context).hintColor,
                         ),
                         endChild: Text(
-                          DateFormat('HH:mm').format(schedule.endTime),
+                          _arrivalTimeForSchedule(schedule),
                           style: TextStyle(
                             fontWeight: FontWeight.w600,
                             fontSize: _endTimeFontSize,
@@ -935,8 +1381,14 @@ class _ShuttleScheduleViewState extends State<ShuttleScheduleView> {
             padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 14),
             decoration: BoxDecoration(
               color: Theme.of(context).brightness == Brightness.dark
-                  ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.14)
-                  : Theme.of(context).colorScheme.primary.withValues(alpha: 0.08),
+                  ? Theme.of(context)
+                      .colorScheme
+                      .primary
+                      .withValues(alpha: 0.14)
+                  : Theme.of(context)
+                      .colorScheme
+                      .primary
+                      .withValues(alpha: 0.08),
               borderRadius: const BorderRadius.only(
                 topLeft: Radius.circular(16),
                 topRight: Radius.circular(16),
@@ -962,8 +1414,10 @@ class _ShuttleScheduleViewState extends State<ShuttleScheduleView> {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
-                    color:
-                        Theme.of(context).colorScheme.primary.withValues(alpha: 0.12),
+                    color: Theme.of(context)
+                        .colorScheme
+                        .primary
+                        .withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(999),
                   ),
                   child: Text(
@@ -987,7 +1441,9 @@ class _ShuttleScheduleViewState extends State<ShuttleScheduleView> {
             padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
             color: Theme.of(context).brightness == Brightness.dark
                 ? Theme.of(context).cardColor.withValues(alpha: 0.6)
-                : Theme.of(context).scaffoldBackgroundColor.withValues(alpha: 0.9),
+                : Theme.of(context)
+                    .scaffoldBackgroundColor
+                    .withValues(alpha: 0.9),
             child: const Row(
               children: [
                 Expanded(

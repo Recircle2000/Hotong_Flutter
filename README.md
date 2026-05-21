@@ -74,9 +74,10 @@ assets/
 
 ## 데이터 소스
 
-- 시내버스 경로/정류장: 앱 내 에셋(JSON)
+- 시내버스 경로/정류장: 앱 내 에셋(JSON) 기본 사용, `bus_static_manifest.json` 기준 원격 갱신 가능
 - 시내버스 시간표: `assets/bus_times/bus_times.json` 기본 사용
-- 앱 시작 시 `BusTimesLoader`가 버전 API를 조회해 최신 파일로 교체 가능
+- 앱 시작 시 `BusTimesLoader`, `BusStaticDataLoader`가 버전 정보를 조회해 최신 파일로 교체 가능
+- 시내버스 경로/정류장 원격 파일 생성: `dart run tool/build_bus_static_data.dart --version 2026.05.22 --effective-from 2026-05-22T00:00:00+09:00`
 
 ## 참고
 

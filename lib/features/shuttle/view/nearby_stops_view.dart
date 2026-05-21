@@ -1,11 +1,14 @@
+import 'dart:async';
+import 'dart:io' show Platform;
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'dart:io' show Platform;
 import 'package:flutter/scheduler.dart';
 import 'package:intl/intl.dart';
 import 'package:get/get.dart';
 import 'package:hsro/features/home/view/home_view.dart';
+import 'package:hsro/features/shuttle/models/shuttle_models.dart';
 import 'package:tutorial_coach_mark/tutorial_coach_mark.dart';
 import 'package:hsro/features/shuttle/view/naver_map_station_detail_view.dart';
 import 'package:hsro/features/shuttle/view/shuttle_route_detail_view.dart';
@@ -33,6 +36,7 @@ class _NearbyStopsViewState extends State<NearbyStopsView> {
   static const int _scheduleIndexColumnFlex = 1;
   static const int _scheduleRouteColumnFlex = 4;
   static const int _scheduleArrivalColumnFlex = 2;
+  static const double _nearestScheduleIconSize = 14.0;
 
   // 셔틀 대표 색상
   final Color shuttleColor = Color(0xFFB83227);
@@ -41,6 +45,7 @@ class _NearbyStopsViewState extends State<NearbyStopsView> {
   Worker? _uiMessageWorker;
   final GlobalKey _stationSelectorKey = GlobalKey();
   final GlobalKey _scheduleTableKey = GlobalKey();
+  Timer? _currentTimeRefreshTimer;
   bool _isExperienceTourRunning = false;
 
   void _navigateHome() {
@@ -80,6 +85,15 @@ class _NearbyStopsViewState extends State<NearbyStopsView> {
       );
       viewModel.clearUiMessage();
     });
+    _currentTimeRefreshTimer = Timer.periodic(
+      const Duration(seconds: 30),
+      (_) {
+        if (!mounted || !_isViewingToday()) {
+          return;
+        }
+        setState(() {});
+      },
+    );
 
     if (widget.startExperienceTour) {
       // 체험하기 모드면 첫 프레임 후 튜토리얼 시작
@@ -91,6 +105,7 @@ class _NearbyStopsViewState extends State<NearbyStopsView> {
 
   @override
   void dispose() {
+    _currentTimeRefreshTimer?.cancel();
     _uiMessageWorker?.dispose();
     if (Get.isRegistered<NearbyStopsViewModel>(tag: _viewModelTag)) {
       Get.delete<NearbyStopsViewModel>(tag: _viewModelTag, force: true);
@@ -991,6 +1006,8 @@ class _NearbyStopsViewState extends State<NearbyStopsView> {
         );
       }
 
+      final emphasizedScheduleId = _getEmphasizedScheduleId();
+
       return Container(
         decoration: BoxDecoration(
           // border: Border.all(color: Colors.grey.shade300),
@@ -1039,8 +1056,8 @@ class _NearbyStopsViewState extends State<NearbyStopsView> {
             // 테이블 내용
             Expanded(
               child: Platform.isIOS
-                  ? _buildIosScheduleList()
-                  : _buildAndroidScheduleList(),
+                  ? _buildIosScheduleList(emphasizedScheduleId)
+                  : _buildAndroidScheduleList(emphasizedScheduleId),
             ),
           ],
         ),
@@ -1048,13 +1065,14 @@ class _NearbyStopsViewState extends State<NearbyStopsView> {
     });
   }
 
-  Widget _buildIosScheduleList() {
+  Widget _buildIosScheduleList(int? emphasizedScheduleId) {
     return ListView.separated(
       itemCount: viewModel.filteredSchedules.length,
       separatorBuilder: (context, index) => Divider(height: 1),
       itemBuilder: (context, index) {
         final schedule = viewModel.filteredSchedules[index];
         final routeName = viewModel.getRouteName(schedule.routeId);
+        final isEmphasized = emphasizedScheduleId == schedule.scheduleId;
 
         return InkWell(
           onTap: () {
@@ -1072,13 +1090,14 @@ class _NearbyStopsViewState extends State<NearbyStopsView> {
             routeName: routeName,
             arrivalTime: schedule.arrivalTime,
             trailingIcon: CupertinoIcons.chevron_right,
+            isEmphasized: isEmphasized,
           ),
         );
       },
     );
   }
 
-  Widget _buildAndroidScheduleList() {
+  Widget _buildAndroidScheduleList(int? emphasizedScheduleId) {
     return Scrollbar(
       interactive: true,
       thumbVisibility: true,
@@ -1088,6 +1107,7 @@ class _NearbyStopsViewState extends State<NearbyStopsView> {
         itemBuilder: (context, index) {
           final schedule = viewModel.filteredSchedules[index];
           final routeName = viewModel.getRouteName(schedule.routeId);
+          final isEmphasized = emphasizedScheduleId == schedule.scheduleId;
 
           return InkWell(
             onTap: () {
@@ -1105,6 +1125,7 @@ class _NearbyStopsViewState extends State<NearbyStopsView> {
               routeName: routeName,
               arrivalTime: schedule.arrivalTime,
               trailingIcon: Icons.arrow_forward_ios,
+              isEmphasized: isEmphasized,
             ),
           );
         },
@@ -1136,7 +1157,12 @@ class _NearbyStopsViewState extends State<NearbyStopsView> {
     required String routeName,
     required String arrivalTime,
     required IconData trailingIcon,
+    required bool isEmphasized,
   }) {
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final emphasizedTextColor =
+        isEmphasized ? (isDarkMode ? Colors.redAccent : shuttleColor) : null;
+
     return Container(
       padding: EdgeInsets.symmetric(vertical: 12, horizontal: 16),
       child: Row(
@@ -1145,7 +1171,23 @@ class _NearbyStopsViewState extends State<NearbyStopsView> {
             flex: _scheduleIndexColumnFlex,
             child: Align(
               alignment: Alignment.centerLeft,
-              child: Text('${index + 1}'),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    '${index + 1}',
+                    style: TextStyle(color: emphasizedTextColor),
+                  ),
+                  if (isEmphasized) ...[
+                    const SizedBox(width: 4),
+                    Icon(
+                      Icons.access_time_filled_rounded,
+                      size: _nearestScheduleIconSize,
+                      color: emphasizedTextColor,
+                    ),
+                  ],
+                ],
+              ),
             ),
           ),
           Expanded(
@@ -1155,6 +1197,7 @@ class _NearbyStopsViewState extends State<NearbyStopsView> {
               child: Text(
                 routeName,
                 overflow: TextOverflow.ellipsis,
+                style: TextStyle(color: emphasizedTextColor),
               ),
             ),
           ),
@@ -1169,7 +1212,7 @@ class _NearbyStopsViewState extends State<NearbyStopsView> {
                     _formatTime(arrivalTime),
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
-                      color: shuttleColor,
+                      color: emphasizedTextColor ?? shuttleColor,
                     ),
                   ),
                   SizedBox(width: 4),
@@ -1185,6 +1228,73 @@ class _NearbyStopsViewState extends State<NearbyStopsView> {
         ],
       ),
     );
+  }
+
+  bool _isViewingToday() {
+    try {
+      final viewedDate =
+          DateFormat('yyyy-MM-dd').parseStrict(viewModel.selectedDate.value);
+      final now = DateTime.now();
+      return viewedDate.year == now.year &&
+          viewedDate.month == now.month &&
+          viewedDate.day == now.day;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  int? _getEmphasizedScheduleId() {
+    if (!_isViewingToday() || viewModel.filteredSchedules.isEmpty) {
+      return null;
+    }
+
+    final now = DateTime.now();
+    StationSchedule? nearestSchedule;
+    DateTime? nearestArrivalTime;
+
+    for (final schedule in viewModel.filteredSchedules) {
+      final arrivalDateTime = _parseArrivalDateTime(schedule.arrivalTime);
+      if (arrivalDateTime == null || arrivalDateTime.isBefore(now)) {
+        continue;
+      }
+
+      if (nearestArrivalTime == null ||
+          arrivalDateTime.isBefore(nearestArrivalTime)) {
+        nearestSchedule = schedule;
+        nearestArrivalTime = arrivalDateTime;
+      }
+    }
+
+    return nearestSchedule?.scheduleId;
+  }
+
+  DateTime? _parseArrivalDateTime(String arrivalTime) {
+    try {
+      final viewedDate =
+          DateFormat('yyyy-MM-dd').parseStrict(viewModel.selectedDate.value);
+      final parts = arrivalTime.split(':');
+      if (parts.length < 2) {
+        return null;
+      }
+
+      final hour = int.tryParse(parts[0]);
+      final minute = int.tryParse(parts[1]);
+      final second = parts.length > 2 ? int.tryParse(parts[2]) ?? 0 : 0;
+      if (hour == null || minute == null) {
+        return null;
+      }
+
+      return DateTime(
+        viewedDate.year,
+        viewedDate.month,
+        viewedDate.day,
+        hour,
+        minute,
+        second,
+      );
+    } catch (_) {
+      return null;
+    }
   }
 
   // "HH:MM:SS" 형식의 시간을 "HH:MM" 형식으로 변환

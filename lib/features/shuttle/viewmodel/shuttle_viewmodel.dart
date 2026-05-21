@@ -280,6 +280,45 @@ class ShuttleViewModel extends GetxController {
     }
   }
 
+  Future<List<StationSchedule>?> fetchStationSchedulesByDateForRoute({
+    required int stationId,
+    required int routeId,
+    required String date,
+  }) async {
+    try {
+      final data = await _shuttleRepository.fetchStationSchedulesByDate(
+        stationId: stationId,
+        date: date,
+      );
+      final List<dynamic> rawSchedules = List<dynamic>.from(
+        data['schedules'] as List<dynamic>? ?? <dynamic>[],
+      );
+      final schedules = rawSchedules
+          .map(
+            (item) => StationSchedule.fromJson(
+              Map<String, dynamic>.from(item as Map),
+            ),
+          )
+          .where((schedule) => schedule.routeId == routeId)
+          .toList()
+        ..sort((a, b) => a.arrivalTime.compareTo(b.arrivalTime));
+
+      return schedules;
+    } catch (e) {
+      print('정류장 기준 도착 시간을 불러오는데 실패했습니다: $e');
+      return null;
+    }
+  }
+
+  Future<List<RouteStation>?> fetchStationsForRoute(int routeId) async {
+    try {
+      return await _shuttleRepository.fetchRouteStations(routeId);
+    } catch (e) {
+      print('노선별 정류장 목록을 불러오는데 실패했습니다: $e');
+      return null;
+    }
+  }
+
   // 정류장 목록 조회
   Future<void> fetchStations() async {
     isLoadingStations.value = true;

@@ -11,6 +11,43 @@ void main() {
     dotenv.testLoad(fileInput: 'BASE_URL=https://example.com');
   });
 
+  group('ShuttleRepository.fetchRouteStations', () {
+    test('parses route stations response in stop order', () async {
+      final repository = ShuttleRepository(
+        client: MockClient((request) async {
+          expect(request.url.path, '/shuttle/routes/4/stations');
+
+          return http.Response(
+            jsonEncode([
+              {
+                'stop_order': 1,
+                'station_id': 1,
+                'station_name': '아산캠퍼스 [출발]',
+              },
+              {
+                'stop_order': 2,
+                'station_id': 15,
+                'station_name': '천안아산역 [아캠방향]',
+              },
+            ]),
+            200,
+            headers: {'content-type': 'application/json; charset=utf-8'},
+          );
+        }),
+      );
+
+      final stations = await repository.fetchRouteStations(4);
+
+      expect(stations, hasLength(2));
+      expect(stations[0].stopOrder, 1);
+      expect(stations[0].stationId, 1);
+      expect(stations[0].stationName, '아산캠퍼스 [출발]');
+      expect(stations[1].stopOrder, 2);
+      expect(stations[1].stationId, 15);
+      expect(stations[1].stationName, '천안아산역 [아캠방향]');
+    });
+  });
+
   group('ShuttleRepository.fetchStationRouteMemberships', () {
     test('parses station route memberships response', () async {
       final repository = ShuttleRepository(

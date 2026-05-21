@@ -1,11 +1,10 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:io' show Platform;
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_naver_map/flutter_naver_map.dart';
 import 'package:get/get.dart';
+import 'package:hsro/core/utils/bus_static_data_loader.dart';
 import 'package:hsro/features/city_bus/viewmodel/busmap_viewmodel.dart';
 import 'package:hsro/features/settings/viewmodel/settings_viewmodel.dart';
 
@@ -117,11 +116,9 @@ class _NaverBusMapDetailViewState extends State<NaverBusMapDetailView> {
   Future<void> _loadStationMetadata() async {
     // 선택된 노선에 맞는 정류장 메타데이터 JSON 불러옴
     final route = controller.selectedRoute.value;
-    final jsonFile = 'assets/bus_stops/$route.json';
 
     try {
-      final jsonData = await rootBundle.loadString(jsonFile);
-      final data = jsonDecode(jsonData) as Map<String, dynamic>;
+      final data = await BusStaticDataLoader.loadStopJson(route);
       final rawItems = data['response']?['body']?['items']?['item'];
       final List<dynamic> items = rawItems is List
           ? rawItems

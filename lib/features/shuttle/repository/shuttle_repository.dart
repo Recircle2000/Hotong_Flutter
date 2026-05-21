@@ -96,6 +96,25 @@ class ShuttleRepository {
         .toList();
   }
 
+  Future<List<RouteStation>> fetchRouteStations(int routeId) async {
+    // 노선별 정류장 순서 조회
+    final response = await _get(
+      '/shuttle/routes/$routeId/stations',
+      headers: _utf8Headers,
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception(
+        'Failed to load route stations (${response.statusCode})',
+      );
+    }
+
+    final List<dynamic> data = _decodeList(response.bodyBytes);
+    return data
+        .map((item) => RouteStation.fromJson(Map<String, dynamic>.from(item)))
+        .toList();
+  }
+
   Future<List<StationRouteMembership>> fetchStationRouteMemberships() async {
     // 정류장별 노선 매핑 조회
     final response = await _get(
@@ -219,6 +238,7 @@ class ShuttleRepository {
 
   static const Map<String, String> _utf8Headers = {
     // 한글 응답 깨짐 방지용 헤더
+    'accept': 'application/json',
     'Accept-Charset': 'UTF-8',
   };
 }
