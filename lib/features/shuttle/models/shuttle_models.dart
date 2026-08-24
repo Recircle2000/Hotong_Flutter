@@ -41,6 +41,143 @@ class StationRouteMembership {
   }
 }
 
+class JourneyDestination {
+  final int stationId;
+  final String stationName;
+
+  const JourneyDestination({
+    required this.stationId,
+    required this.stationName,
+  });
+
+  factory JourneyDestination.fromJson(Map<String, dynamic> json) {
+    return JourneyDestination(
+      stationId: json['station_id'] as int,
+      stationName: json['station_name'] as String,
+    );
+  }
+}
+
+class ShuttleJourney {
+  final int scheduleId;
+  final int routeId;
+  final String routeName;
+  final String originArrivalTime;
+  final String destinationArrivalTime;
+  final int originStopOrder;
+  final int destinationStopOrder;
+  final int durationMinutes;
+  final int intermediateStopCount;
+
+  const ShuttleJourney({
+    required this.scheduleId,
+    required this.routeId,
+    required this.routeName,
+    required this.originArrivalTime,
+    required this.destinationArrivalTime,
+    required this.originStopOrder,
+    required this.destinationStopOrder,
+    required this.durationMinutes,
+    required this.intermediateStopCount,
+  });
+
+  factory ShuttleJourney.fromJson(Map<String, dynamic> json) {
+    return ShuttleJourney(
+      scheduleId: json['schedule_id'] as int,
+      routeId: json['route_id'] as int,
+      routeName: json['route_name'] as String,
+      originArrivalTime: json['origin_arrival_time'].toString(),
+      destinationArrivalTime: json['destination_arrival_time'].toString(),
+      originStopOrder: json['origin_stop_order'] as int,
+      destinationStopOrder: json['destination_stop_order'] as int,
+      durationMinutes: json['duration_minutes'] as int,
+      intermediateStopCount: json['intermediate_stop_count'] as int,
+    );
+  }
+}
+
+class ShuttleJourneySearchResult {
+  final String scheduleType;
+  final String scheduleTypeName;
+  final String date;
+  final int originStationId;
+  final String originStationName;
+  final int destinationStationId;
+  final String destinationStationName;
+  final List<ShuttleJourney> journeys;
+
+  const ShuttleJourneySearchResult({
+    required this.scheduleType,
+    required this.scheduleTypeName,
+    required this.date,
+    required this.originStationId,
+    required this.originStationName,
+    required this.destinationStationId,
+    required this.destinationStationName,
+    required this.journeys,
+  });
+
+  factory ShuttleJourneySearchResult.fromJson(Map<String, dynamic> json) {
+    return ShuttleJourneySearchResult(
+      scheduleType: json['schedule_type'] as String,
+      scheduleTypeName: json['schedule_type_name'] as String,
+      date: json['date'].toString(),
+      originStationId: json['origin_station_id'] as int,
+      originStationName: json['origin_station_name'] as String,
+      destinationStationId: json['destination_station_id'] as int,
+      destinationStationName: json['destination_station_name'] as String,
+      journeys: (json['journeys'] as List<dynamic>? ?? const <dynamic>[])
+          .map(
+            (item) => ShuttleJourney.fromJson(
+              Map<String, dynamic>.from(item as Map),
+            ),
+          )
+          .toList(growable: false),
+    );
+  }
+}
+
+class FavoriteShuttleJourney {
+  final int originStationId;
+  final int destinationStationId;
+  final String? customName;
+  final DateTime createdAt;
+
+  const FavoriteShuttleJourney({
+    required this.originStationId,
+    required this.destinationStationId,
+    required this.createdAt,
+    this.customName,
+  });
+
+  String get key => '$originStationId:$destinationStationId';
+
+  FavoriteShuttleJourney copyWith({String? customName}) {
+    return FavoriteShuttleJourney(
+      originStationId: originStationId,
+      destinationStationId: destinationStationId,
+      customName: customName,
+      createdAt: createdAt,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'originStationId': originStationId,
+        'destinationStationId': destinationStationId,
+        'customName': customName,
+        'createdAt': createdAt.toIso8601String(),
+      };
+
+  factory FavoriteShuttleJourney.fromJson(Map<String, dynamic> json) {
+    return FavoriteShuttleJourney(
+      originStationId: json['originStationId'] as int,
+      destinationStationId: json['destinationStationId'] as int,
+      customName: json['customName'] as String?,
+      createdAt: DateTime.parse(json['createdAt'] as String),
+    );
+  }
+}
+
 class Schedule {
   // 특정 날짜의 셔틀 운행 회차 정보 모델
   final int id;

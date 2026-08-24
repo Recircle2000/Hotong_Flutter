@@ -96,4 +96,79 @@ void main() {
       expect(memberships, isEmpty);
     });
   });
+
+  group('ShuttleRepository journey APIs', () {
+    test('parses downstream destination response', () async {
+      final repository = ShuttleRepository(
+        client: MockClient((request) async {
+          expect(request.url.path, '/shuttle/journey-destinations');
+          expect(request.url.queryParameters['origin_station_id'], '1');
+          expect(request.url.queryParameters['date'], '2026-08-24');
+          return http.Response(
+            jsonEncode([
+              {'station_id': 2, 'station_name': '아산캠퍼스'},
+            ]),
+            200,
+            headers: {'content-type': 'application/json; charset=utf-8'},
+          );
+        }),
+      );
+
+      final destinations = await repository.fetchJourneyDestinations(
+        originStationId: 1,
+        date: '2026-08-24',
+      );
+
+      expect(destinations, hasLength(1));
+      expect(destinations.single.stationId, 2);
+      expect(destinations.single.stationName, '아산캠퍼스');
+    });
+
+    test('parses journey search response', () async {
+      final repository = ShuttleRepository(
+        client: MockClient((request) async {
+          expect(request.url.path, '/shuttle/journeys');
+          expect(request.url.queryParameters['origin_station_id'], '1');
+          expect(request.url.queryParameters['destination_station_id'], '2');
+          return http.Response(
+            jsonEncode({
+              'schedule_type': 'Weekday',
+              'schedule_type_name': '평일',
+              'date': '2026-08-24',
+              'origin_station_id': 1,
+              'origin_station_name': '천안아산역',
+              'destination_station_id': 2,
+              'destination_station_name': '아산캠퍼스',
+              'journeys': [
+                {
+                  'schedule_id': 10,
+                  'route_id': 4,
+                  'route_name': 'KTX 순환',
+                  'origin_arrival_time': '08:10:00',
+                  'destination_arrival_time': '08:35:00',
+                  'origin_stop_order': 1,
+                  'destination_stop_order': 3,
+                  'duration_minutes': 25,
+                  'intermediate_stop_count': 1,
+                }
+              ],
+            }),
+            200,
+            headers: {'content-type': 'application/json; charset=utf-8'},
+          );
+        }),
+      );
+
+      final result = await repository.fetchJourneys(
+        originStationId: 1,
+        destinationStationId: 2,
+        date: '2026-08-24',
+      );
+
+      expect(result.scheduleTypeName, '평일');
+      expect(result.journeys.single.routeName, 'KTX 순환');
+      expect(result.journeys.single.durationMinutes, 25);
+      expect(result.journeys.single.intermediateStopCount, 1);
+    });
+  });
 }
