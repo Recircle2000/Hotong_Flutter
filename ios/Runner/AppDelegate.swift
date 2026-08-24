@@ -1,8 +1,8 @@
-import UIKit
 import Flutter
+import UIKit
 
 @main
-@objc class AppDelegate: FlutterAppDelegate {
+@objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate {
   private var arrivalStationPickerChannel: FlutterMethodChannel?
   private var alertDialogChannel: FlutterMethodChannel?
   private var arrivalStationPickerDismissDelegate: IOSArrivalStationPickerDismissDelegate?
@@ -11,18 +11,20 @@ import Flutter
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
-    GeneratedPluginRegistrant.register(with: self)
-
-    // Flutter에서 요청하는 iOS 네이티브 PlatformView와 채널을 여기서 등록한다.
-    registerPlatformViews()
-    registerMethodChannels()
-
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
 
-  private func registerPlatformViews() {
+  func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
+    GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
+
+    // UIScene이 생성한 Flutter 엔진에 iOS 네이티브 PlatformView와 채널을 등록한다.
+    registerPlatformViews(with: engineBridge.pluginRegistry)
+    registerMethodChannels(binaryMessenger: engineBridge.applicationRegistrar.messenger())
+  }
+
+  private func registerPlatformViews(with pluginRegistry: FlutterPluginRegistry) {
     // iOS compact 날짜 선택기
-    if let datePickerRegistrar = registrar(forPlugin: "IOSCompactDatePicker") {
+    if let datePickerRegistrar = pluginRegistry.registrar(forPlugin: "IOSCompactDatePicker") {
       datePickerRegistrar.register(
         IOSCompactDatePickerFactory(messenger: datePickerRegistrar.messenger()),
         withId: "hsro/ios_compact_date_picker"
@@ -30,7 +32,7 @@ import Flutter
     }
 
     // iOS 메뉴형 노선 선택 버튼
-    if let routeButtonRegistrar = registrar(forPlugin: "IOSRoutePopupButton") {
+    if let routeButtonRegistrar = pluginRegistry.registrar(forPlugin: "IOSRoutePopupButton") {
       routeButtonRegistrar.register(
         IOSRoutePopupButtonFactory(messenger: routeButtonRegistrar.messenger()),
         withId: "hsro/ios_route_popup_button"
@@ -38,20 +40,16 @@ import Flutter
     }
   }
 
-  private func registerMethodChannels() {
-    registerArrivalStationPickerChannel()
+  private func registerMethodChannels(binaryMessenger: FlutterBinaryMessenger) {
+    registerArrivalStationPickerChannel(binaryMessenger: binaryMessenger)
     // Flutter MethodChannel은 기능별로 분리해두면 호출 인자와 응답 타입을 관리하기 쉽다.
-    registerAlertDialogChannel()
+    registerAlertDialogChannel(binaryMessenger: binaryMessenger)
   }
 
-  private func registerArrivalStationPickerChannel() {
-    guard let registrar = registrar(forPlugin: "IOSArrivalStationPicker") else {
-      return
-    }
-
+  private func registerArrivalStationPickerChannel(binaryMessenger: FlutterBinaryMessenger) {
     let channel = FlutterMethodChannel(
       name: "hsro/ios_arrival_station_picker",
-      binaryMessenger: registrar.messenger()
+      binaryMessenger: binaryMessenger
     )
 
     channel.setMethodCallHandler { [weak self] call, result in
@@ -75,15 +73,11 @@ import Flutter
     arrivalStationPickerChannel = channel
   }
 
-  private func registerAlertDialogChannel() {
+  private func registerAlertDialogChannel(binaryMessenger: FlutterBinaryMessenger) {
     // Flutter 쪽 MethodChannel('hsro/ios_alert_dialog')와 같은 이름으로 등록한다.
-    guard let registrar = registrar(forPlugin: "IOSAlertDialog") else {
-      return
-    }
-
     let channel = FlutterMethodChannel(
       name: "hsro/ios_alert_dialog",
-      binaryMessenger: registrar.messenger()
+      binaryMessenger: binaryMessenger
     )
 
     channel.setMethodCallHandler { [weak self] call, result in
