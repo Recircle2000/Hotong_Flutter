@@ -24,6 +24,17 @@ class ShuttleViewModel extends GetxController {
     '아산캠퍼스',
     '천안캠퍼스',
   };
+  static const List<String> _journeyStationPriority = [
+    '아산캠퍼스',
+    '천안캠퍼스',
+    '천안아산역',
+    '천안역',
+    '천안터미널',
+    '쌍용2동',
+    '쌍용3동',
+    '천안충무병원',
+  ];
+  static final RegExp _whitespacePattern = RegExp(r'\s+');
 
   ShuttleViewModel({
     ShuttleRepository? shuttleRepository,
@@ -83,11 +94,14 @@ class ShuttleViewModel extends GetxController {
   void onInit() {
     super.onInit();
     _loadJourneyPreferences();
-    fetchStations();
-    fetchRoutes().then((_) {
-      // 노선 로드 후 기본 날짜와 기본 노선 적용
+    Future.wait<void>([
+      fetchStations(),
+      fetchRoutes(),
+    ]).then((_) async {
+      // 노선과 정류장을 모두 로드한 뒤 기본값을 적용한다.
       if (useDefaultValues.value) {
         setDefaultValues();
+        await applyCampusJourneyDefaults();
       }
     });
   }
@@ -147,17 +161,41 @@ class ShuttleViewModel extends GetxController {
         groupedStations[logicalStation.name] = logicalStation;
       }
     }
-    final values = groupedStations.values.toList()
-      ..sort((a, b) => a.name.compareTo(b.name));
+    return sortJourneyStationsForPicker(groupedStations.values);
+  }
+
+  List<ShuttleStation> sortJourneyStationsForPicker(
+    Iterable<ShuttleStation> source,
+  ) {
+    final values = source.toList(growable: false);
+    values.sort((a, b) {
+      final aName = logicalStationName(a.name);
+      final bName = logicalStationName(b.name);
+      final aPriority = _journeyStationPriority.indexOf(
+        aName.replaceAll(_whitespacePattern, ''),
+      );
+      final bPriority = _journeyStationPriority.indexOf(
+        bName.replaceAll(_whitespacePattern, ''),
+      );
+      final normalizedAPriority = aPriority < 0 ? 1 << 30 : aPriority;
+      final normalizedBPriority = bPriority < 0 ? 1 << 30 : bPriority;
+      final priorityComparison =
+          normalizedAPriority.compareTo(normalizedBPriority);
+      if (priorityComparison != 0) return priorityComparison;
+      return aName.compareTo(bName);
+    });
     return values;
   }
 
   Set<int> stationIdsForLogicalName(String name) {
+    return stationsForLogicalName(name).map((station) => station.id).toSet();
+  }
+
+  List<ShuttleStation> stationsForLogicalName(String name) {
     final logicalName = logicalStationName(name);
     return stations
         .where((station) => logicalStationName(station.name) == logicalName)
-        .map((station) => station.id)
-        .toSet();
+        .toList(growable: false);
   }
 
   List<ShuttleStation> get favoriteStations {
@@ -284,6 +322,42 @@ class ShuttleViewModel extends GetxController {
     if (selectedOriginStation.value?.name == logicalStation.name) return;
     selectedDestinationStation.value = logicalStation;
     journeySearchResult.value = null;
+  }
+
+  Future<void> applyCampusJourneyDefaults() async {
+    if (selectedOriginStation.value != null ||
+        selectedDestinationStation.value != null ||
+        stations.isEmpty) {
+      return;
+    }
+
+    try {
+      final campusSetting =
+          await _preferencesService.getString('campus') ?? '아산';
+
+      // 설정을 읽는 동안 사용자가 직접 선택했다면 덮어쓰지 않는다.
+      if (selectedOriginStation.value != null ||
+          selectedDestinationStation.value != null) {
+        return;
+      }
+
+      final originName = campusSetting == '천안' ? '천안캠퍼스' : '아산캠퍼스';
+      final destinationName = campusSetting == '천안' ? '아산캠퍼스' : '천안캠퍼스';
+      final origin = _logicalJourneyStationNamed(originName);
+      final destination = _logicalJourneyStationNamed(destinationName);
+      if (origin == null || destination == null) return;
+
+      await selectOriginStation(origin);
+      if (selectedOriginStation.value?.name != originName) return;
+      await selectDestinationStation(destination);
+    } catch (_) {}
+  }
+
+  ShuttleStation? _logicalJourneyStationNamed(String name) {
+    for (final station in logicalJourneyStations) {
+      if (station.name == name) return station;
+    }
+    return null;
   }
 
   Future<void> swapJourneyStations() async {

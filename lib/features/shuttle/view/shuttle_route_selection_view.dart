@@ -1,5 +1,6 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'dart:io' show Platform;
 import 'package:intl/intl.dart';
@@ -33,6 +34,9 @@ class ShuttleRouteSelectionView extends StatefulWidget {
 }
 
 class _ShuttleRouteSelectionViewState extends State<ShuttleRouteSelectionView> {
+  static const MethodChannel _iosFavoriteJourneyMenuChannel =
+      MethodChannel('hsro/ios_favorite_journey_menu');
+
   final ShuttleViewModel viewModel = Get.put(ShuttleViewModel());
   // 셔틀 대표 색상
   final Color shuttleColor = const Color(0xFFB83227);
@@ -294,7 +298,7 @@ class _ShuttleRouteSelectionViewState extends State<ShuttleRouteSelectionView> {
             return Semantics(
               button: true,
               enabled: canSearch,
-              label: isSearching ? '셔틀 찾는 중' : '가는 셔틀 찾기',
+              label: isSearching ? '셔틀 찾는 중' : '셔틀버스 찾기',
               excludeSemantics: true,
               child: IgnorePointer(
                 ignoring: !canSearch,
@@ -337,7 +341,7 @@ class _ShuttleRouteSelectionViewState extends State<ShuttleRouteSelectionView> {
                         ],
                         Flexible(
                           child: Text(
-                            isSearching ? '셔틀 찾는 중…' : '가는 셔틀 찾기',
+                            isSearching ? '셔틀 찾는 중…' : '셔틀버스 찾기',
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             textAlign: TextAlign.center,
@@ -361,48 +365,34 @@ class _ShuttleRouteSelectionViewState extends State<ShuttleRouteSelectionView> {
   }
 
   Widget _buildRouteScheduleShortcut(BuildContext context) {
-    return ScaleButton(
-      onTap: () => Get.to(
-        () => const ShuttleRouteSelectionView(routeSelectionOnly: true),
-        preventDuplicates: false,
-      ),
-      child: Container(
-        width: double.infinity,
-        height: 50,
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        decoration: BoxDecoration(
-          color: Theme.of(context).cardColor,
-          borderRadius: BorderRadius.circular(25),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.1),
-              blurRadius: 10,
-              offset: const Offset(0, 0),
-            ),
-          ],
-        ),
-        child: Row(
-          children: [
-            Icon(
-              Icons.route_outlined,
-              size: 20,
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Text(
+            '기존 노선별 시간표를 찾으시나요?',
+            textAlign: TextAlign.center,
+            style: TextStyle(
               color: Theme.of(context).hintColor,
+              fontSize: 12,
             ),
-            const SizedBox(width: 10),
-            const Expanded(
-              child: Text(
-                '노선별 시간표 보기',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(fontWeight: FontWeight.w600),
-              ),
+          ),
+          TextButton(
+            onPressed: () => Get.to(
+              () => const ShuttleRouteSelectionView(routeSelectionOnly: true),
+              preventDuplicates: false,
             ),
-            Icon(
-              Icons.chevron_right,
-              color: Theme.of(context).hintColor,
+            style: TextButton.styleFrom(
+              foregroundColor: shuttleColor,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              visualDensity: VisualDensity.compact,
+              textStyle:
+                  const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
             ),
-          ],
-        ),
+            child: const Text('노선별 시간표 보기'),
+          ),
+        ],
       ),
     );
   }
@@ -438,7 +428,6 @@ class _ShuttleRouteSelectionViewState extends State<ShuttleRouteSelectionView> {
                     child: Obx(
                       () => _buildStationField(
                         context: context,
-                        icon: Icons.trip_origin,
                         label: '출발',
                         value: viewModel.selectedOriginStation.value?.name,
                         onTap: () => _selectStation(isOrigin: true),
@@ -446,7 +435,7 @@ class _ShuttleRouteSelectionViewState extends State<ShuttleRouteSelectionView> {
                     ),
                   ),
                   Padding(
-                    padding: const EdgeInsets.only(left: 58, right: 64),
+                    padding: const EdgeInsets.only(left: 16, right: 64),
                     child: Divider(
                       height: 1,
                       color: Theme.of(context)
@@ -459,7 +448,6 @@ class _ShuttleRouteSelectionViewState extends State<ShuttleRouteSelectionView> {
                     child: Obx(
                       () => _buildStationField(
                         context: context,
-                        icon: Icons.location_on,
                         label: '도착',
                         value: viewModel.selectedDestinationStation.value?.name,
                         onTap: () => _selectStation(isOrigin: false),
@@ -512,66 +500,94 @@ class _ShuttleRouteSelectionViewState extends State<ShuttleRouteSelectionView> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                if (unavailableDate != null)
-                  Container(
-                    width: double.infinity,
-                    margin: const EdgeInsets.fromLTRB(0, 6, 0, 2),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 10,
-                    ),
-                    decoration: BoxDecoration(
-                      color: shuttleColor.withValues(alpha: 0.08),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(
-                          Icons.info_outline_rounded,
-                          size: 18,
-                          color: Theme.of(context).brightness == Brightness.dark
-                              ? Colors.redAccent
-                              : shuttleColor,
-                        ),
-                        const SizedBox(width: 8),
-                        const Expanded(
-                          child: Text(
-                            '선택한 탑승일에 운행하는 셔틀버스가 없습니다.',
-                            style: TextStyle(fontSize: 12),
-                          ),
-                        ),
-                      ],
-                    ),
-                  )
-                else if (!viewModel.isCampusStationName(origin.name))
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(12, 4, 12, 0),
-                    child: Text(
-                      '중간 정류장에서는 캠퍼스행 셔틀만 이용할 수 있어요.',
-                      style: TextStyle(
-                        color: Theme.of(context).hintColor,
-                        fontSize: 12,
-                      ),
+                AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 240),
+                  switchInCurve: Curves.easeOutCubic,
+                  switchOutCurve: Curves.easeInCubic,
+                  transitionBuilder: (child, animation) => FadeTransition(
+                    opacity: animation,
+                    child: SizeTransition(
+                      sizeFactor: animation,
+                      axisAlignment: -1,
+                      child: child,
                     ),
                   ),
-                Wrap(
-                  spacing: 4,
-                  runSpacing: 0,
-                  alignment: WrapAlignment.spaceBetween,
+                  layoutBuilder: (currentChild, previousChildren) => Stack(
+                    alignment: Alignment.topCenter,
+                    children: [
+                      ...previousChildren,
+                      if (currentChild != null) currentChild,
+                    ],
+                  ),
+                  child: unavailableDate != null
+                      ? Container(
+                          key: const ValueKey('journey_unavailable_notice'),
+                          width: double.infinity,
+                          margin: const EdgeInsets.fromLTRB(0, 6, 0, 2),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 10,
+                          ),
+                          decoration: BoxDecoration(
+                            color: shuttleColor.withValues(alpha: 0.08),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.info_outline_rounded,
+                                size: 18,
+                                color: Theme.of(context).brightness ==
+                                        Brightness.dark
+                                    ? Colors.redAccent
+                                    : shuttleColor,
+                              ),
+                              const SizedBox(width: 8),
+                              const Expanded(
+                                child: Text(
+                                  '선택한 탑승일에 운행하는 셔틀버스가 없습니다.',
+                                  style: TextStyle(fontSize: 12),
+                                ),
+                              ),
+                            ],
+                          ),
+                        )
+                      : !viewModel.isCampusStationName(origin.name)
+                          ? Padding(
+                              key: const ValueKey('journey_campus_only_notice'),
+                              padding: const EdgeInsets.fromLTRB(12, 4, 12, 0),
+                              child: Text(
+                                '중간 정류장에서는 캠퍼스행 셔틀만 이용할 수 있어요.',
+                                style: TextStyle(
+                                  color: Theme.of(context).hintColor,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            )
+                          : const SizedBox(
+                              key: ValueKey('journey_notice_empty'),
+                            ),
+                ),
+                Row(
                   children: [
-                    TextButton.icon(
-                      style: TextButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(horizontal: 8),
-                        visualDensity: VisualDensity.compact,
-                      ),
-                      onPressed: () => Get.to(
-                        () => NearbyStopsView(
-                          initialStationId: origin.id,
-                          initialDate: _selectedDateOrNull,
+                    Expanded(
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: TextButton.icon(
+                          style: TextButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                            visualDensity: VisualDensity.compact,
+                          ),
+                          onPressed: () => Get.to(
+                            () => NearbyStopsView(
+                              initialStationId: origin.id,
+                              initialDate: _selectedDateOrNull,
+                            ),
+                          ),
+                          icon: const Icon(Icons.schedule, size: 17),
+                          label: const Text('출발 정류장 시간표'),
                         ),
                       ),
-                      icon: const Icon(Icons.schedule, size: 17),
-                      label: const Text('출발 정류장 시간표'),
                     ),
                     if (destination != null)
                       Tooltip(
@@ -614,7 +630,6 @@ class _ShuttleRouteSelectionViewState extends State<ShuttleRouteSelectionView> {
 
   Widget _buildStationField({
     required BuildContext context,
-    required IconData icon,
     required String label,
     required String? value,
     required VoidCallback onTap,
@@ -628,8 +643,6 @@ class _ShuttleRouteSelectionViewState extends State<ShuttleRouteSelectionView> {
           padding: const EdgeInsets.only(left: 16, right: 64),
           child: Row(
             children: [
-              Icon(icon, color: shuttleColor, size: 19),
-              const SizedBox(width: 10),
               SizedBox(
                 width: 34,
                 child: Text(
@@ -730,28 +743,59 @@ class _ShuttleRouteSelectionViewState extends State<ShuttleRouteSelectionView> {
                                     ),
                                   ),
                                 ),
-                                PopupMenuButton<String>(
-                                  padding: EdgeInsets.zero,
-                                  iconSize: 18,
-                                  constraints: const BoxConstraints.tightFor(
-                                    width: 40,
-                                    height: 40,
-                                  ),
-                                  onSelected: (action) {
-                                    if (action == 'rename') {
-                                      _renameFavorite(favorite);
-                                    } else {
-                                      viewModel.removeFavoriteJourney(favorite);
-                                    }
-                                  },
-                                  itemBuilder: (_) => const [
-                                    PopupMenuItem(
-                                      value: 'rename',
-                                      child: Text('이름 변경'),
-                                    ),
-                                    PopupMenuItem(
-                                        value: 'delete', child: Text('삭제')),
-                                  ],
+                                SizedBox(
+                                  width: 44,
+                                  height: 44,
+                                  child: Platform.isIOS
+                                      ? Builder(
+                                          builder: (menuContext) => IconButton(
+                                            padding: EdgeInsets.zero,
+                                            iconSize: 20,
+                                            tooltip: '더보기',
+                                            onPressed: () =>
+                                                _showIOSFavoriteJourneyMenu(
+                                              favorite,
+                                              menuContext,
+                                            ),
+                                            icon: const Icon(Icons.more_vert),
+                                          ),
+                                        )
+                                      : PopupMenuButton<String>(
+                                          padding: EdgeInsets.zero,
+                                          iconSize: 20,
+                                          tooltip: '더보기',
+                                          constraints: const BoxConstraints(
+                                            minWidth: 160,
+                                            maxWidth: 220,
+                                          ),
+                                          menuPadding:
+                                              const EdgeInsets.symmetric(
+                                            vertical: 6,
+                                          ),
+                                          onSelected: (action) =>
+                                              _handleFavoriteJourneyAction(
+                                            favorite,
+                                            action,
+                                          ),
+                                          itemBuilder: (_) => const [
+                                            PopupMenuItem(
+                                              value: 'rename',
+                                              height: 54,
+                                              child: Text(
+                                                '이름 변경',
+                                                style: TextStyle(fontSize: 16),
+                                              ),
+                                            ),
+                                            PopupMenuItem(
+                                              value: 'delete',
+                                              height: 54,
+                                              child: Text(
+                                                '삭제',
+                                                style: TextStyle(fontSize: 16),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
                                 ),
                               ],
                             ),
@@ -797,9 +841,11 @@ class _ShuttleRouteSelectionViewState extends State<ShuttleRouteSelectionView> {
             .toSet();
     final pickerStations = isOrigin
         ? viewModel.logicalJourneyStations
-        : viewModel.journeyDestinations
-            .map(viewModel.stationForJourneyDestination)
-            .toList(growable: false);
+        : viewModel.sortJourneyStationsForPicker(
+            viewModel.journeyDestinations.map(
+              viewModel.stationForJourneyDestination,
+            ),
+          );
     final station = await showShuttleStationPicker(
       context: context,
       title: isOrigin ? '출발 정류장 선택' : '도착 정류장 선택',
@@ -807,6 +853,8 @@ class _ShuttleRouteSelectionViewState extends State<ShuttleRouteSelectionView> {
       favoriteStationsProvider: () => viewModel.favoriteStations,
       isStationFavorite: viewModel.isStationFavorite,
       onToggleFavorite: viewModel.toggleStationFavorite,
+      detailStationsProvider: (station) =>
+          viewModel.stationsForLogicalName(station.name),
       allowedStationIds: allowedIds,
     );
     if (station == null) return;
@@ -865,6 +913,77 @@ class _ShuttleRouteSelectionViewState extends State<ShuttleRouteSelectionView> {
       ),
     );
     if (name != null) await viewModel.renameFavoriteJourney(favorite, name);
+  }
+
+  Future<void> _showIOSFavoriteJourneyMenu(
+    FavoriteShuttleJourney favorite,
+    BuildContext menuContext,
+  ) async {
+    String? action;
+
+    final renderBox = menuContext.findRenderObject() as RenderBox?;
+    if (renderBox == null || !renderBox.hasSize) return;
+    final origin = renderBox.localToGlobal(Offset.zero);
+
+    try {
+      action = await _iosFavoriteJourneyMenuChannel.invokeMethod<String>(
+        'show',
+        <String, Object>{
+          'title': viewModel.favoriteDisplayName(favorite),
+          'renameTitle': '이름 변경',
+          'deleteTitle': '삭제',
+          'cancelTitle': '취소',
+          'sourceX': origin.dx,
+          'sourceY': origin.dy,
+          'sourceWidth': renderBox.size.width,
+          'sourceHeight': renderBox.size.height,
+        },
+      );
+    } on PlatformException {
+      action = await _showCupertinoFavoriteJourneyMenu(favorite);
+    } on MissingPluginException {
+      action = await _showCupertinoFavoriteJourneyMenu(favorite);
+    }
+
+    if (!mounted || action == null) return;
+    await _handleFavoriteJourneyAction(favorite, action);
+  }
+
+  Future<String?> _showCupertinoFavoriteJourneyMenu(
+    FavoriteShuttleJourney favorite,
+  ) {
+    return showCupertinoModalPopup<String>(
+      context: context,
+      builder: (popupContext) => CupertinoActionSheet(
+        title: Text(viewModel.favoriteDisplayName(favorite)),
+        actions: [
+          CupertinoActionSheetAction(
+            onPressed: () => Navigator.pop(popupContext, 'rename'),
+            child: const Text('이름 변경'),
+          ),
+          CupertinoActionSheetAction(
+            isDestructiveAction: true,
+            onPressed: () => Navigator.pop(popupContext, 'delete'),
+            child: const Text('삭제'),
+          ),
+        ],
+        cancelButton: CupertinoActionSheetAction(
+          onPressed: () => Navigator.pop(popupContext),
+          child: const Text('취소'),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _handleFavoriteJourneyAction(
+    FavoriteShuttleJourney favorite,
+    String action,
+  ) async {
+    if (action == 'rename') {
+      await _renameFavorite(favorite);
+    } else if (action == 'delete') {
+      await viewModel.removeFavoriteJourney(favorite);
+    }
   }
 
   Future<void> _startExperienceTour() async {

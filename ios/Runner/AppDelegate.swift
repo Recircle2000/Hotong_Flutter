@@ -5,6 +5,10 @@ import UIKit
 @objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate {
   private var arrivalStationPickerChannel: FlutterMethodChannel?
   private var alertDialogChannel: FlutterMethodChannel?
+  private var favoriteJourneyMenuChannel: FlutterMethodChannel?
+  private var favoriteJourneyMenuPresenter: AnyObject?
+  private var stationInfoMenuChannel: FlutterMethodChannel?
+  private var stationInfoMenuPresenter: AnyObject?
   private var arrivalStationPickerDismissDelegate: IOSArrivalStationPickerDismissDelegate?
 
   override func application(
@@ -44,6 +48,8 @@ import UIKit
     registerArrivalStationPickerChannel(binaryMessenger: binaryMessenger)
     // Flutter MethodChannel은 기능별로 분리해두면 호출 인자와 응답 타입을 관리하기 쉽다.
     registerAlertDialogChannel(binaryMessenger: binaryMessenger)
+    registerFavoriteJourneyMenuChannel(binaryMessenger: binaryMessenger)
+    registerStationInfoMenuChannel(binaryMessenger: binaryMessenger)
   }
 
   private func registerArrivalStationPickerChannel(binaryMessenger: FlutterBinaryMessenger) {
@@ -100,6 +106,60 @@ import UIKit
     }
 
     alertDialogChannel = channel
+  }
+
+  private func registerFavoriteJourneyMenuChannel(binaryMessenger: FlutterBinaryMessenger) {
+    let channel = FlutterMethodChannel(
+      name: "hsro/ios_favorite_journey_menu",
+      binaryMessenger: binaryMessenger
+    )
+
+    channel.setMethodCallHandler { [weak self] call, result in
+      guard call.method == "show" else {
+        result(FlutterMethodNotImplemented)
+        return
+      }
+
+      guard let self = self else {
+        result(FlutterError(
+          code: "channel_unavailable",
+          message: "즐겨찾기 메뉴 채널을 사용할 수 없습니다.",
+          details: nil
+        ))
+        return
+      }
+
+      self.showFavoriteJourneyMenu(call: call, result: result)
+    }
+
+    favoriteJourneyMenuChannel = channel
+  }
+
+  private func registerStationInfoMenuChannel(binaryMessenger: FlutterBinaryMessenger) {
+    let channel = FlutterMethodChannel(
+      name: "hsro/ios_station_info_menu",
+      binaryMessenger: binaryMessenger
+    )
+
+    channel.setMethodCallHandler { [weak self] call, result in
+      guard call.method == "show" else {
+        result(FlutterMethodNotImplemented)
+        return
+      }
+
+      guard let self = self else {
+        result(FlutterError(
+          code: "channel_unavailable",
+          message: "정류장 정보 메뉴 채널을 사용할 수 없습니다.",
+          details: nil
+        ))
+        return
+      }
+
+      self.showStationInfoMenu(call: call, result: result)
+    }
+
+    stationInfoMenuChannel = channel
   }
 
   private func showArrivalStationPicker(call: FlutterMethodCall, result: @escaping FlutterResult) {
@@ -231,6 +291,192 @@ import UIKit
     }
   }
 
+  private func showFavoriteJourneyMenu(
+    call: FlutterMethodCall,
+    result: @escaping FlutterResult
+  ) {
+    guard let args = call.arguments as? [String: Any] else {
+      result(FlutterError(
+        code: "invalid_arguments",
+        message: "즐겨찾기 메뉴 문구가 올바르지 않습니다.",
+        details: nil
+      ))
+      return
+    }
+
+    let title = args["title"] as? String
+    let renameTitle = args["renameTitle"] as? String ?? "이름 변경"
+    let deleteTitle = args["deleteTitle"] as? String ?? "삭제"
+    let cancelTitle = args["cancelTitle"] as? String ?? "취소"
+    let sourceX = (args["sourceX"] as? NSNumber)?.doubleValue
+    let sourceY = (args["sourceY"] as? NSNumber)?.doubleValue
+    let sourceWidth = (args["sourceWidth"] as? NSNumber)?.doubleValue
+    let sourceHeight = (args["sourceHeight"] as? NSNumber)?.doubleValue
+
+    DispatchQueue.main.async { [weak self] in
+      guard let self = self, let presenter = self.topViewController() else {
+        result(FlutterError(
+          code: "presentation_failed",
+          message: "즐겨찾기 메뉴를 표시할 수 없습니다.",
+          details: nil
+        ))
+        return
+      }
+
+      if #available(iOS 16.0, *),
+         let sourceX = sourceX,
+         let sourceY = sourceY,
+         let sourceWidth = sourceWidth,
+         let sourceHeight = sourceHeight {
+        let resultBox = IOSSingleFlutterResult(result)
+        let sourcePoint = CGPoint(
+          x: sourceX + sourceWidth / 2,
+          y: sourceY + sourceHeight / 2
+        )
+        let menuPresenter = IOSFavoriteJourneyMenuPresenter(
+          sourceView: presenter.view,
+          sourcePoint: sourcePoint,
+          renameTitle: renameTitle,
+          deleteTitle: deleteTitle,
+          resultBox: resultBox
+        ) { [weak self] in
+          self?.favoriteJourneyMenuPresenter = nil
+        }
+        self.favoriteJourneyMenuPresenter = menuPresenter
+        menuPresenter.present()
+        return
+      }
+
+      // iOS 15 이하에서는 컨텍스트 메뉴 API가 없어 action sheet를 사용한다.
+      let menu = UIAlertController(
+        title: title,
+        message: nil,
+        preferredStyle: .actionSheet
+      )
+      menu.addAction(UIAlertAction(title: renameTitle, style: .default) { _ in
+        result("rename")
+      })
+      menu.addAction(UIAlertAction(title: deleteTitle, style: .destructive) { _ in
+        result("delete")
+      })
+      menu.addAction(UIAlertAction(title: cancelTitle, style: .cancel) { _ in
+        result(nil)
+      })
+
+      // iPad에서 action sheet는 popover 위치를 반드시 지정해야 한다.
+      if let popover = menu.popoverPresentationController {
+        popover.sourceView = presenter.view
+        popover.sourceRect = CGRect(
+          x: presenter.view.bounds.midX,
+          y: presenter.view.bounds.maxY,
+          width: 0,
+          height: 0
+        )
+        popover.permittedArrowDirections = []
+      }
+
+      presenter.present(menu, animated: true)
+    }
+  }
+
+  private func showStationInfoMenu(
+    call: FlutterMethodCall,
+    result: @escaping FlutterResult
+  ) {
+    guard let args = call.arguments as? [String: Any],
+          let rawStations = args["stations"] as? [Any] else {
+      result(FlutterError(
+        code: "invalid_arguments",
+        message: "정류장 정보 메뉴 항목이 올바르지 않습니다.",
+        details: nil
+      ))
+      return
+    }
+
+    let stations = rawStations.compactMap { item -> IOSStationInfoOption? in
+      guard let dictionary = item as? [String: Any],
+            let id = intValue(from: dictionary["id"]),
+            let title = dictionary["title"] as? String else {
+        return nil
+      }
+      return IOSStationInfoOption(id: id, title: title)
+    }
+
+    guard !stations.isEmpty else {
+      result(nil)
+      return
+    }
+
+    let title = args["title"] as? String ?? "어떤 정류장 정보를 볼까요?"
+    let cancelTitle = args["cancelTitle"] as? String ?? "취소"
+    let sourceX = (args["sourceX"] as? NSNumber)?.doubleValue
+    let sourceY = (args["sourceY"] as? NSNumber)?.doubleValue
+    let sourceWidth = (args["sourceWidth"] as? NSNumber)?.doubleValue
+    let sourceHeight = (args["sourceHeight"] as? NSNumber)?.doubleValue
+
+    DispatchQueue.main.async { [weak self] in
+      guard let self = self, let presenter = self.topViewController() else {
+        result(FlutterError(
+          code: "presentation_failed",
+          message: "정류장 정보 메뉴를 표시할 수 없습니다.",
+          details: nil
+        ))
+        return
+      }
+
+      if #available(iOS 16.0, *),
+         let sourceX = sourceX,
+         let sourceY = sourceY,
+         let sourceWidth = sourceWidth,
+         let sourceHeight = sourceHeight {
+        let resultBox = IOSSingleFlutterResult(result)
+        let sourcePoint = CGPoint(
+          x: sourceX + sourceWidth / 2,
+          y: sourceY + sourceHeight / 2
+        )
+        let menuPresenter = IOSStationInfoMenuPresenter(
+          sourceView: presenter.view,
+          sourcePoint: sourcePoint,
+          title: title,
+          stations: stations,
+          resultBox: resultBox
+        ) { [weak self] in
+          self?.stationInfoMenuPresenter = nil
+        }
+        self.stationInfoMenuPresenter = menuPresenter
+        menuPresenter.present()
+        return
+      }
+
+      let menu = UIAlertController(
+        title: title,
+        message: nil,
+        preferredStyle: .actionSheet
+      )
+      for station in stations {
+        menu.addAction(UIAlertAction(title: station.title, style: .default) { _ in
+          result(station.id)
+        })
+      }
+      menu.addAction(UIAlertAction(title: cancelTitle, style: .cancel) { _ in
+        result(nil)
+      })
+
+      if let popover = menu.popoverPresentationController {
+        popover.sourceView = presenter.view
+        popover.sourceRect = CGRect(
+          x: presenter.view.bounds.midX,
+          y: presenter.view.bounds.maxY,
+          width: 0,
+          height: 0
+        )
+        popover.permittedArrowDirections = []
+      }
+
+      presenter.present(menu, animated: true)
+    }
+  }
+
   private func topViewController(from root: UIViewController? = nil) -> UIViewController? {
     let rootViewController = root ?? keyWindow?.rootViewController
 
@@ -279,6 +525,11 @@ import UIKit
 }
 
 private struct IOSArrivalStationOption {
+  let id: Int
+  let title: String
+}
+
+private struct IOSStationInfoOption {
   let id: Int
   let title: String
 }
@@ -427,5 +678,163 @@ private final class IOSArrivalStationPickerDismissDelegate: NSObject, UIAdaptive
   func presentationControllerDidDismiss(_ presentationController: UIPresentationController) {
     resultBox.complete(nil)
     onDismiss()
+  }
+}
+
+@available(iOS 16.0, *)
+private final class IOSFavoriteJourneyMenuPresenter: NSObject, UIEditMenuInteractionDelegate {
+  private weak var sourceView: UIView?
+  private let sourcePoint: CGPoint
+  private let renameTitle: String
+  private let deleteTitle: String
+  private let resultBox: IOSSingleFlutterResult
+  private let onDismiss: () -> Void
+  private var didSelectAction = false
+  private lazy var interaction = UIEditMenuInteraction(delegate: self)
+
+  init(
+    sourceView: UIView,
+    sourcePoint: CGPoint,
+    renameTitle: String,
+    deleteTitle: String,
+    resultBox: IOSSingleFlutterResult,
+    onDismiss: @escaping () -> Void
+  ) {
+    self.sourceView = sourceView
+    self.sourcePoint = sourcePoint
+    self.renameTitle = renameTitle
+    self.deleteTitle = deleteTitle
+    self.resultBox = resultBox
+    self.onDismiss = onDismiss
+    super.init()
+  }
+
+  func present() {
+    guard let sourceView = sourceView else {
+      resultBox.complete(nil)
+      onDismiss()
+      return
+    }
+
+    sourceView.addInteraction(interaction)
+    interaction.presentEditMenu(
+      with: UIEditMenuConfiguration(identifier: nil, sourcePoint: sourcePoint)
+    )
+  }
+
+  func editMenuInteraction(
+    _ interaction: UIEditMenuInteraction,
+    menuFor configuration: UIEditMenuConfiguration,
+    suggestedActions: [UIMenuElement]
+  ) -> UIMenu? {
+    let renameAction = UIAction(title: renameTitle) { [weak self] _ in
+      self?.complete(with: "rename")
+    }
+    let deleteAction = UIAction(
+      title: deleteTitle,
+      attributes: .destructive
+    ) { [weak self] _ in
+      self?.complete(with: "delete")
+    }
+
+    return UIMenu(children: [renameAction, deleteAction])
+  }
+
+  func editMenuInteraction(
+    _ interaction: UIEditMenuInteraction,
+    willDismissMenuFor configuration: UIEditMenuConfiguration,
+    animator: any UIEditMenuInteractionAnimating
+  ) {
+    animator.addCompletion { [weak self] in
+      guard let self = self else { return }
+      if !self.didSelectAction {
+        self.resultBox.complete(nil)
+      }
+      self.sourceView?.removeInteraction(self.interaction)
+      self.onDismiss()
+    }
+  }
+
+  private func complete(with action: String) {
+    didSelectAction = true
+    resultBox.complete(action)
+  }
+}
+
+@available(iOS 16.0, *)
+private final class IOSStationInfoMenuPresenter: NSObject, UIEditMenuInteractionDelegate {
+  private weak var sourceView: UIView?
+  private let sourcePoint: CGPoint
+  private let menuTitle: String
+  private let stations: [IOSStationInfoOption]
+  private let resultBox: IOSSingleFlutterResult
+  private let onDismiss: () -> Void
+  private var didSelectStation = false
+  private lazy var interaction = UIEditMenuInteraction(delegate: self)
+
+  init(
+    sourceView: UIView,
+    sourcePoint: CGPoint,
+    title: String,
+    stations: [IOSStationInfoOption],
+    resultBox: IOSSingleFlutterResult,
+    onDismiss: @escaping () -> Void
+  ) {
+    self.sourceView = sourceView
+    self.sourcePoint = sourcePoint
+    self.menuTitle = title
+    self.stations = stations
+    self.resultBox = resultBox
+    self.onDismiss = onDismiss
+    super.init()
+  }
+
+  func present() {
+    guard let sourceView = sourceView else {
+      resultBox.complete(nil)
+      onDismiss()
+      return
+    }
+
+    sourceView.addInteraction(interaction)
+    interaction.presentEditMenu(
+      with: UIEditMenuConfiguration(identifier: nil, sourcePoint: sourcePoint)
+    )
+  }
+
+  func editMenuInteraction(
+    _ interaction: UIEditMenuInteraction,
+    menuFor configuration: UIEditMenuConfiguration,
+    suggestedActions: [UIMenuElement]
+  ) -> UIMenu? {
+    let actions = stations.map { station in
+      UIAction(
+        title: station.title,
+        image: UIImage(systemName: "mappin.and.ellipse")
+      ) { [weak self] _ in
+        self?.complete(with: station.id)
+      }
+    }
+    return UIMenu(title: menuTitle, children: actions)
+  }
+
+  func editMenuInteraction(
+    _ interaction: UIEditMenuInteraction,
+    willDismissMenuFor configuration: UIEditMenuConfiguration,
+    animator: any UIEditMenuInteractionAnimating
+  ) {
+    animator.addCompletion { [weak self] in
+      guard let self = self else { return }
+      if !self.didSelectStation {
+        self.resultBox.complete(nil)
+      }
+      self.sourceView?.removeInteraction(self.interaction)
+      self.onDismiss()
+    }
+  }
+
+  private func complete(with stationId: Int) {
+    didSelectStation = true
+    resultBox.complete(stationId)
   }
 }

@@ -22,6 +22,16 @@ class _FakeShuttleRepository extends ShuttleRepository {
     required int originStationId,
     required String date,
   }) async {
+    if (originStationId == 101) {
+      return const [
+        JourneyDestination(stationId: 102, stationName: '천안캠퍼스'),
+      ];
+    }
+    if (originStationId == 102) {
+      return const [
+        JourneyDestination(stationId: 101, stationName: '아산캠퍼스'),
+      ];
+    }
     if (originStationId == 11) {
       return const [
         JourneyDestination(stationId: 12, stationName: '천안아산역'),
@@ -107,6 +117,92 @@ void main() {
     expect(viewModel.selectedOriginStation.value, origin);
     expect(viewModel.journeyDestinations.single.stationId, destination.id);
     expect(viewModel.favoriteStationIds, isEmpty);
+  });
+
+  test('Asan campus setting defaults journey from Asan to Cheonan', () async {
+    final asanCampus = ShuttleStation(
+      id: 101,
+      name: '아산캠퍼스',
+      latitude: 36.7,
+      longitude: 127,
+    );
+    final cheonanCampus = ShuttleStation(
+      id: 102,
+      name: '천안캠퍼스',
+      latitude: 36.8,
+      longitude: 127.1,
+    );
+    preferences.values['campus'] = '아산';
+    viewModel.stations.value = [asanCampus, cheonanCampus];
+
+    await viewModel.applyCampusJourneyDefaults();
+
+    expect(viewModel.selectedOriginStation.value?.name, '아산캠퍼스');
+    expect(viewModel.selectedDestinationStation.value?.name, '천안캠퍼스');
+  });
+
+  test('Cheonan campus setting defaults journey from Cheonan to Asan',
+      () async {
+    final asanCampus = ShuttleStation(
+      id: 101,
+      name: '아산캠퍼스',
+      latitude: 36.7,
+      longitude: 127,
+    );
+    final cheonanCampus = ShuttleStation(
+      id: 102,
+      name: '천안캠퍼스',
+      latitude: 36.8,
+      longitude: 127.1,
+    );
+    preferences.values['campus'] = '천안';
+    viewModel.stations.value = [asanCampus, cheonanCampus];
+
+    await viewModel.applyCampusJourneyDefaults();
+
+    expect(viewModel.selectedOriginStation.value?.name, '천안캠퍼스');
+    expect(viewModel.selectedDestinationStation.value?.name, '아산캠퍼스');
+  });
+
+  test('journey stations use the preferred order before alphabetical stations',
+      () {
+    const names = [
+      '나머지B',
+      '천안 충무병원',
+      '천안터미널',
+      '쌍용3동',
+      '천안캠퍼스',
+      '천안역',
+      '나머지A',
+      '아산캠퍼스',
+      '쌍용2동 [아캠방향]',
+      '천안아산역',
+    ];
+    viewModel.stations.value = [
+      for (var index = 0; index < names.length; index++)
+        ShuttleStation(
+          id: 200 + index,
+          name: names[index],
+          latitude: 36,
+          longitude: 127,
+        ),
+    ];
+
+    expect(
+      viewModel.logicalJourneyStations.map((station) => station.name),
+      [
+        '아산캠퍼스',
+        '천안캠퍼스',
+        '천안아산역',
+        '천안역',
+        '천안터미널',
+        '쌍용2동',
+        '쌍용3동',
+        '천안 충무병원',
+        '나머지A',
+        '나머지B',
+      ],
+    );
   });
 
   test('intermediate origin keeps campuses and auto-selects a single result',
@@ -274,6 +370,10 @@ void main() {
     expect(
       viewModel.stationIdsForLogicalName('천안터미널'),
       unorderedEquals([20, 21]),
+    );
+    expect(
+      viewModel.stationsForLogicalName('천안터미널').map((station) => station.id),
+      [20, 21],
     );
 
     await viewModel.selectOriginStation(terminalToAsan);

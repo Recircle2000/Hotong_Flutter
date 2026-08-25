@@ -1,11 +1,11 @@
 import 'dart:async';
 import 'dart:io' show Platform;
 
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:hsro/features/shuttle/models/shuttle_models.dart';
 import 'package:hsro/features/shuttle/viewmodel/shuttle_viewmodel.dart';
+import 'package:hsro/shared/widgets/ios_platform_fields.dart';
 import 'package:intl/intl.dart';
 
 class ShuttleJourneyResultView extends StatefulWidget {
@@ -23,7 +23,7 @@ class ShuttleJourneyResultView extends StatefulWidget {
 
 class _ShuttleJourneyResultViewState extends State<ShuttleJourneyResultView> {
   static const Color _shuttleColor = Color(0xFFB83227);
-  static const double _journeyCardExtent = 112;
+  static const double _journeyCardExtent = 104;
   final ShuttleViewModel _viewModel = Get.find<ShuttleViewModel>();
   late ShuttleJourneySearchResult _result;
   late final ScrollController _journeyScrollController;
@@ -194,27 +194,74 @@ class _ShuttleJourneyResultViewState extends State<ShuttleJourneyResultView> {
             ],
           ),
           const Divider(height: 10),
-          InkWell(
-            borderRadius: BorderRadius.circular(12),
-            onTap: _selectDate,
-            child: SizedBox(
-              height: 28,
-              child: Row(
-                children: [
-                  const Icon(Icons.calendar_today, size: 16),
-                  const SizedBox(width: 7),
-                  Text(
-                    _formatDate(_result.date),
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w600,
-                      fontSize: 13,
+          if (Platform.isIOS)
+            _buildIOSDateSelector(context)
+          else
+            InkWell(
+              borderRadius: BorderRadius.circular(12),
+              onTap: _selectDate,
+              child: SizedBox(
+                height: 28,
+                child: Row(
+                  children: [
+                    const Icon(Icons.calendar_today, size: 16),
+                    const SizedBox(width: 7),
+                    Text(
+                      _formatDate(_result.date),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13,
+                      ),
                     ),
-                  ),
-                  const Spacer(),
-                  const Icon(Icons.chevron_right, size: 20),
-                ],
+                    const Spacer(),
+                    const Icon(Icons.chevron_right, size: 20),
+                  ],
+                ),
               ),
             ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildIOSDateSelector(BuildContext context) {
+    final current = DateFormat('yyyy-MM-dd').parse(_result.date);
+    final minimumDate = _minimumSelectableDate();
+    final maximumDate = _maximumSelectableDate();
+    const weekdays = ['월', '화', '수', '목', '금', '토', '일'];
+
+    return SizedBox(
+      height: 32,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          const Align(
+            alignment: Alignment.centerLeft,
+            child: Icon(Icons.calendar_today, size: 16),
+          ),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SizedBox(
+                width: 136,
+                child: IOSCompactDatePickerField(
+                  key: ValueKey('journey_date_${_result.date}'),
+                  initialDate: current,
+                  minimumDate: minimumDate,
+                  maximumDate: maximumDate,
+                  onDateChanged: _applySelectedDate,
+                ),
+              ),
+              const SizedBox(width: 2),
+              Text(
+                '(${weekdays[current.weekday - 1]})',
+                style: const TextStyle(
+                  color: _shuttleColor,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -269,11 +316,49 @@ class _ShuttleJourneyResultViewState extends State<ShuttleJourneyResultView> {
                   Row(
                     children: [
                       Expanded(
-                        child: Text(
-                          journey.routeName,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        child: Row(
+                          children: [
+                            Flexible(
+                              child: Container(
+                                constraints:
+                                    const BoxConstraints(maxWidth: 180),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 7,
+                                  vertical: 3,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: _shuttleColor,
+                                  borderRadius: BorderRadius.circular(7),
+                                ),
+                                child: Text(
+                                  journey.routeName,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              '·',
+                              style: TextStyle(
+                                color: Theme.of(context).hintColor,
+                                fontSize: 12,
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              '${journey.intermediateStopCount}개 정류장 경유',
+                              style: TextStyle(
+                                color: Theme.of(context).hintColor,
+                                fontSize: 11,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                       if (isNext) _buildStatusChip('다음 셔틀', _shuttleColor),
@@ -286,49 +371,51 @@ class _ShuttleJourneyResultViewState extends State<ShuttleJourneyResultView> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 2),
-                  Text(
-                    '${journey.intermediateStopCount}개 정류장 경유',
-                    style: TextStyle(
-                      color: Theme.of(context).hintColor,
-                      fontSize: 11,
-                    ),
-                  ),
                   const SizedBox(height: 8),
                   Row(
-                    crossAxisAlignment: CrossAxisAlignment.end,
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        _shortTime(journey.originArrivalTime),
-                        style: const TextStyle(
-                          fontSize: 21,
-                          fontWeight: FontWeight.bold,
-                        ),
+                      _buildJourneyTime(
+                        context,
+                        time: journey.originArrivalTime,
+                        stationName: _result.originStationName,
+                        fontSize: 22,
                       ),
+                      const SizedBox(width: 9),
                       const Padding(
-                        padding: EdgeInsets.fromLTRB(9, 0, 9, 2),
-                        child: Icon(
-                          Icons.arrow_forward,
-                          color: _shuttleColor,
-                          size: 19,
+                        padding: EdgeInsets.only(top: 2),
+                        child: SizedBox(
+                          height: 26,
+                          child: Center(
+                            child: Icon(
+                              Icons.arrow_forward,
+                              color: _shuttleColor,
+                              size: 19,
+                            ),
+                          ),
                         ),
                       ),
-                      Text(
-                        _shortTime(journey.destinationArrivalTime),
-                        style: const TextStyle(
-                          fontSize: 21,
-                          fontWeight: FontWeight.bold,
+                      const SizedBox(width: 9),
+                      Padding(
+                        padding: const EdgeInsets.only(top: 2),
+                        child: _buildJourneyTime(
+                          context,
+                          time: journey.destinationArrivalTime,
+                          stationName: _result.destinationStationName,
+                          fontSize: 20,
                         ),
                       ),
                       const SizedBox(width: 7),
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 2),
-                        child: Text(
-                          '(${journey.durationMinutes}분)',
-                          style: TextStyle(
-                            color: Theme.of(context).hintColor,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
+                      SizedBox(
+                        height: 26,
+                        child: Center(
+                          child: Text(
+                            '(${journey.durationMinutes}분)',
+                            style: TextStyle(
+                              color: Theme.of(context).hintColor,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                         ),
                       ),
@@ -340,6 +427,52 @@ class _ShuttleJourneyResultViewState extends State<ShuttleJourneyResultView> {
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildJourneyTime(
+    BuildContext context, {
+    required String time,
+    required String stationName,
+    required double fontSize,
+  }) {
+    final timeStyle = TextStyle(
+      fontSize: fontSize,
+      fontWeight: FontWeight.bold,
+    );
+    final formattedTime = _shortTime(time);
+    final timePainter = TextPainter(
+      text: TextSpan(text: formattedTime, style: timeStyle),
+      textDirection: Directionality.of(context),
+      textScaler: MediaQuery.textScalerOf(context),
+      maxLines: 1,
+    )..layout();
+    final timeWidth = timePainter.width.ceilToDouble() + 1;
+    timePainter.dispose();
+
+    return SizedBox(
+      width: timeWidth,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            formattedTime,
+            maxLines: 1,
+            softWrap: false,
+            style: timeStyle,
+          ),
+          const SizedBox(height: 1),
+          Text(
+            stationName,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: Theme.of(context).hintColor,
+              fontSize: 10,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -501,7 +634,19 @@ class _ShuttleJourneyResultViewState extends State<ShuttleJourneyResultView> {
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 12),
-          TextButton(onPressed: _selectDate, child: const Text('다른 날짜 선택')),
+          if (Platform.isIOS)
+            Text(
+              '상단에서 다른 날짜를 선택해주세요.',
+              style: TextStyle(
+                color: Theme.of(context).hintColor,
+                fontSize: 12,
+              ),
+            )
+          else
+            TextButton(
+              onPressed: _selectDate,
+              child: const Text('다른 날짜 선택'),
+            ),
         ],
       ),
     );
@@ -582,63 +727,34 @@ class _ShuttleJourneyResultViewState extends State<ShuttleJourneyResultView> {
 
   Future<void> _selectDate() async {
     final current = DateFormat('yyyy-MM-dd').parse(_result.date);
-    final now = DateTime.now();
-    final minimumDate = DateTime(now.year, now.month, now.day)
-        .subtract(const Duration(days: 365));
-    final maximumDate =
-        DateTime(now.year, now.month, now.day).add(const Duration(days: 365));
-    DateTime? selected;
-    if (Platform.isIOS) {
-      var candidate = current;
-      await showCupertinoModalPopup<void>(
-        context: context,
-        builder: (sheetContext) => Container(
-          height: 300,
-          color: Theme.of(context).cardColor,
-          child: SafeArea(
-            top: false,
-            child: Column(
-              children: [
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: CupertinoButton(
-                    onPressed: () {
-                      selected = candidate;
-                      Navigator.pop(sheetContext);
-                    },
-                    child: const Text('완료'),
-                  ),
-                ),
-                Expanded(
-                  child: CupertinoDatePicker(
-                    mode: CupertinoDatePickerMode.date,
-                    initialDateTime: current,
-                    minimumDate: minimumDate,
-                    maximumDate: maximumDate,
-                    onDateTimeChanged: (date) => candidate = date,
-                  ),
-                ),
-              ],
-            ),
-          ),
+    final selected = await showDatePicker(
+      context: context,
+      initialDate: current,
+      firstDate: _minimumSelectableDate(),
+      lastDate: _maximumSelectableDate(),
+      builder: (context, child) => Theme(
+        data: Theme.of(context).copyWith(
+          colorScheme: const ColorScheme.light(primary: _shuttleColor),
         ),
-      );
-    } else {
-      selected = await showDatePicker(
-        context: context,
-        initialDate: current,
-        firstDate: minimumDate,
-        lastDate: maximumDate,
-        builder: (context, child) => Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: ColorScheme.light(primary: _shuttleColor),
-          ),
-          child: child!,
-        ),
-      );
-    }
+        child: child!,
+      ),
+    );
     if (selected == null) return;
-    _viewModel.selectDate(DateFormat('yyyy-MM-dd').format(selected!));
+    await _applySelectedDate(selected);
+  }
+
+  DateTime _minimumSelectableDate() {
+    final date = DateTime.now().subtract(const Duration(days: 365));
+    return DateTime(date.year, date.month, date.day);
+  }
+
+  DateTime _maximumSelectableDate() {
+    final date = DateTime.now().add(const Duration(days: 365));
+    return DateTime(date.year, date.month, date.day);
+  }
+
+  Future<void> _applySelectedDate(DateTime selected) async {
+    _viewModel.selectDate(DateFormat('yyyy-MM-dd').format(selected));
     await _reload();
   }
 }
