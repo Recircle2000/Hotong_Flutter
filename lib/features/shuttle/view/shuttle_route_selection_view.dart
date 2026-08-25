@@ -46,8 +46,11 @@ class _ShuttleRouteSelectionViewState extends State<ShuttleRouteSelectionView> {
   final GlobalKey _originFieldKey = GlobalKey();
   final GlobalKey _destinationFieldKey = GlobalKey();
   final GlobalKey _journeySearchButtonKey = GlobalKey();
+  final TextEditingController _favoriteNameController = TextEditingController();
+  final FocusNode _favoriteNameFocusNode = FocusNode();
 
   bool _isExperienceTourRunning = false;
+  String? _editingFavoriteKey;
 
   @override
   void initState() {
@@ -82,6 +85,8 @@ class _ShuttleRouteSelectionViewState extends State<ShuttleRouteSelectionView> {
   void dispose() {
     _errorWorker?.dispose();
     _scrollController.dispose();
+    _favoriteNameController.dispose();
+    _favoriteNameFocusNode.dispose();
     super.dispose();
   }
 
@@ -706,8 +711,11 @@ class _ShuttleRouteSelectionViewState extends State<ShuttleRouteSelectionView> {
                       itemCount: favorites.length,
                       itemBuilder: (context, index) {
                         final favorite = favorites[index];
+                        final isEditing = _editingFavoriteKey == favorite.key;
                         return ScaleButton(
-                          onTap: () => viewModel.applyFavoriteJourney(favorite),
+                          onTap: isEditing
+                              ? _favoriteNameFocusNode.requestFocus
+                              : () => viewModel.applyFavoriteJourney(favorite),
                           child: Container(
                             height: 50,
                             constraints: const BoxConstraints(maxWidth: 240),
@@ -733,69 +741,125 @@ class _ShuttleRouteSelectionViewState extends State<ShuttleRouteSelectionView> {
                                 ),
                                 const SizedBox(width: 7),
                                 Flexible(
-                                  child: Text(
-                                    viewModel.favoriteDisplayName(favorite),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
+                                  child: isEditing
+                                      ? TextField(
+                                          controller: _favoriteNameController,
+                                          focusNode: _favoriteNameFocusNode,
+                                          autofocus: true,
+                                          maxLength: 30,
+                                          maxLines: 1,
+                                          textInputAction: TextInputAction.done,
+                                          style: const TextStyle(
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                          decoration: InputDecoration(
+                                            isDense: true,
+                                            counterText: '',
+                                            hintText: '이름 입력',
+                                            contentPadding:
+                                                const EdgeInsets.symmetric(
+                                              vertical: 5,
+                                            ),
+                                            enabledBorder: UnderlineInputBorder(
+                                              borderSide: BorderSide(
+                                                color: shuttleColor.withValues(
+                                                  alpha: 0.45,
+                                                ),
+                                              ),
+                                            ),
+                                            focusedBorder: UnderlineInputBorder(
+                                              borderSide: BorderSide(
+                                                color: shuttleColor,
+                                                width: 1.5,
+                                              ),
+                                            ),
+                                          ),
+                                          onSubmitted: (_) =>
+                                              _finishFavoriteRename(),
+                                          onTapOutside: (_) {
+                                            _finishFavoriteRename();
+                                          },
+                                        )
+                                      : Text(
+                                          viewModel
+                                              .favoriteDisplayName(favorite),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: const TextStyle(
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
                                 ),
                                 SizedBox(
                                   width: 44,
                                   height: 44,
-                                  child: Platform.isIOS
-                                      ? Builder(
-                                          builder: (menuContext) => IconButton(
-                                            padding: EdgeInsets.zero,
-                                            iconSize: 20,
-                                            tooltip: '더보기',
-                                            onPressed: () =>
-                                                _showIOSFavoriteJourneyMenu(
-                                              favorite,
-                                              menuContext,
-                                            ),
-                                            icon: const Icon(Icons.more_vert),
-                                          ),
-                                        )
-                                      : PopupMenuButton<String>(
+                                  child: isEditing
+                                      ? IconButton(
                                           padding: EdgeInsets.zero,
                                           iconSize: 20,
-                                          tooltip: '더보기',
-                                          constraints: const BoxConstraints(
-                                            minWidth: 160,
-                                            maxWidth: 220,
+                                          tooltip: '이름 저장',
+                                          onPressed: _finishFavoriteRename,
+                                          icon: Icon(
+                                            Icons.check_rounded,
+                                            color: shuttleColor,
                                           ),
-                                          menuPadding:
-                                              const EdgeInsets.symmetric(
-                                            vertical: 6,
-                                          ),
-                                          onSelected: (action) =>
-                                              _handleFavoriteJourneyAction(
-                                            favorite,
-                                            action,
-                                          ),
-                                          itemBuilder: (_) => const [
-                                            PopupMenuItem(
-                                              value: 'rename',
-                                              height: 54,
-                                              child: Text(
-                                                '이름 변경',
-                                                style: TextStyle(fontSize: 16),
+                                        )
+                                      : Platform.isIOS
+                                          ? Builder(
+                                              builder: (menuContext) =>
+                                                  IconButton(
+                                                padding: EdgeInsets.zero,
+                                                iconSize: 20,
+                                                tooltip: '더보기',
+                                                onPressed: () =>
+                                                    _showIOSFavoriteJourneyMenu(
+                                                  favorite,
+                                                  menuContext,
+                                                ),
+                                                icon:
+                                                    const Icon(Icons.more_vert),
                                               ),
-                                            ),
-                                            PopupMenuItem(
-                                              value: 'delete',
-                                              height: 54,
-                                              child: Text(
-                                                '삭제',
-                                                style: TextStyle(fontSize: 16),
+                                            )
+                                          : PopupMenuButton<String>(
+                                              padding: EdgeInsets.zero,
+                                              iconSize: 20,
+                                              tooltip: '더보기',
+                                              constraints: const BoxConstraints(
+                                                minWidth: 160,
+                                                maxWidth: 220,
                                               ),
+                                              menuPadding:
+                                                  const EdgeInsets.symmetric(
+                                                vertical: 6,
+                                              ),
+                                              onSelected: (action) =>
+                                                  _handleFavoriteJourneyAction(
+                                                favorite,
+                                                action,
+                                              ),
+                                              itemBuilder: (_) => const [
+                                                PopupMenuItem(
+                                                  value: 'rename',
+                                                  height: 54,
+                                                  child: Text(
+                                                    '이름 변경',
+                                                    style:
+                                                        TextStyle(fontSize: 16),
+                                                  ),
+                                                ),
+                                                PopupMenuItem(
+                                                  value: 'delete',
+                                                  height: 54,
+                                                  child: Text(
+                                                    '삭제',
+                                                    style:
+                                                        TextStyle(fontSize: 16),
+                                                  ),
+                                                ),
+                                              ],
                                             ),
-                                          ],
-                                        ),
                                 ),
                               ],
                             ),
@@ -886,33 +950,48 @@ class _ShuttleRouteSelectionViewState extends State<ShuttleRouteSelectionView> {
     Get.to(() => ShuttleJourneyResultView(initialResult: result));
   }
 
-  Future<void> _renameFavorite(FavoriteShuttleJourney favorite) async {
-    var editedName = favorite.customName ?? '';
-    final name = await showDialog<String>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('즐겨찾기 이름 변경'),
-        content: TextFormField(
-          initialValue: editedName,
-          autofocus: true,
-          maxLength: 30,
-          onChanged: (value) => editedName = value,
-          onFieldSubmitted: (value) => Navigator.pop(dialogContext, value),
-          decoration: const InputDecoration(hintText: '예: 등교'),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('취소'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, editedName),
-            child: const Text('저장'),
-          ),
-        ],
+  Future<void> _startFavoriteRename(
+    FavoriteShuttleJourney favorite,
+  ) async {
+    if (_editingFavoriteKey != null && _editingFavoriteKey != favorite.key) {
+      await _finishFavoriteRename();
+    }
+    if (!mounted) return;
+
+    final initialName = favorite.customName?.trim().isNotEmpty == true
+        ? favorite.customName!.trim()
+        : viewModel.favoriteDisplayName(favorite);
+    _favoriteNameController.value = TextEditingValue(
+      text: initialName,
+      selection: TextSelection(
+        baseOffset: 0,
+        extentOffset: initialName.length,
       ),
     );
-    if (name != null) await viewModel.renameFavoriteJourney(favorite, name);
+    setState(() => _editingFavoriteKey = favorite.key);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _editingFavoriteKey != favorite.key) return;
+      _favoriteNameFocusNode.requestFocus();
+    });
+  }
+
+  Future<void> _finishFavoriteRename() async {
+    final favoriteKey = _editingFavoriteKey;
+    if (favoriteKey == null) return;
+
+    FavoriteShuttleJourney? favorite;
+    for (final item in viewModel.favoriteJourneys) {
+      if (item.key == favoriteKey) {
+        favorite = item;
+        break;
+      }
+    }
+    final editedName = _favoriteNameController.text;
+    _favoriteNameFocusNode.unfocus();
+    if (mounted) setState(() => _editingFavoriteKey = null);
+    if (favorite != null) {
+      await viewModel.renameFavoriteJourney(favorite, editedName);
+    }
   }
 
   Future<void> _showIOSFavoriteJourneyMenu(
@@ -980,7 +1059,7 @@ class _ShuttleRouteSelectionViewState extends State<ShuttleRouteSelectionView> {
     String action,
   ) async {
     if (action == 'rename') {
-      await _renameFavorite(favorite);
+      await _startFavoriteRename(favorite);
     } else if (action == 'delete') {
       await viewModel.removeFavoriteJourney(favorite);
     }
