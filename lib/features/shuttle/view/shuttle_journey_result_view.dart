@@ -24,6 +24,7 @@ class ShuttleJourneyResultView extends StatefulWidget {
 class _ShuttleJourneyResultViewState extends State<ShuttleJourneyResultView> {
   static const Color _shuttleColor = Color(0xFFB83227);
   static const double _journeyCardExtent = 104;
+  static const double _headerTransitionHeight = 32;
   final ShuttleViewModel _viewModel = Get.find<ShuttleViewModel>();
   late ShuttleJourneySearchResult _result;
   late final ScrollController _journeyScrollController;
@@ -42,8 +43,11 @@ class _ShuttleJourneyResultViewState extends State<ShuttleJourneyResultView> {
     _journeyScrollController = ScrollController(
       initialScrollOffset: _initialJourneyScrollOffset(),
     );
+    WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToNextJourney());
     _clockTimer = Timer.periodic(const Duration(seconds: 30), (_) {
-      if (mounted && _isToday(_result.date)) setState(() {});
+      if (!mounted || !_isToday(_result.date)) return;
+      setState(() {});
+      if (_areAllJourneysCompletedToday) _scrollToNextJourney();
     });
   }
 
@@ -92,45 +96,69 @@ class _ShuttleJourneyResultViewState extends State<ShuttleJourneyResultView> {
         child: Column(
           children: [
             _buildJourneyHeader(context),
-            _buildHeaderTransition(context),
             Expanded(
-              child: _result.journeys.isEmpty
-                  ? RefreshIndicator(
-                      onRefresh: _reload,
-                      color: _shuttleColor,
-                      child: ListView(
-                        physics: const AlwaysScrollableScrollPhysics(),
-                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                        children: [_buildEmptyState(context)],
-                      ),
-                    )
-                  : LayoutBuilder(
-                      builder: (context, constraints) {
-                        final bottomPadding =
-                            constraints.maxHeight > _journeyCardExtent
-                                ? constraints.maxHeight - _journeyCardExtent
-                                : 16.0;
-                        return RefreshIndicator(
+              child: Stack(
+                children: [
+                  _result.journeys.isEmpty
+                      ? RefreshIndicator(
                           onRefresh: _reload,
                           color: _shuttleColor,
-                          child: ListView.builder(
-                            controller: _journeyScrollController,
+                          child: ListView(
                             physics: const AlwaysScrollableScrollPhysics(),
-                            padding: EdgeInsets.fromLTRB(
+                            padding: const EdgeInsets.fromLTRB(
                               16,
-                              0,
+                              _headerTransitionHeight,
                               16,
-                              bottomPadding,
+                              16,
                             ),
-                            itemCount: _result.journeys.length,
-                            itemBuilder: (context, index) => _buildJourneyCard(
-                              context,
-                              _result.journeys[index],
-                            ),
+                            children: [_buildEmptyState(context)],
                           ),
-                        );
-                      },
-                    ),
+                        )
+                      : LayoutBuilder(
+                          builder: (context, constraints) {
+                            final allJourneysCompleted =
+                                _areAllJourneysCompletedToday;
+                            final bottomPadding = allJourneysCompleted
+                                ? 16.0
+                                : constraints.maxHeight > _journeyCardExtent
+                                    ? constraints.maxHeight - _journeyCardExtent
+                                    : 16.0;
+                            return RefreshIndicator(
+                              onRefresh: _reload,
+                              color: _shuttleColor,
+                              child: ListView.builder(
+                                controller: _journeyScrollController,
+                                physics: const AlwaysScrollableScrollPhysics(),
+                                padding: EdgeInsets.fromLTRB(
+                                  16,
+                                  _headerTransitionHeight,
+                                  16,
+                                  bottomPadding,
+                                ),
+                                itemCount: _result.journeys.length +
+                                    (allJourneysCompleted ? 1 : 0),
+                                itemBuilder: (context, index) {
+                                  if (index == _result.journeys.length) {
+                                    return _buildAllJourneysEnded(context);
+                                  }
+                                  return _buildJourneyCard(
+                                    context,
+                                    _result.journeys[index],
+                                  );
+                                },
+                              ),
+                            );
+                          },
+                        ),
+                  Positioned(
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    child:
+                        IgnorePointer(child: _buildHeaderTransition(context)),
+                  ),
+                ],
+              ),
             ),
           ],
         ),
@@ -140,18 +168,15 @@ class _ShuttleJourneyResultViewState extends State<ShuttleJourneyResultView> {
 
   Widget _buildHeaderTransition(BuildContext context) {
     final cardColor = Theme.of(context).cardColor;
-    final backgroundColor = Theme.of(context).scaffoldBackgroundColor;
-
     return Container(
-      height: 12,
+      height: _headerTransitionHeight,
       decoration: BoxDecoration(
-        color: backgroundColor,
         gradient: LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
           colors: [
             cardColor,
-            cardColor.withValues(alpha: 0.75),
+            cardColor.withValues(alpha: 0.8),
             cardColor.withValues(alpha: 0.25),
             cardColor.withValues(alpha: 0),
           ],
@@ -652,6 +677,26 @@ class _ShuttleJourneyResultViewState extends State<ShuttleJourneyResultView> {
     );
   }
 
+  Widget _buildAllJourneysEnded(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 18, 16, 8),
+      child: Column(
+        children: [
+          Text(
+            '오늘은 모든 셔틀의 운행이 종료되었어요.\n다음 날짜를 조회할까요?',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: Theme.of(context).hintColor),
+          ),
+          const SizedBox(height: 4),
+          TextButton(
+            onPressed: _searchNextDate,
+            child: const Text('조회하기'),
+          ),
+        ],
+      ),
+    );
+  }
+
   ShuttleJourney? _nextJourney() {
     if (!_isToday(_result.date)) return null;
     for (final journey in _result.journeys) {
@@ -659,6 +704,11 @@ class _ShuttleJourneyResultViewState extends State<ShuttleJourneyResultView> {
     }
     return null;
   }
+
+  bool get _areAllJourneysCompletedToday =>
+      _isToday(_result.date) &&
+      _result.journeys.isNotEmpty &&
+      _result.journeys.every(_hasDeparted);
 
   int _nextJourneyIndex() {
     if (!_isToday(_result.date)) return 0;
@@ -674,7 +724,10 @@ class _ShuttleJourneyResultViewState extends State<ShuttleJourneyResultView> {
   void _scrollToNextJourney() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || !_journeyScrollController.hasClients) return;
-      final target = _initialJourneyScrollOffset().clamp(
+      final target = (_areAllJourneysCompletedToday
+              ? _journeyScrollController.position.maxScrollExtent
+              : _initialJourneyScrollOffset())
+          .clamp(
         _journeyScrollController.position.minScrollExtent,
         _journeyScrollController.position.maxScrollExtent,
       );
@@ -756,5 +809,10 @@ class _ShuttleJourneyResultViewState extends State<ShuttleJourneyResultView> {
   Future<void> _applySelectedDate(DateTime selected) async {
     _viewModel.selectDate(DateFormat('yyyy-MM-dd').format(selected));
     await _reload();
+  }
+
+  Future<void> _searchNextDate() async {
+    final current = DateFormat('yyyy-MM-dd').parse(_result.date);
+    await _applySelectedDate(current.add(const Duration(days: 1)));
   }
 }

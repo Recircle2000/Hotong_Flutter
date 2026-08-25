@@ -234,7 +234,7 @@ class _ShuttleRouteSelectionViewState extends State<ShuttleRouteSelectionView> {
 
   Widget _buildJourneyScaffold(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('셔틀 찾기')),
+      appBar: AppBar(title: const Text('셔틀버스 찾기')),
       bottomNavigationBar: _buildJourneySearchBar(context),
       body: SafeArea(
         child: Column(
@@ -693,7 +693,7 @@ class _ShuttleRouteSelectionViewState extends State<ShuttleRouteSelectionView> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              '즐겨찾는 이동',
+              '즐겨찾는 경로',
               style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
             ),
             const SizedBox(height: 8),

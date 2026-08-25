@@ -178,6 +178,8 @@ class _ShuttleStationPickerState extends State<_ShuttleStationPicker> {
                   child: TextField(
                     controller: _searchController,
                     onChanged: (_) => setState(() {}),
+                    onTapOutside: (_) =>
+                        FocusManager.instance.primaryFocus?.unfocus(),
                     decoration: const InputDecoration(
                       hintText: '정류장 이름 검색',
                       prefixIcon: Icon(Icons.search),
@@ -226,12 +228,38 @@ class _ShuttleStationPickerState extends State<_ShuttleStationPicker> {
                         children: [
                           if (_favoriteStations.isNotEmpty &&
                               _searchController.text.isEmpty) ...[
-                            _buildSectionTitle('즐겨찾는 정류장'),
-                            ..._favoriteStations.map(_buildStationTile),
-                            const SizedBox(height: 8),
+                            Container(
+                              padding: const EdgeInsets.fromLTRB(10, 4, 6, 6),
+                              decoration: BoxDecoration(
+                                color: _shuttleColor.withValues(alpha: 0.06),
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              child: Column(
+                                children: [
+                                  _buildSectionTitle(
+                                    '즐겨찾는 정류장',
+                                    icon: Icons.star_rounded,
+                                    color: Colors.amber.shade700,
+                                  ),
+                                  ..._favoriteStations.map(_buildStationTile),
+                                ],
+                              ),
+                            ),
+                            Padding(
+                              padding: const EdgeInsets.only(top: 16),
+                              child: Divider(
+                                height: 1,
+                                color: Theme.of(context)
+                                    .dividerColor
+                                    .withValues(alpha: 0.65),
+                              ),
+                            ),
                           ],
                           _buildSectionTitle(
                             _position == null ? '전체 정류장' : '가까운 정류장',
+                            icon: _position == null
+                                ? Icons.format_list_bulleted_rounded
+                                : Icons.near_me_outlined,
                           ),
                           ..._availableStations.map(_buildStationTile),
                         ],
@@ -262,59 +290,79 @@ class _ShuttleStationPickerState extends State<_ShuttleStationPicker> {
     );
   }
 
-  Widget _buildSectionTitle(String title) {
+  Widget _buildSectionTitle(
+    String title, {
+    IconData? icon,
+    Color? color,
+  }) {
+    final foregroundColor = color ?? Theme.of(context).colorScheme.onSurface;
     return Padding(
-      padding: const EdgeInsets.only(top: 8, bottom: 6),
-      child: Text(
-        title,
-        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+      padding: const EdgeInsets.only(top: 10, bottom: 6),
+      child: Row(
+        children: [
+          if (icon != null) ...[
+            Icon(icon, size: 17, color: foregroundColor),
+            const SizedBox(width: 6),
+          ],
+          Text(
+            title,
+            style: TextStyle(
+              color: foregroundColor,
+              fontWeight: FontWeight.bold,
+              fontSize: 14,
+            ),
+          ),
+        ],
       ),
     );
   }
 
   Widget _buildStationTile(ShuttleStation station) {
     final isFavorite = widget.isStationFavorite(station);
-    return ListTile(
-      contentPadding: const EdgeInsets.symmetric(horizontal: 4),
-      title: _buildStationTitle(station),
-      trailing: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (_position != null) ...[
-            Text(
-              _distanceLabel(station),
-              style: const TextStyle(color: _shuttleColor, fontSize: 12),
-            ),
-            const SizedBox(width: 4),
-          ],
-          IconButton(
-            tooltip: isFavorite ? '즐겨찾기 해제' : '즐겨찾기 추가',
-            visualDensity: VisualDensity.compact,
-            onPressed: () async {
-              await widget.onToggleFavorite(station);
-              if (mounted) setState(() {});
-            },
-            icon: Icon(
-              isFavorite ? Icons.star_rounded : Icons.star_border_rounded,
-              color: isFavorite
-                  ? Colors.amber.shade700
-                  : Theme.of(context).hintColor,
-            ),
-          ),
-          Builder(
-            builder: (buttonContext) => IconButton(
-              tooltip: '정류장 정보',
+    return Material(
+      type: MaterialType.transparency,
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+        title: _buildStationTitle(station),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (_position != null) ...[
+              Text(
+                _distanceLabel(station),
+                style: const TextStyle(color: _shuttleColor, fontSize: 12),
+              ),
+              const SizedBox(width: 4),
+            ],
+            IconButton(
+              tooltip: isFavorite ? '즐겨찾기 해제' : '즐겨찾기 추가',
               visualDensity: VisualDensity.compact,
-              onPressed: () => _showStationInfoMenu(station, buttonContext),
+              onPressed: () async {
+                await widget.onToggleFavorite(station);
+                if (mounted) setState(() {});
+              },
               icon: Icon(
-                Icons.info_outline,
-                color: Theme.of(context).hintColor,
+                isFavorite ? Icons.star_rounded : Icons.star_border_rounded,
+                color: isFavorite
+                    ? Colors.amber.shade700
+                    : Theme.of(context).hintColor,
               ),
             ),
-          ),
-        ],
+            Builder(
+              builder: (buttonContext) => IconButton(
+                tooltip: '정류장 정보',
+                visualDensity: VisualDensity.compact,
+                onPressed: () => _showStationInfoMenu(station, buttonContext),
+                icon: Icon(
+                  Icons.info_outline,
+                  color: Theme.of(context).hintColor,
+                ),
+              ),
+            ),
+          ],
+        ),
+        onTap: () => Navigator.pop(context, station),
       ),
-      onTap: () => Navigator.pop(context, station),
     );
   }
 

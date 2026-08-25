@@ -395,7 +395,6 @@ class ShuttleViewModel extends GetxController {
 
     final requestKey = '${origin.id}:$date';
     _latestJourneyDestinationRequest = requestKey;
-    journeyDestinationUnavailableDate.value = null;
     isLoadingJourneyDestinations.value = true;
     try {
       final destinations = await _shuttleRepository.fetchJourneyDestinations(
@@ -414,7 +413,12 @@ class ShuttleViewModel extends GetxController {
         if (filteredDestinations.isEmpty) {
           selectedDestinationStation.value = null;
           journeyDestinationUnavailableDate.value = date;
-        } else if (filteredDestinations.length == 1) {
+        } else {
+          // Keep the previous empty-state notice visible while a new date is
+          // loading. Remove it only once this date has available journeys.
+          journeyDestinationUnavailableDate.value = null;
+        }
+        if (filteredDestinations.length == 1) {
           final destination = stationForJourneyDestination(
             filteredDestinations.single,
           );
@@ -424,7 +428,7 @@ class ShuttleViewModel extends GetxController {
           } else {
             selectedDestinationStation.value = null;
           }
-        } else {
+        } else if (filteredDestinations.isNotEmpty) {
           _clearUnreachableDestination();
         }
       }
