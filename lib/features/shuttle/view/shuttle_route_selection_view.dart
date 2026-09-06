@@ -5,6 +5,7 @@ import 'package:get/get.dart';
 import 'dart:io' show Platform;
 import 'package:intl/intl.dart';
 import 'package:tutorial_coach_mark/tutorial_coach_mark.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:hsro/core/utils/platform_utils.dart';
 import 'package:hsro/features/notice/models/emergency_notice_model.dart';
 import 'package:hsro/features/notice/widgets/emergency_notice_banner.dart';
@@ -36,6 +37,9 @@ class ShuttleRouteSelectionView extends StatefulWidget {
 class _ShuttleRouteSelectionViewState extends State<ShuttleRouteSelectionView> {
   static const MethodChannel _iosFavoriteJourneyMenuChannel =
       MethodChannel('hsro/ios_favorite_journey_menu');
+  static final Uri _shuttleScheduleSourceUrl = Uri.parse(
+    'https://www.hoseo.ac.kr/Home/Contents.mbz?action=MAPP_2603202792',
+  );
 
   final ShuttleViewModel viewModel = Get.put(ShuttleViewModel());
   // 셔틀 대표 색상
@@ -220,7 +224,9 @@ class _ShuttleRouteSelectionViewState extends State<ShuttleRouteSelectionView> {
                         ),
                       ),
 
-                      SizedBox(height: 24),
+                      const SizedBox(height: 10),
+                      _buildScheduleSourceLink(context),
+                      const SizedBox(height: 24),
                     ],
                   ),
                 ),
@@ -255,6 +261,8 @@ class _ShuttleRouteSelectionViewState extends State<ShuttleRouteSelectionView> {
                     _buildScheduleTypeSelector(context),
                     const SizedBox(height: 24),
                     _buildRouteScheduleShortcut(context),
+                    const SizedBox(height: 8),
+                    _buildScheduleSourceLink(context),
                     const SizedBox(height: 8),
                   ],
                 ),
@@ -400,6 +408,85 @@ class _ShuttleRouteSelectionViewState extends State<ShuttleRouteSelectionView> {
         ],
       ),
     );
+  }
+
+  Widget _buildScheduleSourceLink(BuildContext context) {
+    final hintColor = Theme.of(context).hintColor;
+
+    return Center(
+      child: TextButton.icon(
+        onPressed: () => _showScheduleSourceInfo(context),
+        style: TextButton.styleFrom(
+          foregroundColor: hintColor,
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          visualDensity: VisualDensity.compact,
+          textStyle: const TextStyle(fontSize: 12),
+        ),
+        icon: const Icon(Icons.info_outline_rounded, size: 14),
+        label: const Text('시간표 정보 및 출처'),
+      ),
+    );
+  }
+
+  Future<void> _showScheduleSourceInfo(BuildContext context) async {
+    const title = '시간표 안내';
+    const message = '매일 19시, 호서대학교 셔틀버스 시간표와 공지사항을 자동으로 확인해 변경 내용을 반영합니다.';
+
+    if (Platform.isIOS) {
+      final shouldOpenHomepage =
+          await PlatformUtils.showIOSNativeActionAlertDialog(
+        title: title,
+        message: message,
+        actionButtonTitle: '홈페이지 이동',
+      );
+
+      if (shouldOpenHomepage != null) {
+        if (shouldOpenHomepage) {
+          await _openShuttleScheduleSource();
+        }
+        return;
+      }
+
+      if (!context.mounted) {
+        return;
+      }
+    }
+
+    return showAdaptiveDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog.adaptive(
+        title: const Text(title),
+        content: const Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('닫기'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.of(dialogContext).pop();
+              _openShuttleScheduleSource();
+            },
+            child: const Text('홈페이지 이동'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _openShuttleScheduleSource() async {
+    final didLaunch = await launchUrl(
+      _shuttleScheduleSourceUrl,
+      mode: LaunchMode.externalApplication,
+    );
+
+    if (!didLaunch) {
+      Get.snackbar(
+        '알림',
+        '호서대학교 셔틀버스 안내 페이지를 열 수 없습니다.',
+        snackPosition: SnackPosition.BOTTOM,
+      );
+    }
   }
 
   Widget _buildJourneySelectionArea(BuildContext context) {

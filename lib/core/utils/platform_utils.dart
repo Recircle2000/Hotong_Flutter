@@ -95,6 +95,36 @@ class PlatformUtils {
     }
   }
 
+  // UIKit의 UIAlertController로 두 가지 동작이 있는 알림창을 띄운다.
+  // 채널을 사용할 수 없으면 null, 기본 동작은 true, 취소는 false를 반환한다.
+  static Future<bool?> showIOSNativeActionAlertDialog({
+    required String title,
+    required String message,
+    required String actionButtonTitle,
+    String cancelButtonTitle = '닫기',
+  }) async {
+    if (!Platform.isIOS) {
+      return null;
+    }
+
+    try {
+      final selectedAction = await _iosAlertDialogChannel.invokeMethod<String>(
+        'showAction',
+        <String, String>{
+          'title': title,
+          'message': message,
+          'actionButtonTitle': actionButtonTitle,
+          'cancelButtonTitle': cancelButtonTitle,
+        },
+      );
+      return selectedAction == 'action';
+    } on PlatformException {
+      return null;
+    } on MissingPluginException {
+      return null;
+    }
+  }
+
   // iOS 면책 다이얼로그
   static Future<void> showIOSDisclaimerDialog(BuildContext context) async {
     // iOS에서는 Flutter 다이얼로그 대신 UIKit의 UIAlertController를 먼저 시도한다.

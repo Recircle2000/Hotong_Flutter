@@ -87,12 +87,6 @@ import UIKit
     )
 
     channel.setMethodCallHandler { [weak self] call, result in
-      // 지금 채널에서는 iOS 기본 알림창 표시 요청 하나만 처리한다.
-      guard call.method == "show" else {
-        result(FlutterMethodNotImplemented)
-        return
-      }
-
       guard let self = self else {
         result(FlutterError(
           code: "channel_unavailable",
@@ -102,7 +96,14 @@ import UIKit
         return
       }
 
-      self.showAlertDialog(call: call, result: result)
+      switch call.method {
+      case "show":
+        self.showAlertDialog(call: call, result: result)
+      case "showAction":
+        self.showActionAlertDialog(call: call, result: result)
+      default:
+        result(FlutterMethodNotImplemented)
+      }
     }
 
     alertDialogChannel = channel
@@ -285,6 +286,56 @@ import UIKit
       alertController.addAction(UIAlertAction(title: buttonTitle, style: .default) { _ in
         // 사용자가 확인을 누른 뒤에 Dart의 await가 끝나도록 result를 완료한다.
         result(nil)
+      })
+
+      presenter.present(alertController, animated: true)
+    }
+  }
+
+  private func showActionAlertDialog(
+    call: FlutterMethodCall,
+    result: @escaping FlutterResult
+  ) {
+    guard let args = call.arguments as? [String: Any],
+          let title = args["title"] as? String,
+          let message = args["message"] as? String,
+          let actionButtonTitle = args["actionButtonTitle"] as? String else {
+      result(FlutterError(
+        code: "invalid_arguments",
+        message: "동작 알림 다이얼로그 문구가 올바르지 않습니다.",
+        details: nil
+      ))
+      return
+    }
+
+    let cancelButtonTitle = args["cancelButtonTitle"] as? String ?? "닫기"
+
+    DispatchQueue.main.async { [weak self] in
+      guard let self = self, let presenter = self.topViewController() else {
+        result(FlutterError(
+          code: "presentation_failed",
+          message: "알림 다이얼로그를 표시할 수 없습니다.",
+          details: nil
+        ))
+        return
+      }
+
+      let alertController = UIAlertController(
+        title: title,
+        message: message,
+        preferredStyle: .alert
+      )
+      alertController.addAction(UIAlertAction(
+        title: cancelButtonTitle,
+        style: .cancel
+      ) { _ in
+        result("cancel")
+      })
+      alertController.addAction(UIAlertAction(
+        title: actionButtonTitle,
+        style: .default
+      ) { _ in
+        result("action")
       })
 
       presenter.present(alertController, animated: true)
