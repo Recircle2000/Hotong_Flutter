@@ -57,8 +57,8 @@ class SettingsView extends StatelessWidget {
                           title: '기준 캠퍼스',
                           selectedValue: controller.selectedCampus.value,
                           choices: const [
-                            _SettingChoice(label: '아산캠퍼스', value: '아산'),
-                            _SettingChoice(label: '천안캠퍼스', value: '천안'),
+                            _SettingChoice(label: '아산', value: '아산'),
+                            _SettingChoice(label: '천안', value: '천안'),
                           ],
                           onChanged: controller.setCampus,
                         ),
@@ -144,85 +144,98 @@ class SettingsView extends StatelessWidget {
     required List<_SettingChoice> choices,
     required ValueChanged<String> onChanged,
   }) {
-    final textTheme = Theme.of(context).textTheme;
+    final theme = Theme.of(context);
+    final textTheme = theme.textTheme;
 
     // 여러 선택지 중 하나를 고르는 섹션
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        Text(
-          title,
-          style: textTheme.titleSmall?.copyWith(
-            fontWeight: FontWeight.w700,
+        Expanded(
+          child: Text(
+            title,
+            style: textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ),
-        const SizedBox(height: 10),
-        Row(
-          children: [
-            for (var index = 0; index < choices.length; index++) ...[
-              Expanded(
-                child: _buildChoiceButton(
+        const SizedBox(width: 16),
+        Container(
+          padding: const EdgeInsets.all(3),
+          decoration: BoxDecoration(
+            color: theme.colorScheme.onSurface.withValues(alpha: 0.06),
+            borderRadius: BorderRadius.circular(11),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              for (final choice in choices)
+                _buildChoiceSegment(
                   context,
-                  label: choices[index].label,
-                  isSelected: selectedValue == choices[index].value,
-                  onTap: () => onChanged(choices[index].value),
+                  label: choice.label,
+                  isSelected: selectedValue == choice.value,
+                  onTap: () {
+                    if (selectedValue == choice.value) {
+                      return;
+                    }
+                    HapticFeedback.selectionClick();
+                    onChanged(choice.value);
+                  },
                 ),
-              ),
-              if (index != choices.length - 1) const SizedBox(width: 8),
             ],
-          ],
+          ),
         ),
       ],
     );
   }
 
-  Widget _buildChoiceButton(
+  Widget _buildChoiceSegment(
     BuildContext context, {
     required String label,
     required bool isSelected,
     required VoidCallback onTap,
   }) {
     final theme = Theme.of(context);
-    final colorScheme = Theme.of(context).colorScheme;
+    final colorScheme = theme.colorScheme;
 
-    return ScaleButton(
-      onTap: onTap,
-      child: AnimatedContainer(
-        // 선택 상태가 바뀔 때 배경과 테두리를 부드럽게 전환
-        duration: const Duration(milliseconds: 160),
-        curve: Curves.easeOut,
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-        decoration: BoxDecoration(
-          color: isSelected
-              ? colorScheme.primary.withValues(alpha: 0.12)
-              : theme.scaffoldBackgroundColor.withValues(alpha: 0.45),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: isSelected
-                ? colorScheme.primary.withValues(alpha: 0.28)
-                : theme.dividerColor.withValues(alpha: 0.18),
-          ),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              isSelected ? Icons.check_circle : Icons.circle_outlined,
-              size: 16,
-              color: isSelected ? colorScheme.primary : Colors.grey[400],
+    return Semantics(
+      button: true,
+      selected: isSelected,
+      label: label,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: SizedBox(
+          width: 64,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 160),
+            curve: Curves.easeOutCubic,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+            decoration: BoxDecoration(
+              color: isSelected ? colorScheme.surface : Colors.transparent,
+              borderRadius: BorderRadius.circular(8),
+              boxShadow: isSelected
+                  ? [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.08),
+                        blurRadius: 4,
+                        offset: const Offset(0, 1),
+                      ),
+                    ]
+                  : null,
             ),
-            const SizedBox(width: 8),
-            Flexible(
-              child: Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+            child: AnimatedDefaultTextStyle(
+              duration: const Duration(milliseconds: 160),
+              curve: Curves.easeOutCubic,
+              style: theme.textTheme.bodySmall!.copyWith(
+                color: colorScheme.onSurface.withValues(
+                  alpha: isSelected ? 0.92 : 0.52,
                 ),
+                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
               ),
+              child: Text(label, textAlign: TextAlign.center),
             ),
-          ],
+          ),
         ),
       ),
     );
