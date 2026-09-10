@@ -7,6 +7,9 @@ import 'package:hsro/features/shuttle/models/shuttle_models.dart';
 import 'package:hsro/features/shuttle/viewmodel/shuttle_viewmodel.dart';
 import 'package:hsro/shared/widgets/ios_platform_fields.dart';
 import 'package:intl/intl.dart';
+import 'package:hsro/core/services/link_share_service.dart';
+import 'package:hsro/core/utils/transport_share_links.dart';
+import 'package:hsro/shared/widgets/link_share_button.dart';
 
 class ShuttleJourneyResultView extends StatefulWidget {
   final ShuttleJourneySearchResult initialResult;
@@ -35,6 +38,7 @@ class _ShuttleJourneyResultViewState extends State<ShuttleJourneyResultView> {
   final Set<int> _noScheduleStopIds = <int>{};
   int? _expandedScheduleId;
   Timer? _clockTimer;
+  int _pendingReloads = 0;
 
   @override
   void initState() {
@@ -75,6 +79,18 @@ class _ShuttleJourneyResultViewState extends State<ShuttleJourneyResultView> {
           style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
         ),
         actions: [
+          LinkShareButton(
+            enabled: _pendingReloads == 0,
+            content: () => LinkShareContent(
+              title: '${_result.originStationName} → '
+                  '${_result.destinationStationName} 셔틀 시간표',
+              uri: TransportShareLinks.shuttleJourney(
+                originStationId: _result.originStationId,
+                destinationStationId: _result.destinationStationId,
+                date: _result.date,
+              ),
+            ),
+          ),
           Obx(
             () => IconButton(
               tooltip:
@@ -771,10 +787,15 @@ class _ShuttleJourneyResultViewState extends State<ShuttleJourneyResultView> {
   }
 
   Future<void> _reload() async {
-    final result = await _viewModel.searchJourneys();
-    if (result != null && mounted) {
-      setState(() => _result = result);
-      _scrollToNextJourney();
+    setState(() => _pendingReloads++);
+    try {
+      final result = await _viewModel.searchJourneys();
+      if (result != null && mounted) {
+        setState(() => _result = result);
+        _scrollToNextJourney();
+      }
+    } finally {
+      if (mounted) setState(() => _pendingReloads--);
     }
   }
 
