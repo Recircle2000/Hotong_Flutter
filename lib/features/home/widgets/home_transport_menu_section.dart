@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:hsro/features/city_bus/view/grouped_bus_view.dart';
+import 'package:hsro/features/auth/view/taxi_auth_gate_view.dart';
 import 'package:hsro/features/settings/viewmodel/settings_viewmodel.dart';
 import 'package:hsro/features/shuttle/view/shuttle_route_selection_view.dart';
 import 'package:hsro/features/subway/view/subway_view.dart';
@@ -49,20 +50,38 @@ class HomeTransportMenuSection extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 12),
-          // 지하철 카드
+          // 지하철/택시 카드
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: _TransportMenuCard(
-              title: '지하철',
-              icon: Icons.subway_outlined,
-              color: const Color(0xFF0052A4),
-              onTap: () => Get.to(
-                () => SubwayView(
-                  stationName: settingsViewModel.selectedSubwayStation.value,
+            child: Row(
+              children: [
+                Expanded(
+                  child: _TransportMenuCard(
+                    title: '지하철',
+                    icon: Icons.subway_outlined,
+                    color: const Color(0xFF0052A4),
+                    onTap: () => Get.to(
+                      () => SubwayView(
+                        stationName:
+                            settingsViewModel.selectedSubwayStation.value,
+                      ),
+                    ),
+                    height: 80,
+                    isCompact: true,
+                  ),
                 ),
-              ),
-              height: 80,
-              isHorizontal: true,
+                const SizedBox(width: 16),
+                Expanded(
+                  child: _TransportMenuCard(
+                    title: '택시',
+                    icon: Icons.local_taxi_outlined,
+                    color: const Color(0xFFF5A623),
+                    onTap: () => Get.to(() => const TaxiAuthGateView()),
+                    height: 80,
+                    isCompact: true,
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -78,7 +97,7 @@ class _TransportMenuCard extends StatelessWidget {
     required this.color,
     required this.onTap,
     this.height,
-    this.isHorizontal = false,
+    this.isCompact = false,
   });
 
   final String title;
@@ -86,7 +105,7 @@ class _TransportMenuCard extends StatelessWidget {
   final Color color;
   final VoidCallback onTap;
   final double? height;
-  final bool isHorizontal;
+  final bool isCompact;
 
   @override
   Widget build(BuildContext context) {
@@ -103,57 +122,34 @@ class _TransportMenuCard extends StatelessWidget {
           borderRadius: BorderRadius.circular(25),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.1),
+              color: Colors.black.withValues(alpha: 0.1),
               blurRadius: 10,
               offset: const Offset(0, 0),
             ),
           ],
         ),
         padding: const EdgeInsets.all(16),
-        child: isHorizontal
-            // 가로형 카드 레이아웃
+        child: isCompact
+            // 작은 가로형 카드 레이아웃
             ? Row(
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Container(
-                    padding: EdgeInsets.all(isHorizontal ? 8 : 16),
+                    padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: color.withOpacity(0.1),
+                      color: color.withValues(alpha: 0.1),
                       shape: BoxShape.circle,
                     ),
-                    child: Icon(
-                      icon,
-                      size: 32,
-                      color: color,
+                    child: Icon(icon, size: 28, color: color),
+                  ),
+                  const SizedBox(width: 10),
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: textColor,
                     ),
-                  ),
-                  const SizedBox(width: 20),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        title,
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: textColor,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        '실시간 도착 정보 / 시간표',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey[600],
-                        ),
-                      ),
-                    ],
-                  ),
-                  const Spacer(),
-                  Icon(
-                    Icons.arrow_forward_ios,
-                    size: 16,
-                    color: Colors.grey[400],
                   ),
                 ],
               )
@@ -164,7 +160,7 @@ class _TransportMenuCard extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.all(20),
                     decoration: BoxDecoration(
-                      color: color.withOpacity(0.1),
+                      color: color.withValues(alpha: 0.1),
                       shape: BoxShape.circle,
                     ),
                     child: Icon(
