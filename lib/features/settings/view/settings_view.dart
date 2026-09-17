@@ -466,8 +466,7 @@ class SettingsView extends StatelessWidget {
                 '피드백/지원',
                 () async {
                   // 피드백 접수 폼 열기
-                  final Uri url = Uri.parse(
-                      'https://docs.google.com/forms/d/e/1FAIpQLSdPCDCj8mVqkTTHmwPD0b_lINF8woqUBCH_MmNsvs9OS4OfMQ/viewform?usp=publish-editor');
+                  final Uri url = Uri.parse('https://naver.me/FaehTRet');
                   if (await canLaunchUrl(url)) {
                     await launchUrl(url, mode: LaunchMode.externalApplication);
                   }
