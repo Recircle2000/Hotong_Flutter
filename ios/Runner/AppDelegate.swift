@@ -9,6 +9,8 @@ import UIKit
   private var favoriteJourneyMenuPresenter: AnyObject?
   private var stationInfoMenuChannel: FlutterMethodChannel?
   private var stationInfoMenuPresenter: AnyObject?
+  private var taxiMenuChannel: FlutterMethodChannel?
+  private var taxiMenuDismissDelegate: IOSTaxiMenuDismissDelegate?
   private var arrivalStationPickerDismissDelegate: IOSArrivalStationPickerDismissDelegate?
 
   override func application(
@@ -50,6 +52,7 @@ import UIKit
     registerAlertDialogChannel(binaryMessenger: binaryMessenger)
     registerFavoriteJourneyMenuChannel(binaryMessenger: binaryMessenger)
     registerStationInfoMenuChannel(binaryMessenger: binaryMessenger)
+    registerTaxiMenuChannel(binaryMessenger: binaryMessenger)
   }
 
   private func registerArrivalStationPickerChannel(binaryMessenger: FlutterBinaryMessenger) {
@@ -161,6 +164,33 @@ import UIKit
     }
 
     stationInfoMenuChannel = channel
+  }
+
+  private func registerTaxiMenuChannel(binaryMessenger: FlutterBinaryMessenger) {
+    let channel = FlutterMethodChannel(
+      name: "hsro/ios_taxi_menu",
+      binaryMessenger: binaryMessenger
+    )
+
+    channel.setMethodCallHandler { [weak self] call, result in
+      guard call.method == "show" else {
+        result(FlutterMethodNotImplemented)
+        return
+      }
+
+      guard let self = self else {
+        result(FlutterError(
+          code: "channel_unavailable",
+          message: "택시팟 메뉴 채널을 사용할 수 없습니다.",
+          details: nil
+        ))
+        return
+      }
+
+      self.showTaxiMenu(call: call, result: result)
+    }
+
+    taxiMenuChannel = channel
   }
 
   private func showArrivalStationPicker(call: FlutterMethodCall, result: @escaping FlutterResult) {
@@ -528,6 +558,91 @@ import UIKit
     }
   }
 
+  private func showTaxiMenu(
+    call: FlutterMethodCall,
+    result: @escaping FlutterResult
+  ) {
+    guard let args = call.arguments as? [String: Any] else {
+      result(FlutterError(
+        code: "invalid_arguments",
+        message: "택시팟 메뉴 정보가 올바르지 않습니다.",
+        details: nil
+      ))
+      return
+    }
+
+    let title = args["title"] as? String ?? "택시팟 메뉴"
+    let email = args["email"] as? String ?? "인증된 사용자"
+    let historyCount = intValue(from: args["historyCount"]) ?? 0
+    let loginInfoTitle = args["loginInfoTitle"] as? String ?? "로그인 정보"
+    let historyTitle = args["historyTitle"] as? String ?? "파티 이용 기록"
+    let logoutTitle = args["logoutTitle"] as? String ?? "로그아웃"
+    let cancelTitle = args["cancelTitle"] as? String ?? "닫기"
+
+    DispatchQueue.main.async { [weak self] in
+      guard let self = self, let presenter = self.topViewController() else {
+        result(FlutterError(
+          code: "presentation_failed",
+          message: "택시팟 메뉴를 표시할 수 없습니다.",
+          details: nil
+        ))
+        return
+      }
+
+      let resultBox = IOSSingleFlutterResult(result)
+      let menu = UIAlertController(
+        title: title,
+        message: "\(email)\n최근 30일 · \(historyCount)건",
+        preferredStyle: .actionSheet
+      )
+      menu.view.tintColor = UIColor(
+        red: 245 / 255,
+        green: 166 / 255,
+        blue: 35 / 255,
+        alpha: 1
+      )
+
+      let complete: (String?) -> Void = { [weak self] action in
+        resultBox.complete(action)
+        self?.taxiMenuDismissDelegate = nil
+      }
+
+      menu.addAction(UIAlertAction(title: loginInfoTitle, style: .default) { _ in
+        complete("loginInfo")
+      })
+      menu.addAction(UIAlertAction(title: historyTitle, style: .default) { _ in
+        complete("history")
+      })
+      menu.addAction(UIAlertAction(title: logoutTitle, style: .destructive) { _ in
+        complete("logout")
+      })
+      menu.addAction(UIAlertAction(title: cancelTitle, style: .cancel) { _ in
+        complete(nil)
+      })
+
+      let dismissDelegate = IOSTaxiMenuDismissDelegate(
+        resultBox: resultBox
+      ) { [weak self] in
+        self?.taxiMenuDismissDelegate = nil
+      }
+      self.taxiMenuDismissDelegate = dismissDelegate
+      menu.presentationController?.delegate = dismissDelegate
+
+      if let popover = menu.popoverPresentationController {
+        popover.sourceView = presenter.view
+        popover.sourceRect = CGRect(
+          x: presenter.view.bounds.midX,
+          y: presenter.view.bounds.maxY,
+          width: 0,
+          height: 0
+        )
+        popover.permittedArrowDirections = []
+      }
+
+      presenter.present(menu, animated: true)
+    }
+  }
+
   private func topViewController(from root: UIViewController? = nil) -> UIViewController? {
     let rootViewController = root ?? keyWindow?.rootViewController
 
@@ -715,6 +830,24 @@ private final class IOSSingleFlutterResult {
 }
 
 private final class IOSArrivalStationPickerDismissDelegate: NSObject, UIAdaptivePresentationControllerDelegate {
+  private let resultBox: IOSSingleFlutterResult
+  private let onDismiss: () -> Void
+
+  init(
+    resultBox: IOSSingleFlutterResult,
+    onDismiss: @escaping () -> Void
+  ) {
+    self.resultBox = resultBox
+    self.onDismiss = onDismiss
+  }
+
+  func presentationControllerDidDismiss(_ presentationController: UIPresentationController) {
+    resultBox.complete(nil)
+    onDismiss()
+  }
+}
+
+private final class IOSTaxiMenuDismissDelegate: NSObject, UIAdaptivePresentationControllerDelegate {
   private let resultBox: IOSSingleFlutterResult
   private let onDismiss: () -> Void
 

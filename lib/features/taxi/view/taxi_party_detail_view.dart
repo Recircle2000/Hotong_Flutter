@@ -8,6 +8,20 @@ import 'package:hsro/features/taxi/view/taxi_party_edit_view.dart';
 import 'package:hsro/features/taxi/viewmodel/taxi_party_detail_viewmodel.dart';
 import 'package:intl/intl.dart';
 
+const _taxiAccent = Color(0xFFF5A623);
+const _taxiAccentForeground = Color(0xFF30210A);
+
+Color _taxiTint(BuildContext context, [double? alpha]) =>
+    _taxiAccent.withValues(
+      alpha: alpha ??
+          (Theme.of(context).brightness == Brightness.dark ? 0.16 : 0.12),
+    );
+
+Color _taxiAccentText(BuildContext context) =>
+    Theme.of(context).brightness == Brightness.dark
+        ? const Color(0xFFFFC766)
+        : const Color(0xFF855300);
+
 class TaxiPartyDetailView extends StatefulWidget {
   const TaxiPartyDetailView({
     super.key,
@@ -65,6 +79,10 @@ class _TaxiPartyDetailViewState extends State<TaxiPartyDetailView> {
               ),
               FilledButton(
                 onPressed: () => Navigator.pop(context, true),
+                style: FilledButton.styleFrom(
+                  backgroundColor: Theme.of(context).colorScheme.error,
+                  foregroundColor: Theme.of(context).colorScheme.onError,
+                ),
                 child: Text(action),
               ),
             ],
@@ -185,7 +203,9 @@ class _TaxiPartyDetailViewState extends State<TaxiPartyDetailView> {
 
   Widget _buildBody(TaxiPartyDetail? party) {
     if (party == null && controller.isLoading.value) {
-      return const Center(child: CircularProgressIndicator());
+      return const Center(
+        child: CircularProgressIndicator(color: _taxiAccent),
+      );
     }
     if (party == null) {
       return _LoadFailure(
@@ -194,6 +214,7 @@ class _TaxiPartyDetailViewState extends State<TaxiPartyDetailView> {
       );
     }
     return RefreshIndicator(
+      color: _taxiAccent,
       onRefresh: controller.load,
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
@@ -240,6 +261,15 @@ class _TaxiPartyDetailViewState extends State<TaxiPartyDetailView> {
                 width: double.infinity,
                 height: 52,
                 child: FilledButton(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: _taxiAccent,
+                    foregroundColor: _taxiAccentForeground,
+                    disabledBackgroundColor:
+                        _taxiAccent.withValues(alpha: 0.45),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                  ),
                   onPressed: controller.isLoading.value
                       ? null
                       : canJoin
@@ -261,7 +291,11 @@ class _TaxiPartyDetailViewState extends State<TaxiPartyDetailView> {
                       ),
                       if (!canJoin && party.unreadCount > 0) ...[
                         const SizedBox(width: 8),
-                        Badge(label: Text('${party.unreadCount}')),
+                        Badge(
+                          backgroundColor: _taxiAccentForeground,
+                          textColor: Colors.white,
+                          label: Text('${party.unreadCount}'),
+                        ),
                       ],
                     ],
                   ),
@@ -302,13 +336,13 @@ class _StatusSummary extends StatelessWidget {
     final chipColor = cancelled
         ? colors.errorContainer
         : active
-            ? colors.primaryContainer
-            : colors.secondaryContainer;
+            ? _taxiTint(context)
+            : colors.onSurface.withValues(alpha: 0.06);
     final chipForeground = cancelled
         ? colors.onErrorContainer
         : active
-            ? colors.onPrimaryContainer
-            : colors.onSecondaryContainer;
+            ? _taxiAccentText(context)
+            : colors.onSurfaceVariant;
 
     return Row(
       children: [
@@ -378,7 +412,7 @@ class _StatusSummary extends StatelessWidget {
                 TextSpan(
                   text: '${party.currentMembers}',
                   style: TextStyle(
-                    color: colors.primary,
+                    color: _taxiAccentText(context),
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -436,13 +470,13 @@ class _RouteOverviewCard extends StatelessWidget {
                 width: 36,
                 height: 36,
                 decoration: BoxDecoration(
-                  color: colors.primaryContainer,
+                  color: _taxiTint(context),
                   borderRadius: BorderRadius.circular(11),
                 ),
                 child: Icon(
                   Icons.schedule,
                   size: 20,
-                  color: colors.onPrimaryContainer,
+                  color: _taxiAccentText(context),
                 ),
               ),
               const SizedBox(width: 10),
@@ -470,13 +504,13 @@ class _RouteOverviewCard extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
                 decoration: BoxDecoration(
-                  color: colors.tertiaryContainer,
+                  color: _taxiTint(context, 0.09),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
                   _departureState(),
                   style: theme.textTheme.labelSmall?.copyWith(
-                    color: colors.onTertiaryContainer,
+                    color: _taxiAccentText(context),
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -516,7 +550,7 @@ class _RouteOverviewCard extends StatelessWidget {
                   width: 18,
                   child: Column(
                     children: [
-                      _RouteDot(color: colors.primary),
+                      const _RouteDot(color: _taxiAccent),
                       Expanded(
                         child: Container(
                           width: 2,
@@ -550,7 +584,11 @@ class _RouteOverviewCard extends StatelessWidget {
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(Icons.lock_outline, size: 18, color: colors.primary),
+                const Icon(
+                  Icons.lock_outline,
+                  size: 18,
+                  color: _taxiAccent,
+                ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Column(
@@ -715,8 +753,9 @@ class _MemberTile extends StatelessWidget {
           CircleAvatar(
             radius: 18,
             backgroundColor:
-                member.isOwner ? colors.primary : colors.onSurfaceVariant,
-            foregroundColor: member.isOwner ? colors.onPrimary : colors.surface,
+                member.isOwner ? _taxiAccent : colors.onSurfaceVariant,
+            foregroundColor:
+                member.isOwner ? _taxiAccentForeground : colors.surface,
             child: Icon(
               member.isOwner ? Icons.star_outline : Icons.person_outline,
               size: 19,
@@ -739,7 +778,7 @@ class _MemberTile extends StatelessWidget {
                   Text(
                     '나',
                     style: theme.textTheme.labelSmall?.copyWith(
-                      color: colors.primary,
+                      color: _taxiAccentText(context),
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -884,7 +923,14 @@ class _LoadFailure extends StatelessWidget {
           children: [
             Text(message.isEmpty ? '택시팟 정보를 불러오지 못했습니다.' : message),
             const SizedBox(height: 12),
-            FilledButton(onPressed: onRetry, child: const Text('다시 시도')),
+            FilledButton(
+              onPressed: onRetry,
+              style: FilledButton.styleFrom(
+                backgroundColor: _taxiAccent,
+                foregroundColor: _taxiAccentForeground,
+              ),
+              child: const Text('다시 시도'),
+            ),
           ],
         ),
       );
