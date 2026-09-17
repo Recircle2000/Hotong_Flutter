@@ -5,6 +5,7 @@ import 'package:hsro/core/services/auth_service.dart';
 import 'package:hsro/features/auth/repository/auth_repository.dart';
 import 'package:hsro/features/auth/view/school_email_auth_view.dart';
 import 'package:hsro/features/auth/viewmodel/auth_viewmodel.dart';
+import 'package:hsro/features/taxi/view/taxi_home_view.dart';
 
 class TaxiAuthGateView extends StatefulWidget {
   const TaxiAuthGateView({super.key});
@@ -45,12 +46,17 @@ class _TaxiAuthGateViewState extends State<TaxiAuthGateView> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('택시팟')),
-      body: SafeArea(
-        child: Obx(() => _buildBody(context)),
-      ),
-    );
+    return Obx(() {
+      if (_controller.step.value == TaxiAuthStep.verified) {
+        return TaxiHomeView(onLogout: _controller.logout);
+      }
+      return Scaffold(
+        appBar: AppBar(title: const Text('택시팟')),
+        body: SafeArea(
+          child: _buildBody(context),
+        ),
+      );
+    });
   }
 
   Widget _buildBody(BuildContext context) {
@@ -65,14 +71,7 @@ class _TaxiAuthGateViewState extends State<TaxiAuthGateView> {
           otpController: _otpController,
         );
       case TaxiAuthStep.verified:
-        return _StatusView(
-          icon: Icons.verified_rounded,
-          title: '학교 이메일 인증 완료',
-          message: '택시팟 기능을 준비 중입니다.',
-          primaryLabel: '로그아웃',
-          isLoading: _controller.isLoading.value,
-          onPrimary: _controller.logout,
-        );
+        return const SizedBox.shrink();
       case TaxiAuthStep.serverUnavailable:
         return _StatusView(
           icon: Icons.cloud_off_outlined,

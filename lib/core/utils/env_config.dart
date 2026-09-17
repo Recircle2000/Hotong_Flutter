@@ -12,6 +12,13 @@ class EnvConfig {
       dotenv.env['SUPABASE_PROJECT_URL']?.trim() ?? '';
   static String get supabasePublishableKey =>
       dotenv.env['SUPABASE_PUBLISHABLE_KEY']?.trim() ?? '';
+  static Set<String> get authTestEmails =>
+      dotenv.env['APP_AUTH_TEST_EMAILS']
+          ?.split(',')
+          .map((email) => email.trim().toLowerCase())
+          .where((email) => email.isNotEmpty)
+          .toSet() ??
+      const <String>{};
 
   static bool get hasSupabaseAuthConfiguration =>
       supabaseProjectUrl.startsWith('https://') &&

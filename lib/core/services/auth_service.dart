@@ -10,16 +10,22 @@ class InvalidSchoolEmailException implements Exception {}
 class InvalidOtpException implements Exception {}
 
 class AuthService extends GetxService {
-  AuthService(this._client, {String? unavailableMessage})
-      : unavailableMessage = unavailableMessage ?? '';
+  AuthService(
+    this._client, {
+    Set<String> allowedTestEmails = const {},
+    String? unavailableMessage,
+  })  : allowedTestEmails = Set.unmodifiable(allowedTestEmails),
+        unavailableMessage = unavailableMessage ?? '';
 
   AuthService.unavailable([String? message])
       : _client = null,
+        allowedTestEmails = const {},
         unavailableMessage = message ?? '인증 설정을 불러오지 못했습니다.';
 
   static const schoolEmailDomain = 'vision.hoseo.edu';
 
   final SupabaseClient? _client;
+  final Set<String> allowedTestEmails;
   final String unavailableMessage;
   final sessionState = AppAuthSessionState.unavailable.obs;
   final currentSession = Rxn<Session>();
@@ -29,6 +35,7 @@ class AuthService extends GetxService {
 
   bool get isAvailable => _client != null;
   String? get currentUserId => currentSession.value?.user.id;
+  String? get currentUserEmail => currentSession.value?.user.email;
 
   Future<AuthService> init() async {
     final client = _client;
@@ -44,12 +51,16 @@ class AuthService extends GetxService {
     return this;
   }
 
-  static String normalizeSchoolEmail(String rawEmail) {
+  static String normalizeSchoolEmail(
+    String rawEmail, {
+    Set<String> allowedTestEmails = const {},
+  }) {
     final email = rawEmail.trim().toLowerCase();
     final parts = email.split('@');
     if (parts.length != 2 ||
         parts.first.isEmpty ||
-        parts.last != schoolEmailDomain ||
+        (parts.last != schoolEmailDomain &&
+            !allowedTestEmails.contains(email)) ||
         email.runes.any(
             (character) => String.fromCharCode(character).trim().isEmpty)) {
       throw InvalidSchoolEmailException();
@@ -59,7 +70,10 @@ class AuthService extends GetxService {
 
   Future<String> sendOtp(String rawEmail) async {
     final client = _requireClient();
-    final email = normalizeSchoolEmail(rawEmail);
+    final email = normalizeSchoolEmail(
+      rawEmail,
+      allowedTestEmails: allowedTestEmails,
+    );
     await client.auth.signInWithOtp(
       email: email,
       shouldCreateUser: true,
@@ -70,7 +84,10 @@ class AuthService extends GetxService {
   Future<Session> verifyOtp(
       {required String email, required String otp}) async {
     final client = _requireClient();
-    final normalizedEmail = normalizeSchoolEmail(email);
+    final normalizedEmail = normalizeSchoolEmail(
+      email,
+      allowedTestEmails: allowedTestEmails,
+    );
     final normalizedOtp = otp.trim();
     if (!RegExp(r'^\d{6}$').hasMatch(normalizedOtp)) {
       throw InvalidOtpException();

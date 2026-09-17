@@ -10,6 +10,25 @@ void main() {
       );
     });
 
+    test('accepts only exact configured test email addresses', () {
+      const allowed = {'tester@example.com'};
+
+      expect(
+        AuthService.normalizeSchoolEmail(
+          ' Tester@Example.com ',
+          allowedTestEmails: allowed,
+        ),
+        'tester@example.com',
+      );
+      expect(
+        () => AuthService.normalizeSchoolEmail(
+          'tester+other@example.com',
+          allowedTestEmails: allowed,
+        ),
+        throwsA(isA<InvalidSchoolEmailException>()),
+      );
+    });
+
     for (final invalidEmail in <String>[
       '',
       '@vision.hoseo.edu',

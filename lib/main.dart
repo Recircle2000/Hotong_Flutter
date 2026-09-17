@@ -32,7 +32,10 @@ void main() async {
           detectSessionInUri: false,
         ),
       );
-      authService = await AuthService(Supabase.instance.client).init();
+      authService = await AuthService(
+        Supabase.instance.client,
+        allowedTestEmails: EnvConfig.authTestEmails,
+      ).init();
     } catch (_) {
       authService = await AuthService.unavailable(
         '인증 설정을 불러오지 못했습니다.',
