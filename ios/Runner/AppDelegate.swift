@@ -10,6 +10,7 @@ import UIKit
   private var stationInfoMenuChannel: FlutterMethodChannel?
   private var stationInfoMenuPresenter: AnyObject?
   private var taxiMenuChannel: FlutterMethodChannel?
+  private var taxiMenuDismissDelegate: IOSTaxiMenuDismissDelegate?
   private var arrivalStationPickerDismissDelegate: IOSArrivalStationPickerDismissDelegate?
 
   override func application(
@@ -589,36 +590,40 @@ import UIKit
       }
 
       let resultBox = IOSSingleFlutterResult(result)
-      let menu = UIAlertController(
+      let menuController = IOSTaxiMenuViewController(
         title: title,
-        message: "\(email)\n최근 30일 · \(historyCount)건",
-        preferredStyle: .alert
-      )
-      menu.view.tintColor = UIColor(
-        red: 245 / 255,
-        green: 166 / 255,
-        blue: 35 / 255,
-        alpha: 1
-      )
-
-      let complete: (String?) -> Void = { action in
+        email: email,
+        historyCount: historyCount,
+        loginInfoTitle: loginInfoTitle,
+        historyTitle: historyTitle,
+        logoutTitle: logoutTitle,
+        cancelTitle: cancelTitle
+      ) { [weak self] action in
         resultBox.complete(action)
+        self?.taxiMenuDismissDelegate = nil
+      }
+      let navigationController = UINavigationController(
+        rootViewController: menuController
+      )
+      navigationController.modalPresentationStyle = .pageSheet
+
+      if let sheet = navigationController.sheetPresentationController {
+        sheet.detents = [.medium()]
+        sheet.selectedDetentIdentifier = .medium
+        sheet.prefersGrabberVisible = true
+        sheet.prefersScrollingExpandsWhenScrolledToEdge = false
+        sheet.preferredCornerRadius = 28
       }
 
-      menu.addAction(UIAlertAction(title: loginInfoTitle, style: .default) { _ in
-        complete("loginInfo")
-      })
-      menu.addAction(UIAlertAction(title: historyTitle, style: .default) { _ in
-        complete("history")
-      })
-      menu.addAction(UIAlertAction(title: logoutTitle, style: .destructive) { _ in
-        complete("logout")
-      })
-      menu.addAction(UIAlertAction(title: cancelTitle, style: .cancel) { _ in
-        complete(nil)
-      })
+      let dismissDelegate = IOSTaxiMenuDismissDelegate(
+        resultBox: resultBox
+      ) { [weak self] in
+        self?.taxiMenuDismissDelegate = nil
+      }
+      self.taxiMenuDismissDelegate = dismissDelegate
+      navigationController.presentationController?.delegate = dismissDelegate
 
-      presenter.present(menu, animated: true)
+      presenter.present(navigationController, animated: true)
     }
   }
 
@@ -823,6 +828,211 @@ private final class IOSArrivalStationPickerDismissDelegate: NSObject, UIAdaptive
   func presentationControllerDidDismiss(_ presentationController: UIPresentationController) {
     resultBox.complete(nil)
     onDismiss()
+  }
+}
+
+private final class IOSTaxiMenuDismissDelegate: NSObject, UIAdaptivePresentationControllerDelegate {
+  private let resultBox: IOSSingleFlutterResult
+  private let onDismiss: () -> Void
+
+  init(
+    resultBox: IOSSingleFlutterResult,
+    onDismiss: @escaping () -> Void
+  ) {
+    self.resultBox = resultBox
+    self.onDismiss = onDismiss
+  }
+
+  func presentationControllerDidDismiss(_ presentationController: UIPresentationController) {
+    resultBox.complete(nil)
+    onDismiss()
+  }
+}
+
+private final class IOSTaxiMenuViewController: UITableViewController {
+  private static let cellIdentifier = "IOSTaxiMenuCell"
+  private static let accentColor = UIColor(
+    red: 245 / 255,
+    green: 166 / 255,
+    blue: 35 / 255,
+    alpha: 1
+  )
+
+  private let menuTitle: String
+  private let email: String
+  private let historyCount: Int
+  private let loginInfoTitle: String
+  private let historyTitle: String
+  private let logoutTitle: String
+  private let cancelTitle: String
+  private let onSelect: (String?) -> Void
+  private var didComplete = false
+
+  init(
+    title: String,
+    email: String,
+    historyCount: Int,
+    loginInfoTitle: String,
+    historyTitle: String,
+    logoutTitle: String,
+    cancelTitle: String,
+    onSelect: @escaping (String?) -> Void
+  ) {
+    self.menuTitle = title
+    self.email = email
+    self.historyCount = historyCount
+    self.loginInfoTitle = loginInfoTitle
+    self.historyTitle = historyTitle
+    self.logoutTitle = logoutTitle
+    self.cancelTitle = cancelTitle
+    self.onSelect = onSelect
+    super.init(style: .insetGrouped)
+  }
+
+  required init?(coder: NSCoder) {
+    fatalError("init(coder:) has not been implemented")
+  }
+
+  override func viewDidLoad() {
+    super.viewDidLoad()
+
+    title = menuTitle
+    view.backgroundColor = .systemGroupedBackground
+    navigationItem.rightBarButtonItem = UIBarButtonItem(
+      title: cancelTitle,
+      style: .plain,
+      target: self,
+      action: #selector(handleClose)
+    )
+    navigationController?.navigationBar.tintColor = Self.accentColor
+
+    tableView.rowHeight = 68
+    tableView.sectionHeaderHeight = 8
+    tableView.sectionFooterHeight = 8
+    tableView.tableHeaderView = makeHeaderView()
+  }
+
+  override func numberOfSections(in tableView: UITableView) -> Int {
+    2
+  }
+
+  override func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
+    section == 0 ? 2 : 1
+  }
+
+  override func tableView(
+    _ tableView: UITableView,
+    cellForRowAt indexPath: IndexPath
+  ) -> UITableViewCell {
+    let cell = tableView.dequeueReusableCell(withIdentifier: Self.cellIdentifier)
+      ?? UITableViewCell(style: .subtitle, reuseIdentifier: Self.cellIdentifier)
+    var content = cell.defaultContentConfiguration()
+    content.textProperties.font = .preferredFont(forTextStyle: .body)
+    content.textProperties.color = .label
+    content.secondaryTextProperties.color = .secondaryLabel
+    content.imageProperties.maximumSize = CGSize(width: 24, height: 24)
+
+    switch (indexPath.section, indexPath.row) {
+    case (0, 0):
+      content.text = loginInfoTitle
+      content.secondaryText = "인증된 계정 정보 확인"
+      content.image = UIImage(systemName: "person.crop.circle")
+      content.imageProperties.tintColor = Self.accentColor
+      cell.accessoryType = .disclosureIndicator
+    case (0, 1):
+      content.text = historyTitle
+      content.secondaryText = "최근 30일 · \(historyCount)건"
+      content.image = UIImage(systemName: "clock.arrow.circlepath")
+      content.imageProperties.tintColor = Self.accentColor
+      cell.accessoryType = .disclosureIndicator
+    default:
+      content.text = logoutTitle
+      content.secondaryText = "현재 기기에서 로그아웃"
+      content.textProperties.color = .systemRed
+      content.image = UIImage(systemName: "rectangle.portrait.and.arrow.right")
+      content.imageProperties.tintColor = .systemRed
+      cell.accessoryType = .none
+    }
+
+    cell.contentConfiguration = content
+    return cell
+  }
+
+  override func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
+    tableView.deselectRow(at: indexPath, animated: true)
+
+    switch (indexPath.section, indexPath.row) {
+    case (0, 0):
+      complete(with: "loginInfo")
+    case (0, 1):
+      complete(with: "history")
+    default:
+      complete(with: "logout")
+    }
+  }
+
+  private func makeHeaderView() -> UIView {
+    let header = UIView(frame: CGRect(x: 0, y: 0, width: view.bounds.width, height: 104))
+
+    let symbolContainer = UIView()
+    symbolContainer.translatesAutoresizingMaskIntoConstraints = false
+    symbolContainer.backgroundColor = Self.accentColor.withAlphaComponent(0.14)
+    symbolContainer.layer.cornerRadius = 24
+
+    let symbol = UIImageView(image: UIImage(systemName: "car.side.fill"))
+    symbol.translatesAutoresizingMaskIntoConstraints = false
+    symbol.tintColor = Self.accentColor
+    symbol.contentMode = .scaleAspectFit
+    symbolContainer.addSubview(symbol)
+
+    let emailLabel = UILabel()
+    emailLabel.font = .preferredFont(forTextStyle: .headline)
+    emailLabel.textColor = .label
+    emailLabel.text = email
+    emailLabel.adjustsFontForContentSizeCategory = true
+    emailLabel.lineBreakMode = .byTruncatingMiddle
+
+    let historyLabel = UILabel()
+    historyLabel.font = .preferredFont(forTextStyle: .subheadline)
+    historyLabel.textColor = .secondaryLabel
+    historyLabel.text = "최근 30일 · \(historyCount)건"
+    historyLabel.adjustsFontForContentSizeCategory = true
+
+    let labels = UIStackView(arrangedSubviews: [emailLabel, historyLabel])
+    labels.translatesAutoresizingMaskIntoConstraints = false
+    labels.axis = .vertical
+    labels.spacing = 4
+    labels.alignment = .fill
+
+    header.addSubview(symbolContainer)
+    header.addSubview(labels)
+
+    NSLayoutConstraint.activate([
+      symbolContainer.leadingAnchor.constraint(equalTo: header.leadingAnchor, constant: 20),
+      symbolContainer.centerYAnchor.constraint(equalTo: header.centerYAnchor),
+      symbolContainer.widthAnchor.constraint(equalToConstant: 48),
+      symbolContainer.heightAnchor.constraint(equalToConstant: 48),
+      symbol.centerXAnchor.constraint(equalTo: symbolContainer.centerXAnchor),
+      symbol.centerYAnchor.constraint(equalTo: symbolContainer.centerYAnchor),
+      symbol.widthAnchor.constraint(equalToConstant: 25),
+      symbol.heightAnchor.constraint(equalToConstant: 25),
+      labels.leadingAnchor.constraint(equalTo: symbolContainer.trailingAnchor, constant: 14),
+      labels.trailingAnchor.constraint(equalTo: header.trailingAnchor, constant: -20),
+      labels.centerYAnchor.constraint(equalTo: header.centerYAnchor)
+    ])
+
+    return header
+  }
+
+  @objc private func handleClose() {
+    complete(with: nil)
+  }
+
+  private func complete(with action: String?) {
+    guard !didComplete else { return }
+    didComplete = true
+    onSelect(action)
+    dismiss(animated: true)
   }
 }
 
