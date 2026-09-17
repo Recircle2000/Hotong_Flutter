@@ -103,8 +103,6 @@ class _TaxiHomeViewState extends State<TaxiHomeView> {
         Platform.isIOS ? await _showIOSMenu() : await _showFlutterMenu();
     if (!mounted || action == null) return;
     switch (action) {
-      case _TaxiMenuAction.loginInfo:
-        await _showLoginInfo();
       case _TaxiMenuAction.history:
         await Get.to(() => _TaxiPartyHistoryView(
               controller: controller,
@@ -124,14 +122,12 @@ class _TaxiHomeViewState extends State<TaxiHomeView> {
           'title': '택시팟 메뉴',
           'email': authService.currentUserEmail ?? '인증된 사용자',
           'historyCount': controller.history.length,
-          'loginInfoTitle': '로그인 정보',
           'historyTitle': '파티 이용 기록',
           'logoutTitle': '로그아웃',
           'cancelTitle': '닫기',
         },
       );
       return switch (action) {
-        'loginInfo' => _TaxiMenuAction.loginInfo,
         'history' => _TaxiMenuAction.history,
         'logout' => _TaxiMenuAction.logout,
         _ => null,
@@ -151,49 +147,6 @@ class _TaxiHomeViewState extends State<TaxiHomeView> {
       builder: (context) => _TaxiMenuSheet(
         email: authService.currentUserEmail,
         historyCount: controller.history.length,
-      ),
-    );
-  }
-
-  Future<void> _showLoginInfo() async {
-    final email = authService.currentUserEmail ?? '이메일 정보를 확인할 수 없습니다.';
-    await showDialog<void>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('로그인 정보'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('인증된 이메일'),
-            const SizedBox(height: 6),
-            SelectableText(
-              email,
-              style: Theme.of(context)
-                  .textTheme
-                  .bodyLarge
-                  ?.copyWith(fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Icon(
-                  Icons.verified_outlined,
-                  size: 18,
-                  color: _taxiAccentText(context),
-                ),
-                const SizedBox(width: 6),
-                const Text('이메일 인증 완료'),
-              ],
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('확인'),
-          ),
-        ],
       ),
     );
   }
@@ -224,7 +177,7 @@ class _TaxiHomeViewState extends State<TaxiHomeView> {
   }
 }
 
-enum _TaxiMenuAction { loginInfo, history, logout }
+enum _TaxiMenuAction { history, logout }
 
 class _TaxiMenuSheet extends StatelessWidget {
   const _TaxiMenuSheet({required this.email, required this.historyCount});
@@ -310,29 +263,13 @@ class _TaxiMenuSheet extends StatelessWidget {
               Container(
                 decoration: _taxiCardDecoration(context),
                 clipBehavior: Clip.antiAlias,
-                child: Column(
-                  children: [
-                    _TaxiMenuTile(
-                      icon: Icons.account_circle_outlined,
-                      title: '로그인 정보',
-                      subtitle: '인증된 계정 정보 확인',
-                      onTap: () =>
-                          Navigator.of(context).pop(_TaxiMenuAction.loginInfo),
-                    ),
-                    Divider(
-                      height: 1,
-                      indent: 68,
-                      color: colors.onSurface.withValues(alpha: 0.08),
-                    ),
-                    _TaxiMenuTile(
-                      icon: Icons.history_rounded,
-                      title: '파티 이용 기록',
-                      subtitle: '최근 30일의 참여 내역',
-                      badge: '$historyCount',
-                      onTap: () =>
-                          Navigator.of(context).pop(_TaxiMenuAction.history),
-                    ),
-                  ],
+                child: _TaxiMenuTile(
+                  icon: Icons.history_rounded,
+                  title: '파티 이용 기록',
+                  subtitle: '최근 30일의 참여 내역',
+                  badge: '$historyCount',
+                  onTap: () =>
+                      Navigator.of(context).pop(_TaxiMenuAction.history),
                 ),
               ),
               const SizedBox(height: 12),

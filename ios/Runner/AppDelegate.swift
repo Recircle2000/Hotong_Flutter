@@ -574,7 +574,6 @@ import UIKit
     let title = args["title"] as? String ?? "택시팟 메뉴"
     let email = args["email"] as? String ?? "인증된 사용자"
     let historyCount = intValue(from: args["historyCount"]) ?? 0
-    let loginInfoTitle = args["loginInfoTitle"] as? String ?? "로그인 정보"
     let historyTitle = args["historyTitle"] as? String ?? "파티 이용 기록"
     let logoutTitle = args["logoutTitle"] as? String ?? "로그아웃"
     let cancelTitle = args["cancelTitle"] as? String ?? "닫기"
@@ -594,7 +593,6 @@ import UIKit
         title: title,
         email: email,
         historyCount: historyCount,
-        loginInfoTitle: loginInfoTitle,
         historyTitle: historyTitle,
         logoutTitle: logoutTitle,
         cancelTitle: cancelTitle
@@ -861,7 +859,6 @@ private final class IOSTaxiMenuViewController: UITableViewController {
   private let menuTitle: String
   private let email: String
   private let historyCount: Int
-  private let loginInfoTitle: String
   private let historyTitle: String
   private let logoutTitle: String
   private let cancelTitle: String
@@ -872,7 +869,6 @@ private final class IOSTaxiMenuViewController: UITableViewController {
     title: String,
     email: String,
     historyCount: Int,
-    loginInfoTitle: String,
     historyTitle: String,
     logoutTitle: String,
     cancelTitle: String,
@@ -881,7 +877,6 @@ private final class IOSTaxiMenuViewController: UITableViewController {
     self.menuTitle = title
     self.email = email
     self.historyCount = historyCount
-    self.loginInfoTitle = loginInfoTitle
     self.historyTitle = historyTitle
     self.logoutTitle = logoutTitle
     self.cancelTitle = cancelTitle
@@ -917,7 +912,7 @@ private final class IOSTaxiMenuViewController: UITableViewController {
   }
 
   override func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-    section == 0 ? 2 : 1
+    1
   }
 
   override func tableView(
@@ -934,12 +929,6 @@ private final class IOSTaxiMenuViewController: UITableViewController {
 
     switch (indexPath.section, indexPath.row) {
     case (0, 0):
-      content.text = loginInfoTitle
-      content.secondaryText = "인증된 계정 정보 확인"
-      content.image = UIImage(systemName: "person.crop.circle")
-      content.imageProperties.tintColor = Self.accentColor
-      cell.accessoryType = .disclosureIndicator
-    case (0, 1):
       content.text = historyTitle
       content.secondaryText = "최근 30일 · \(historyCount)건"
       content.image = UIImage(systemName: "clock.arrow.circlepath")
@@ -963,8 +952,6 @@ private final class IOSTaxiMenuViewController: UITableViewController {
 
     switch (indexPath.section, indexPath.row) {
     case (0, 0):
-      complete(with: "loginInfo")
-    case (0, 1):
       complete(with: "history")
     default:
       complete(with: "logout")
