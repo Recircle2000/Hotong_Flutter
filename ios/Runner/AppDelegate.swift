@@ -10,7 +10,6 @@ import UIKit
   private var stationInfoMenuChannel: FlutterMethodChannel?
   private var stationInfoMenuPresenter: AnyObject?
   private var taxiMenuChannel: FlutterMethodChannel?
-  private var taxiMenuDismissDelegate: IOSTaxiMenuDismissDelegate?
   private var arrivalStationPickerDismissDelegate: IOSArrivalStationPickerDismissDelegate?
 
   override func application(
@@ -593,7 +592,7 @@ import UIKit
       let menu = UIAlertController(
         title: title,
         message: "\(email)\n최근 30일 · \(historyCount)건",
-        preferredStyle: .actionSheet
+        preferredStyle: .alert
       )
       menu.view.tintColor = UIColor(
         red: 245 / 255,
@@ -602,9 +601,8 @@ import UIKit
         alpha: 1
       )
 
-      let complete: (String?) -> Void = { [weak self] action in
+      let complete: (String?) -> Void = { action in
         resultBox.complete(action)
-        self?.taxiMenuDismissDelegate = nil
       }
 
       menu.addAction(UIAlertAction(title: loginInfoTitle, style: .default) { _ in
@@ -619,25 +617,6 @@ import UIKit
       menu.addAction(UIAlertAction(title: cancelTitle, style: .cancel) { _ in
         complete(nil)
       })
-
-      let dismissDelegate = IOSTaxiMenuDismissDelegate(
-        resultBox: resultBox
-      ) { [weak self] in
-        self?.taxiMenuDismissDelegate = nil
-      }
-      self.taxiMenuDismissDelegate = dismissDelegate
-      menu.presentationController?.delegate = dismissDelegate
-
-      if let popover = menu.popoverPresentationController {
-        popover.sourceView = presenter.view
-        popover.sourceRect = CGRect(
-          x: presenter.view.bounds.midX,
-          y: presenter.view.bounds.maxY,
-          width: 0,
-          height: 0
-        )
-        popover.permittedArrowDirections = []
-      }
 
       presenter.present(menu, animated: true)
     }
@@ -830,24 +809,6 @@ private final class IOSSingleFlutterResult {
 }
 
 private final class IOSArrivalStationPickerDismissDelegate: NSObject, UIAdaptivePresentationControllerDelegate {
-  private let resultBox: IOSSingleFlutterResult
-  private let onDismiss: () -> Void
-
-  init(
-    resultBox: IOSSingleFlutterResult,
-    onDismiss: @escaping () -> Void
-  ) {
-    self.resultBox = resultBox
-    self.onDismiss = onDismiss
-  }
-
-  func presentationControllerDidDismiss(_ presentationController: UIPresentationController) {
-    resultBox.complete(nil)
-    onDismiss()
-  }
-}
-
-private final class IOSTaxiMenuDismissDelegate: NSObject, UIAdaptivePresentationControllerDelegate {
   private let resultBox: IOSSingleFlutterResult
   private let onDismiss: () -> Void
 
