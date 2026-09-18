@@ -6,6 +6,6 @@ class EnvConfig {
   }
 
   static String get baseUrl =>
-      dotenv.env['BASE_URL'] ?? 'http://localhost:8000';
+      dotenv.env['BASE_URL'] ?? 'https://hotong.click';
   static String get naverMapClientId => dotenv.env['NAVER_MAP_CLIENT_ID'] ?? '';
 }
