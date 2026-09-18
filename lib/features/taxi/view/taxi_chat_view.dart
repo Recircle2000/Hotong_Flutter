@@ -13,14 +13,15 @@ const _taxiAccentForeground = Color(0xFF30210A);
 
 Color _taxiTint(BuildContext context, [double? alpha]) =>
     _taxiAccent.withValues(
-      alpha: alpha ??
+      alpha:
+          alpha ??
           (Theme.of(context).brightness == Brightness.dark ? 0.16 : 0.12),
     );
 
 Color _taxiAccentText(BuildContext context) =>
     Theme.of(context).brightness == Brightness.dark
-        ? const Color(0xFFFFC766)
-        : const Color(0xFF855300);
+    ? const Color(0xFFFFC766)
+    : const Color(0xFF855300);
 
 class TaxiChatView extends StatefulWidget {
   const TaxiChatView({
@@ -54,9 +55,10 @@ class _TaxiChatViewState extends State<TaxiChatView> {
     controller = Get.put(
       TaxiChatViewModel(
         partyId: widget.party.id,
-        readOnlyAt: widget.party.departureAt.add(const Duration(hours: 2)),
-        initiallyReadOnly: widget.party.status == 'cancelled' ||
-            widget.party.status == 'completed',
+        readOnlyAt: widget.party.chatWritableUntil,
+        expiresAt: widget.party.chatVisibleUntil,
+        initiallyReadOnly: widget.party.chatStatus != 'writable',
+        initiallyExpired: widget.party.chatStatus == 'expired',
         repository: widget.repository,
         realtime: widget.realtime,
       ),
@@ -73,11 +75,13 @@ class _TaxiChatViewState extends State<TaxiChatView> {
   void _scrollToBottom() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_scrollController.hasClients) {
-        unawaited(_scrollController.animateTo(
-          _scrollController.position.maxScrollExtent,
-          duration: const Duration(milliseconds: 180),
-          curve: Curves.easeOut,
-        ));
+        unawaited(
+          _scrollController.animateTo(
+            _scrollController.position.maxScrollExtent,
+            duration: const Duration(milliseconds: 180),
+            curve: Curves.easeOut,
+          ),
+        );
       }
     });
   }
@@ -148,8 +152,9 @@ class _TaxiChatViewState extends State<TaxiChatView> {
                     style: theme.textTheme.labelSmall?.copyWith(
                       color: theme.colorScheme.onSurfaceVariant,
                       fontWeight: FontWeight.w600,
-                      letterSpacing:
-                          widget.party.meetingCode == null ? null : 0.7,
+                      letterSpacing: widget.party.meetingCode == null
+                          ? null
+                          : 0.7,
                     ),
                   ),
                 ],
@@ -162,6 +167,14 @@ class _TaxiChatViewState extends State<TaxiChatView> {
         top: false,
         child: Column(
           children: [
+            Obx(
+              () => _ChatLifecycleNotice(
+                readOnly: controller.isReadOnly.value,
+                expired: controller.isExpired.value,
+                writableUntil: controller.writableUntil.value,
+                visibleUntil: controller.visibleUntil.value,
+              ),
+            ),
             Expanded(child: _buildMessages()),
             Obx(
               () => controller.errorMessage.isEmpty
@@ -185,6 +198,9 @@ class _TaxiChatViewState extends State<TaxiChatView> {
 
   Widget _buildMessages() {
     return Obx(() {
+      if (controller.isExpired.value) {
+        return const Center(child: Text('보관 기간이 지나 삭제된 채팅입니다.'));
+      }
       if (controller.isLoading.value && controller.messages.isEmpty) {
         return const Center(
           child: CircularProgressIndicator(color: _taxiAccent),
@@ -200,7 +216,8 @@ class _TaxiChatViewState extends State<TaxiChatView> {
         itemCount: controller.messages.length,
         itemBuilder: (context, index) {
           final message = controller.messages[index];
-          final showDate = index == 0 ||
+          final showDate =
+              index == 0 ||
               !_isSameDay(
                 controller.messages[index - 1].createdAt,
                 message.createdAt,
@@ -220,6 +237,42 @@ class _TaxiChatViewState extends State<TaxiChatView> {
       first.year == second.year &&
       first.month == second.month &&
       first.day == second.day;
+}
+
+class _ChatLifecycleNotice extends StatelessWidget {
+  const _ChatLifecycleNotice({
+    required this.readOnly,
+    required this.expired,
+    required this.writableUntil,
+    required this.visibleUntil,
+  });
+
+  final bool readOnly;
+  final bool expired;
+  final DateTime writableUntil;
+  final DateTime visibleUntil;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = expired
+        ? '보관 기간이 지나 삭제된 채팅입니다.'
+        : readOnly
+        ? '대화가 종료됐어요. ${DateFormat('M월 d일 HH:mm').format(visibleUntil)}까지 기록을 볼 수 있어요.'
+        : '${DateFormat('M월 d일 HH:mm').format(writableUntil)}까지 대화할 수 있어요.';
+    return Container(
+      width: double.infinity,
+      color: _taxiTint(context),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
+      child: Text(
+        text,
+        textAlign: TextAlign.center,
+        style: Theme.of(context).textTheme.labelMedium?.copyWith(
+          color: _taxiAccentText(context),
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
+  }
 }
 
 class _MessageBubble extends StatelessWidget {
@@ -271,8 +324,9 @@ class _MessageBubble extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(bottom: 14),
       child: Row(
-        mainAxisAlignment:
-            message.isMine ? MainAxisAlignment.end : MainAxisAlignment.start,
+        mainAxisAlignment: message.isMine
+            ? MainAxisAlignment.end
+            : MainAxisAlignment.start,
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
           if (!message.isMine) ...[
@@ -333,9 +387,9 @@ class _SenderAvatar extends StatelessWidget {
       child: Text(
         initial,
         style: Theme.of(context).textTheme.labelMedium?.copyWith(
-              color: _taxiAccentText(context),
-              fontWeight: FontWeight.bold,
-            ),
+          color: _taxiAccentText(context),
+          fontWeight: FontWeight.bold,
+        ),
       ),
     );
   }
@@ -406,9 +460,9 @@ class _DateSeparator extends StatelessWidget {
             child: Text(
               label,
               style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    fontWeight: FontWeight.w600,
-                  ),
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
           const Expanded(child: Divider()),
@@ -456,8 +510,9 @@ class _MessageComposer extends StatelessWidget {
               decoration: InputDecoration(
                 hintText: '메시지를 입력하세요',
                 hintStyle: TextStyle(
-                  color:
-                      theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
+                  color: theme.colorScheme.onSurfaceVariant.withValues(
+                    alpha: 0.7,
+                  ),
                 ),
                 counterText: '',
                 filled: true,
@@ -567,9 +622,9 @@ class _ChatError extends StatelessWidget {
       child: Text(
         message,
         textAlign: TextAlign.center,
-        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: colors.onErrorContainer,
-            ),
+        style: Theme.of(
+          context,
+        ).textTheme.bodySmall?.copyWith(color: colors.onErrorContainer),
       ),
     );
   }

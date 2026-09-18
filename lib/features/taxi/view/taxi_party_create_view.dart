@@ -13,26 +13,27 @@ const _taxiAccentForeground = Color(0xFF30210A);
 
 Color _taxiTint(BuildContext context, [double? alpha]) =>
     _taxiAccent.withValues(
-      alpha: alpha ??
+      alpha:
+          alpha ??
           (Theme.of(context).brightness == Brightness.dark ? 0.16 : 0.12),
     );
 
 Color _taxiAccentText(BuildContext context) =>
     Theme.of(context).brightness == Brightness.dark
-        ? const Color(0xFFFFC766)
-        : const Color(0xFF855300);
+    ? const Color(0xFFFFC766)
+    : const Color(0xFF855300);
 
 BoxDecoration _cardDecoration(BuildContext context) => BoxDecoration(
-      color: Theme.of(context).cardColor,
-      borderRadius: BorderRadius.circular(24),
-      boxShadow: [
-        BoxShadow(
-          color: Colors.black.withValues(alpha: 0.06),
-          blurRadius: 16,
-          offset: const Offset(0, 4),
-        ),
-      ],
-    );
+  color: Theme.of(context).cardColor,
+  borderRadius: BorderRadius.circular(24),
+  boxShadow: [
+    BoxShadow(
+      color: Colors.black.withValues(alpha: 0.06),
+      blurRadius: 16,
+      offset: const Offset(0, 4),
+    ),
+  ],
+);
 
 InputDecoration _inputDecoration(
   BuildContext context, {
@@ -77,16 +78,28 @@ class TaxiPartyCreateView extends StatefulWidget {
     super.key,
     required this.locations,
     required this.repository,
+    this.embedded = false,
+    this.onCreated,
+    this.onBusyChanged,
+    this.onStepChanged,
+    this.canSubmit,
+    this.onConflict,
   });
 
   final List<TaxiLocation> locations;
   final TaxiRepository repository;
+  final bool embedded;
+  final Future<void> Function(TaxiPartyDetail)? onCreated;
+  final ValueChanged<bool>? onBusyChanged;
+  final VoidCallback? onStepChanged;
+  final Future<bool> Function()? canSubmit;
+  final Future<void> Function()? onConflict;
 
   @override
-  State<TaxiPartyCreateView> createState() => _TaxiPartyCreateViewState();
+  State<TaxiPartyCreateView> createState() => TaxiPartyCreateViewState();
 }
 
-class _TaxiPartyCreateViewState extends State<TaxiPartyCreateView> {
+class TaxiPartyCreateViewState extends State<TaxiPartyCreateView> {
   final _detailsFormKey = GlobalKey<FormState>();
   final _pageController = PageController();
   final _departureSummary = TextEditingController();
@@ -94,6 +107,11 @@ class _TaxiPartyCreateViewState extends State<TaxiPartyCreateView> {
   final _memberNote = TextEditingController();
 
   int _currentStep = 0;
+  bool get canGoBack => _currentStep > 0;
+  void previousStep() {
+    if (!_saving && canGoBack) unawaited(_goToStep(_currentStep - 1));
+  }
+
   int? _departureId;
   int? _destinationId;
   int _maxMembers = 4;
@@ -198,6 +216,7 @@ class _TaxiPartyCreateViewState extends State<TaxiPartyCreateView> {
   Future<void> _goToStep(int step) async {
     if (step < 0 || step > 2 || step == _currentStep) return;
     setState(() => _currentStep = step);
+    widget.onStepChanged?.call();
     await _pageController.animateToPage(
       step,
       duration: const Duration(milliseconds: 280),
@@ -215,6 +234,7 @@ class _TaxiPartyCreateViewState extends State<TaxiPartyCreateView> {
   }
 
   Future<void> _submit() async {
+    if (_saving) return;
     if (!_validateRoute()) {
       if (_currentStep != 0) unawaited(_goToStep(0));
       return;
@@ -224,7 +244,9 @@ class _TaxiPartyCreateViewState extends State<TaxiPartyCreateView> {
       return;
     }
     setState(() => _saving = true);
+    widget.onBusyChanged?.call(true);
     try {
+      if (widget.canSubmit != null && !await widget.canSubmit!()) return;
       final party = await widget.repository.createParty(
         clientRequestId: newTaxiUuid(),
         departureLocationId: _departureId!,
@@ -233,53 +255,65 @@ class _TaxiPartyCreateViewState extends State<TaxiPartyCreateView> {
         destinationSummary: _destinationSummary.text.trim().isEmpty
             ? null
             : _destinationSummary.text.trim(),
-        memberNote:
-            _memberNote.text.trim().isEmpty ? null : _memberNote.text.trim(),
+        memberNote: _memberNote.text.trim().isEmpty
+            ? null
+            : _memberNote.text.trim(),
         departureAt: _departureAt,
         maxMembers: _maxMembers,
       );
-      if (mounted) Navigator.of(context).pop(party);
+      if (!mounted) return;
+      if (widget.onCreated != null) {
+        await widget.onCreated!(party);
+      } else {
+        Navigator.of(context).pop(party);
+      }
     } on TaxiApiException catch (error) {
+      if (error.code == 'ACTIVE_PARTY_EXISTS') await widget.onConflict?.call();
       if (mounted) _showMessage(error.message);
     } catch (_) {
       if (mounted) _showMessage('택시팟을 만들지 못했습니다. 잠시 후 다시 시도해주세요.');
     } finally {
-      if (mounted) setState(() => _saving = false);
+      if (mounted) {
+        setState(() => _saving = false);
+        widget.onBusyChanged?.call(false);
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return PopScope(
-      canPop: _currentStep == 0 && !_saving,
+      canPop: widget.embedded || (_currentStep == 0 && !_saving),
       onPopInvokedWithResult: (didPop, _) {
-        if (!didPop && _currentStep > 0 && !_saving) {
+        if (!widget.embedded && !didPop && _currentStep > 0 && !_saving) {
           _goToStep(_currentStep - 1);
         }
       },
       child: Scaffold(
-        appBar: AppBar(
-          centerTitle: true,
-          title: const Text('택시팟 만들기'),
-          leading: IconButton(
-            tooltip: _currentStep == 0 ? '닫기' : '이전 단계',
-            onPressed: _saving
-                ? null
-                : () {
-                    if (_currentStep == 0) {
-                      Navigator.of(context).pop();
-                    } else {
-                      _goToStep(_currentStep - 1);
-                    }
-                  },
-            icon: Icon(
-              _currentStep == 0
-                  ? Icons.close_rounded
-                  : Icons.arrow_back_ios_new_rounded,
-              size: 21,
-            ),
-          ),
-        ),
+        appBar: widget.embedded
+            ? null
+            : AppBar(
+                centerTitle: true,
+                title: const Text('택시팟 만들기'),
+                leading: IconButton(
+                  tooltip: _currentStep == 0 ? '닫기' : '이전 단계',
+                  onPressed: _saving
+                      ? null
+                      : () {
+                          if (_currentStep == 0) {
+                            Navigator.of(context).pop();
+                          } else {
+                            _goToStep(_currentStep - 1);
+                          }
+                        },
+                  icon: Icon(
+                    _currentStep == 0
+                        ? Icons.close_rounded
+                        : Icons.arrow_back_ios_new_rounded,
+                    size: 21,
+                  ),
+                ),
+              ),
         body: Column(
           children: [
             _StepProgress(currentStep: _currentStep),
@@ -631,8 +665,10 @@ class _DepartureDetailsStep extends StatelessWidget {
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              DateFormat('M월 d일 (E) HH:mm', 'ko')
-                                  .format(departureAt),
+                              DateFormat(
+                                'M월 d일 (E) HH:mm',
+                                'ko',
+                              ).format(departureAt),
                               style: theme.textTheme.titleMedium?.copyWith(
                                 fontWeight: FontWeight.bold,
                               ),
@@ -782,15 +818,16 @@ class _PartyOptionsStep extends StatelessWidget {
                   maxLength: 500,
                   minLines: 3,
                   maxLines: 5,
-                  decoration: _inputDecoration(
-                    context,
-                    label: '참여자 안내 (선택)',
-                    hint: '예: 검은색 우산을 들고 있을게요.',
-                    icon: Icons.chat_bubble_outline_rounded,
-                  ).copyWith(
-                    alignLabelWithHint: true,
-                    helperText: '택시팟에 참여한 사용자에게만 보여요.',
-                  ),
+                  decoration:
+                      _inputDecoration(
+                        context,
+                        label: '참여자 안내 (선택)',
+                        hint: '예: 검은색 우산을 들고 있을게요.',
+                        icon: Icons.chat_bubble_outline_rounded,
+                      ).copyWith(
+                        alignLabelWithHint: true,
+                        helperText: '택시팟에 참여한 사용자에게만 보여요.',
+                      ),
                 ),
               ],
             ),
@@ -950,9 +987,9 @@ class _SummaryLine extends StatelessWidget {
         Expanded(
           child: Text(
             text,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  fontWeight: FontWeight.w600,
-                ),
+            style: Theme.of(
+              context,
+            ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
           ),
         ),
       ],
@@ -1041,8 +1078,9 @@ class _BottomActions extends StatelessWidget {
                     style: FilledButton.styleFrom(
                       backgroundColor: _taxiAccent,
                       foregroundColor: _taxiAccentForeground,
-                      disabledBackgroundColor:
-                          _taxiAccent.withValues(alpha: 0.45),
+                      disabledBackgroundColor: _taxiAccent.withValues(
+                        alpha: 0.45,
+                      ),
                       textStyle: theme.textTheme.labelLarge?.copyWith(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,

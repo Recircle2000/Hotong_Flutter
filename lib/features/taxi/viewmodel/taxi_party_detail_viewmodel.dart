@@ -6,12 +6,12 @@ import 'package:hsro/features/taxi/repository/taxi_repository.dart';
 import 'package:hsro/features/taxi/services/taxi_realtime_service.dart';
 
 class TaxiPartyDetailViewModel extends GetxController {
-  TaxiPartyDetailViewModel(
-      {required this.partyId,
-      required TaxiRepository repository,
-      required TaxiRealtimeService realtime})
-      : _repository = repository,
-        _realtime = realtime;
+  TaxiPartyDetailViewModel({
+    required this.partyId,
+    required TaxiRepository repository,
+    required TaxiRealtimeService realtime,
+  }) : _repository = repository,
+       _realtime = realtime;
 
   final String partyId;
   final TaxiRepository _repository;
@@ -26,7 +26,24 @@ class TaxiPartyDetailViewModel extends GetxController {
     super.onInit();
     _events = _realtime.events
         .where((event) => event.partyId == partyId)
-        .listen((_) => load());
+        .listen((event) {
+          if (event.type == 'party.updated') {
+            unawaited(load());
+            return;
+          }
+          if (event.type == 'message.created') {
+            final current = party.value;
+            if (current == null) return;
+            final unread = event.party?.unreadCount;
+            if (unread != null) {
+              party.value = current.copyWith(unreadCount: unread);
+            } else if (event.message?.isMine == false) {
+              party.value = current.copyWith(
+                unreadCount: current.unreadCount + 1,
+              );
+            }
+          }
+        });
     unawaited(load());
   }
 
@@ -47,17 +64,17 @@ class TaxiPartyDetailViewModel extends GetxController {
   Future<bool> join() =>
       _run(() async => party.value = await _repository.joinParty(partyId));
   Future<bool> leave() => _run(() async {
-        await _repository.leaveParty(partyId);
-        await load();
-      });
+    await _repository.leaveParty(partyId);
+    await load();
+  });
   Future<bool> cancel() => _run(() async {
-        await _repository.cancelParty(partyId);
-        await load();
-      });
+    await _repository.cancelParty(partyId);
+    await load();
+  });
   Future<bool> setRecruitment(bool open) => _run(() async {
-        await _repository.setRecruitment(partyId, open);
-        await load();
-      });
+    await _repository.setRecruitment(partyId, open);
+    await load();
+  });
   Future<bool> updateDetails({
     required String departureSummary,
     String? destinationSummary,
@@ -66,19 +83,18 @@ class TaxiPartyDetailViewModel extends GetxController {
     int? destinationLocationId,
     DateTime? departureAt,
     int? maxMembers,
-  }) =>
-      _run(() async {
-        party.value = await _repository.updateParty(
-          partyId,
-          departureSummary: departureSummary,
-          destinationSummary: destinationSummary,
-          memberNote: memberNote,
-          departureLocationId: departureLocationId,
-          destinationLocationId: destinationLocationId,
-          departureAt: departureAt,
-          maxMembers: maxMembers,
-        );
-      });
+  }) => _run(() async {
+    party.value = await _repository.updateParty(
+      partyId,
+      departureSummary: departureSummary,
+      destinationSummary: destinationSummary,
+      memberNote: memberNote,
+      departureLocationId: departureLocationId,
+      destinationLocationId: destinationLocationId,
+      departureAt: departureAt,
+      maxMembers: maxMembers,
+    );
+  });
 
   Future<bool> _run(Future<void> Function() action) async {
     if (isLoading.value) return false;

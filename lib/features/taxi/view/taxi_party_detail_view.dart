@@ -1,4 +1,7 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:native_liquid_glass/native_liquid_glass.dart';
 import 'package:get/get.dart';
 import 'package:hsro/features/taxi/models/taxi_models.dart';
 import 'package:hsro/features/taxi/repository/taxi_repository.dart';
@@ -13,14 +16,15 @@ const _taxiAccentForeground = Color(0xFF30210A);
 
 Color _taxiTint(BuildContext context, [double? alpha]) =>
     _taxiAccent.withValues(
-      alpha: alpha ??
+      alpha:
+          alpha ??
           (Theme.of(context).brightness == Brightness.dark ? 0.16 : 0.12),
     );
 
 Color _taxiAccentText(BuildContext context) =>
     Theme.of(context).brightness == Brightness.dark
-        ? const Color(0xFFFFC766)
-        : const Color(0xFF855300);
+    ? const Color(0xFFFFC766)
+    : const Color(0xFF855300);
 
 class TaxiPartyDetailView extends StatefulWidget {
   const TaxiPartyDetailView({
@@ -29,20 +33,99 @@ class TaxiPartyDetailView extends StatefulWidget {
     required this.locations,
     required this.repository,
     required this.realtime,
+    this.embedded = false,
+    this.showAppBar = true,
+    this.canJoin,
+    this.onJoined,
+    this.onMembershipChanged,
+    this.onShowCurrent,
+    this.joinAllowed,
+    this.summary,
+    this.onBack,
   });
 
   final String partyId;
   final List<TaxiLocation> locations;
   final TaxiRepository repository;
   final TaxiRealtimeService realtime;
+  final bool embedded;
+  final bool showAppBar;
+  final Future<bool> Function()? canJoin;
+  final Future<void> Function(TaxiPartyDetail)? onJoined;
+  final Future<void> Function()? onMembershipChanged;
+  final VoidCallback? onShowCurrent;
+  final bool Function()? joinAllowed;
+  final TaxiPartySummary? summary;
+  final VoidCallback? onBack;
 
   @override
-  State<TaxiPartyDetailView> createState() => _TaxiPartyDetailViewState();
+  State<TaxiPartyDetailView> createState() => TaxiPartyDetailViewState();
 }
 
-enum _OwnerAction { edit, recruitment, cancel }
+enum TaxiPartyOwnerAction { edit, recruitment, cancel }
 
-class _TaxiPartyDetailViewState extends State<TaxiPartyDetailView> {
+bool canManageTaxiParty(TaxiPartySummary party) {
+  final ended =
+      party.recruitmentStatus == 'cancelled' ||
+      party.recruitmentStatus == 'ended';
+  return party.isOwner && party.departureAt.isAfter(DateTime.now()) && !ended;
+}
+
+class TaxiPartyOwnerMenuButton extends StatelessWidget {
+  const TaxiPartyOwnerMenuButton({
+    super.key,
+    required this.party,
+    required this.onSelected,
+  });
+
+  final TaxiPartySummary party;
+  final ValueChanged<TaxiPartyOwnerAction> onSelected;
+
+  @override
+  Widget build(BuildContext context) => PopupMenuButton<TaxiPartyOwnerAction>(
+    tooltip: '택시팟 관리',
+    icon: const Icon(Icons.more_vert),
+    onSelected: onSelected,
+    itemBuilder: (context) => [
+      const PopupMenuItem(
+        value: TaxiPartyOwnerAction.edit,
+        child: ListTile(
+          contentPadding: EdgeInsets.zero,
+          leading: Icon(Icons.edit_outlined),
+          title: Text('택시팟 정보 수정'),
+        ),
+      ),
+      PopupMenuItem(
+        value: TaxiPartyOwnerAction.recruitment,
+        child: ListTile(
+          contentPadding: EdgeInsets.zero,
+          leading: Icon(
+            party.status == 'closed'
+                ? Icons.lock_open_outlined
+                : Icons.lock_outline,
+          ),
+          title: Text(party.status == 'closed' ? '모집 다시 열기' : '모집 마감하기'),
+        ),
+      ),
+      PopupMenuItem(
+        value: TaxiPartyOwnerAction.cancel,
+        child: ListTile(
+          contentPadding: EdgeInsets.zero,
+          leading: Icon(
+            Icons.delete_outline,
+            color: Theme.of(context).colorScheme.error,
+          ),
+          title: Text(
+            '택시팟 취소',
+            style: TextStyle(color: Theme.of(context).colorScheme.error),
+          ),
+        ),
+      ),
+    ],
+  );
+}
+
+class TaxiPartyDetailViewState extends State<TaxiPartyDetailView> {
   late final String _tag;
   late final TaxiPartyDetailViewModel controller;
 
@@ -66,7 +149,61 @@ class _TaxiPartyDetailViewState extends State<TaxiPartyDetailView> {
     super.dispose();
   }
 
-  Future<bool> _confirm(String title, String message, String action) async {
+  @override
+  void didUpdateWidget(covariant TaxiPartyDetailView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!identical(oldWidget.summary, widget.summary)) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) controller.load();
+      });
+    }
+  }
+
+  Future<bool> _confirm(
+    String title,
+    String message,
+    String action, {
+    bool nativeIOS = false,
+  }) async {
+    if (nativeIOS && NativeLiquidGlassUtils.supportsLiquidGlass) {
+      try {
+        // UIKit presents this above the native tab bar; no Flutter overlay or
+        // global glass suppression is needed.
+        return await LiquidGlassAlert.destructive(
+          context: context,
+          title: title,
+          message: message,
+          destructiveTitle: action,
+          cancelTitle: '닫기',
+        );
+      } on PlatformException {
+        if (!mounted) return false;
+      } on MissingPluginException {
+        if (!mounted) return false;
+      }
+    }
+    if (nativeIOS && Theme.of(context).platform == TargetPlatform.iOS) {
+      return await showCupertinoDialog<bool>(
+            context: context,
+            builder: (context) => CupertinoAlertDialog(
+              title: Text(title),
+              content: Text(message),
+              actions: [
+                CupertinoDialogAction(
+                  isDefaultAction: true,
+                  onPressed: () => Navigator.pop(context, false),
+                  child: const Text('닫기'),
+                ),
+                CupertinoDialogAction(
+                  isDestructiveAction: true,
+                  onPressed: () => Navigator.pop(context, true),
+                  child: Text(action),
+                ),
+              ],
+            ),
+          ) ??
+          false;
+    }
     return await showDialog<bool>(
           context: context,
           builder: (context) => AlertDialog(
@@ -92,120 +229,113 @@ class _TaxiPartyDetailViewState extends State<TaxiPartyDetailView> {
   }
 
   Future<void> _edit(TaxiPartyDetail party) async {
-    final updated = await Get.to<bool>(() => TaxiPartyEditView(
-          party: party,
-          locations: widget.locations,
-          controller: controller,
-        ));
-    if (updated == true) await controller.load();
+    final updated = await Get.to<bool>(
+      () => TaxiPartyEditView(
+        party: party,
+        locations: widget.locations,
+        controller: controller,
+      ),
+    );
+    if (updated == true) {
+      await controller.load();
+      await widget.onMembershipChanged?.call();
+    }
   }
 
   bool _canManage(TaxiPartyDetail party) {
-    final ended = party.status == 'cancelled' || party.status == 'completed';
-    return party.isOwner && party.departureAt.isAfter(DateTime.now()) && !ended;
+    return canManageTaxiParty(party);
   }
 
-  Future<void> _handleOwnerAction(
-    TaxiPartyDetail party,
-    _OwnerAction action,
-  ) async {
+  Future<void> handleOwnerAction(TaxiPartyOwnerAction action) async {
+    var party = controller.party.value;
+    if (party == null) {
+      await controller.load();
+      party = controller.party.value;
+    }
+    if (party == null || !_canManage(party)) return;
     switch (action) {
-      case _OwnerAction.edit:
+      case TaxiPartyOwnerAction.edit:
         await _edit(party);
-      case _OwnerAction.recruitment:
+      case TaxiPartyOwnerAction.recruitment:
         await controller.setRecruitment(party.status == 'closed');
-      case _OwnerAction.cancel:
+        await widget.onMembershipChanged?.call();
+      case TaxiPartyOwnerAction.cancel:
         final confirmed = await _confirm(
           '택시팟 취소',
           '참여자 모두에게 취소 상태가 표시됩니다.',
           '취소하기',
         );
-        if (confirmed) await controller.cancel();
+        if (confirmed && await controller.cancel()) {
+          await widget.onMembershipChanged?.call();
+        }
     }
   }
 
+  bool _leaving = false;
+
   Future<void> _leaveParty() async {
-    final confirmed = await _confirm(
-      '택시팟 나가기',
-      '나간 뒤 다시 참여하면 기존 익명 번호가 유지됩니다.',
-      '나가기',
-    );
-    if (confirmed) await controller.leave();
+    if (_leaving) return;
+    _leaving = true;
+    try {
+      final confirmed = await _confirm(
+        '택시팟 나가기',
+        '나간 뒤 다시 참여하면 기존 익명 번호가 유지됩니다.',
+        '나가기',
+        nativeIOS: true,
+      );
+      if (!mounted) return;
+      if (confirmed && await controller.leave()) {
+        await widget.onMembershipChanged?.call();
+      }
+    } finally {
+      _leaving = false;
+    }
   }
 
-  void _openChat(TaxiPartyDetail party) {
-    Get.to(() => TaxiChatView(
-          party: party,
-          repository: widget.repository,
-          realtime: widget.realtime,
-        ));
+  Future<void> _openChat(TaxiPartyDetail party) async {
+    await Get.to(
+      () => TaxiChatView(
+        party: party,
+        repository: widget.repository,
+        realtime: widget.realtime,
+      ),
+    );
+    await controller.load();
+    await widget.onMembershipChanged?.call();
   }
 
   @override
   Widget build(BuildContext context) => Obx(() {
-        final party = controller.party.value;
-        return Scaffold(
-          appBar: AppBar(
-            title: const Text('택시팟 상세'),
-            actions: [
-              if (party != null && _canManage(party))
-                PopupMenuButton<_OwnerAction>(
-                  tooltip: '택시팟 관리',
-                  icon: const Icon(Icons.more_vert),
-                  onSelected: (action) => _handleOwnerAction(party, action),
-                  itemBuilder: (context) => [
-                    const PopupMenuItem(
-                      value: _OwnerAction.edit,
-                      child: ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        leading: Icon(Icons.edit_outlined),
-                        title: Text('택시팟 정보 수정'),
-                      ),
-                    ),
-                    PopupMenuItem(
-                      value: _OwnerAction.recruitment,
-                      child: ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        leading: Icon(
-                          party.status == 'closed'
-                              ? Icons.lock_open_outlined
-                              : Icons.lock_outline,
-                        ),
-                        title: Text(
-                          party.status == 'closed' ? '모집 다시 열기' : '모집 마감하기',
-                        ),
-                      ),
-                    ),
-                    PopupMenuItem(
-                      value: _OwnerAction.cancel,
-                      child: ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        leading: Icon(
-                          Icons.delete_outline,
-                          color: Theme.of(context).colorScheme.error,
-                        ),
-                        title: Text(
-                          '택시팟 취소',
-                          style: TextStyle(
-                            color: Theme.of(context).colorScheme.error,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-            ],
-          ),
-          body: _buildBody(party),
-          bottomNavigationBar: party == null ? null : _buildActionDock(party),
-        );
-      });
+    final party = controller.party.value;
+    return Scaffold(
+      appBar: widget.showAppBar
+          ? AppBar(
+              automaticallyImplyLeading: !widget.embedded,
+              leading: widget.embedded
+                  ? IconButton(
+                      tooltip: '팟 검색',
+                      onPressed: widget.onBack,
+                      icon: const Icon(Icons.arrow_back_ios_new),
+                    )
+                  : null,
+              title: Text(widget.embedded ? '현재팟' : '택시팟 상세'),
+              actions: [
+                if (party != null && _canManage(party))
+                  TaxiPartyOwnerMenuButton(
+                    party: party,
+                    onSelected: handleOwnerAction,
+                  ),
+              ],
+            )
+          : null,
+      body: _buildBody(party),
+      bottomNavigationBar: party == null ? null : _buildActionDock(party),
+    );
+  });
 
   Widget _buildBody(TaxiPartyDetail? party) {
     if (party == null && controller.isLoading.value) {
-      return const Center(
-        child: CircularProgressIndicator(color: _taxiAccent),
-      );
+      return const Center(child: CircularProgressIndicator(color: _taxiAccent));
     }
     if (party == null) {
       return _LoadFailure(
@@ -238,14 +368,38 @@ class _TaxiPartyDetailViewState extends State<TaxiPartyDetailView> {
     );
   }
 
+  bool _joining = false;
+  Future<void> _join() async {
+    if (_joining) return;
+    setState(() => _joining = true);
+    try {
+      if (widget.canJoin != null && !await widget.canJoin!()) return;
+      if (!mounted) return;
+      final joined = await controller.join();
+      if (!mounted) return;
+      if (joined && controller.party.value != null) {
+        await widget.onJoined?.call(controller.party.value!);
+      } else {
+        await widget.onMembershipChanged?.call();
+      }
+    } finally {
+      if (mounted) setState(() => _joining = false);
+    }
+  }
+
   Widget? _buildActionDock(TaxiPartyDetail party) {
-    final ended = party.status == 'cancelled' || party.status == 'completed';
-    final canLeave = party.isMember &&
+    final ended =
+        party.recruitmentStatus == 'cancelled' ||
+        party.recruitmentStatus == 'ended';
+    final canLeave =
+        party.isMember &&
         !party.isOwner &&
         party.departureAt.isAfter(DateTime.now()) &&
         !ended;
     final canJoin = !party.isMember && party.status == 'recruiting';
-    if (!party.isMember && !canJoin) return null;
+    if ((!party.isMember && !canJoin) || party.chatStatus == 'expired') {
+      return null;
+    }
 
     return Material(
       elevation: 14,
@@ -257,6 +411,11 @@ class _TaxiPartyDetailViewState extends State<TaxiPartyDetailView> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
+              if (canJoin && !(widget.joinAllowed?.call() ?? true))
+                TextButton(
+                  onPressed: widget.onShowCurrent,
+                  child: const Text('현재팟 확인하기'),
+                ),
               SizedBox(
                 width: double.infinity,
                 height: 52,
@@ -264,30 +423,38 @@ class _TaxiPartyDetailViewState extends State<TaxiPartyDetailView> {
                   style: FilledButton.styleFrom(
                     backgroundColor: _taxiAccent,
                     foregroundColor: _taxiAccentForeground,
-                    disabledBackgroundColor:
-                        _taxiAccent.withValues(alpha: 0.45),
+                    disabledBackgroundColor: _taxiAccent.withValues(
+                      alpha: 0.45,
+                    ),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(16),
                     ),
                   ),
-                  onPressed: controller.isLoading.value
+                  onPressed:
+                      controller.isLoading.value ||
+                          _joining ||
+                          (canJoin && !(widget.joinAllowed?.call() ?? true))
                       ? null
                       : canJoin
-                          ? controller.join
-                          : () => _openChat(party),
+                      ? _join
+                      : () => _openChat(party),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(canJoin
-                          ? Icons.group_add_outlined
-                          : Icons.chat_bubble_outline),
+                      Icon(
+                        canJoin
+                            ? Icons.group_add_outlined
+                            : Icons.chat_bubble_outline,
+                      ),
                       const SizedBox(width: 8),
                       Text(
                         canJoin
-                            ? '택시팟 참여하기'
-                            : ended
-                                ? '채팅 기록 보기'
-                                : '택시팟 채팅하기',
+                            ? ((widget.joinAllowed?.call() ?? true)
+                                  ? '택시팟 참여하기'
+                                  : '현재팟 확인 후 참여할 수 있어요')
+                            : party.chatStatus == 'read_only'
+                            ? '채팅 기록 보기'
+                            : '택시팟 채팅하기',
                       ),
                       if (!canJoin && party.unreadCount > 0) ...[
                         const SizedBox(width: 8),
@@ -327,22 +494,22 @@ class _StatusSummary extends StatelessWidget {
       'recruiting': '모집 중',
       'full': '정원 마감',
       'closed': '모집 마감',
-      'in_progress': '이동 중',
-      'completed': '이용 완료',
+      'ended': '모집 종료',
       'cancelled': '취소',
     };
-    final active = party.status == 'recruiting';
-    final cancelled = party.status == 'cancelled';
+    final status = party.recruitmentStatus;
+    final active = status == 'recruiting';
+    final cancelled = status == 'cancelled';
     final chipColor = cancelled
         ? colors.errorContainer
         : active
-            ? _taxiTint(context)
-            : colors.onSurface.withValues(alpha: 0.06);
+        ? _taxiTint(context)
+        : colors.onSurface.withValues(alpha: 0.06);
     final chipForeground = cancelled
         ? colors.onErrorContainer
         : active
-            ? _taxiAccentText(context)
-            : colors.onSurfaceVariant;
+        ? _taxiAccentText(context)
+        : colors.onSurfaceVariant;
 
     return Row(
       children: [
@@ -365,7 +532,7 @@ class _StatusSummary extends StatelessWidget {
               ),
               const SizedBox(width: 6),
               Text(
-                labels[party.status] ?? party.status,
+                labels[status] ?? status,
                 style: theme.textTheme.labelMedium?.copyWith(
                   color: chipForeground,
                   fontWeight: FontWeight.bold,
@@ -436,10 +603,9 @@ class _RouteOverviewCard extends StatelessWidget {
   final TaxiPartyDetail party;
 
   String _departureState() {
-    if (party.status == 'cancelled') return '취소된 파티';
-    if (party.status == 'completed') return '이용 완료';
+    if (party.recruitmentStatus == 'cancelled') return '취소된 팟';
     final difference = party.departureAt.difference(DateTime.now());
-    if (difference.isNegative) return '이동 중';
+    if (!party.departureAt.isAfter(DateTime.now())) return '모집 종료';
     final minutes = difference.inMinutes;
     if (minutes < 60) return '출발 ${minutes < 1 ? 1 : minutes}분 전';
     final hours = minutes ~/ 60;
@@ -456,9 +622,6 @@ class _RouteOverviewCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
-    final destination = party.destinationSummary?.isNotEmpty == true
-        ? party.destinationSummary!
-        : party.destinationLocation.name;
 
     return _HotongCard(
       child: Column(
@@ -492,8 +655,10 @@ class _RouteOverviewCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      DateFormat('M월 d일 (E) HH:mm', 'ko')
-                          .format(party.departureAt),
+                      DateFormat(
+                        'M월 d일 (E) HH:mm',
+                        'ko',
+                      ).format(party.departureAt),
                       style: theme.textTheme.bodyMedium?.copyWith(
                         fontWeight: FontWeight.bold,
                       ),
@@ -518,77 +683,23 @@ class _RouteOverviewCard extends StatelessWidget {
             ],
           ),
           const Divider(height: 30),
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  party.departureLocation.name,
-                  style: theme.textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-              ),
-              Icon(Icons.arrow_forward, color: colors.onSurfaceVariant),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  party.destinationLocation.name,
-                  textAlign: TextAlign.end,
-                  style: theme.textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-              ),
-            ],
+          _RoutePoint(
+            label: '출발',
+            location: party.departureLocation.name,
+            detail: party.departureSummary,
+            continues: true,
           ),
-          const SizedBox(height: 24),
-          IntrinsicHeight(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                SizedBox(
-                  width: 18,
-                  child: Column(
-                    children: [
-                      const _RouteDot(color: _taxiAccent),
-                      Expanded(
-                        child: Container(
-                          width: 2,
-                          margin: const EdgeInsets.symmetric(vertical: 3),
-                          color: colors.outlineVariant,
-                        ),
-                      ),
-                      _RouteDot(color: colors.error),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _RoutePoint(
-                        label: '출발 장소',
-                        value: party.departureSummary,
-                      ),
-                      const SizedBox(height: 22),
-                      _RoutePoint(label: '도착 장소', value: destination),
-                    ],
-                  ),
-                ),
-              ],
-            ),
+          _RoutePoint(
+            label: '도착',
+            location: party.destinationLocation.name,
+            detail: party.destinationSummary,
           ),
           if (party.isMember && party.memberNote?.isNotEmpty == true) ...[
             const Divider(height: 32),
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Icon(
-                  Icons.lock_outline,
-                  size: 18,
-                  color: _taxiAccent,
-                ),
+                const Icon(Icons.lock_outline, size: 18, color: _taxiAccent),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Column(
@@ -622,50 +733,103 @@ class _RouteDot extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-        width: 14,
-        height: 14,
-        decoration: BoxDecoration(
-          color: color,
-          shape: BoxShape.circle,
-          border: Border.all(color: Theme.of(context).cardColor, width: 3),
-          boxShadow: [
-            BoxShadow(
-              color: color.withValues(alpha: 0.18),
-              blurRadius: 0,
-              spreadRadius: 4,
-            ),
-          ],
+    width: 14,
+    height: 14,
+    decoration: BoxDecoration(
+      color: color,
+      shape: BoxShape.circle,
+      border: Border.all(color: Theme.of(context).cardColor, width: 3),
+      boxShadow: [
+        BoxShadow(
+          color: color.withValues(alpha: 0.18),
+          blurRadius: 0,
+          spreadRadius: 4,
         ),
-      );
+      ],
+    ),
+  );
 }
 
 class _RoutePoint extends StatelessWidget {
-  const _RoutePoint({required this.label, required this.value});
+  const _RoutePoint({
+    required this.label,
+    required this.location,
+    this.detail,
+    this.continues = false,
+  });
 
   final String label;
-  final String value;
+  final String location;
+  final String? detail;
+  final bool continues;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: theme.textTheme.labelSmall?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
-            fontWeight: FontWeight.bold,
+    final description = detail?.trim() ?? '';
+    final showDetail = description.isNotEmpty && description != location.trim();
+    return IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          SizedBox(
+            width: 18,
+            child: Column(
+              children: [
+                const SizedBox(height: 3),
+                _RouteDot(
+                  color: continues
+                      ? _taxiAccent
+                      : theme.colorScheme.onSurfaceVariant,
+                ),
+                if (continues)
+                  Expanded(
+                    child: Container(
+                      width: 2,
+                      margin: const EdgeInsets.only(top: 6, bottom: 3),
+                      color: theme.colorScheme.outlineVariant,
+                    ),
+                  ),
+              ],
+            ),
           ),
-        ),
-        const SizedBox(height: 3),
-        Text(
-          value,
-          style: theme.textTheme.bodyLarge?.copyWith(
-            fontWeight: FontWeight.bold,
+          const SizedBox(width: 14),
+          Expanded(
+            child: Padding(
+              padding: EdgeInsets.only(bottom: continues ? 24 : 0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    location,
+                    style: theme.textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  if (showDetail) ...[
+                    const SizedBox(height: 5),
+                    Text(
+                      description,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                        height: 1.45,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
@@ -752,10 +916,12 @@ class _MemberTile extends StatelessWidget {
         children: [
           CircleAvatar(
             radius: 18,
-            backgroundColor:
-                member.isOwner ? _taxiAccent : colors.onSurfaceVariant,
-            foregroundColor:
-                member.isOwner ? _taxiAccentForeground : colors.surface,
+            backgroundColor: member.isOwner
+                ? _taxiAccent
+                : colors.onSurfaceVariant,
+            foregroundColor: member.isOwner
+                ? _taxiAccentForeground
+                : colors.surface,
             child: Icon(
               member.isOwner ? Icons.star_outline : Icons.person_outline,
               size: 19,
@@ -838,20 +1004,20 @@ class _HotongCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: Theme.of(context).cardColor,
-          borderRadius: BorderRadius.circular(25),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.1),
-              blurRadius: 10,
-              offset: const Offset(0, 0),
-            ),
-          ],
+    padding: const EdgeInsets.all(20),
+    decoration: BoxDecoration(
+      color: Theme.of(context).cardColor,
+      borderRadius: BorderRadius.circular(25),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withValues(alpha: 0.1),
+          blurRadius: 10,
+          offset: const Offset(0, 0),
         ),
-        child: child,
-      );
+      ],
+    ),
+    child: child,
+  );
 }
 
 class _SafetyNotice extends StatelessWidget {
@@ -900,14 +1066,14 @@ class _ErrorBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-        margin: const EdgeInsets.only(bottom: 16),
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.errorContainer,
-          borderRadius: BorderRadius.circular(18),
-        ),
-        child: Text(message),
-      );
+    margin: const EdgeInsets.only(bottom: 16),
+    padding: const EdgeInsets.all(14),
+    decoration: BoxDecoration(
+      color: Theme.of(context).colorScheme.errorContainer,
+      borderRadius: BorderRadius.circular(18),
+    ),
+    child: Text(message),
+  );
 }
 
 class _LoadFailure extends StatelessWidget {
@@ -918,20 +1084,20 @@ class _LoadFailure extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(message.isEmpty ? '택시팟 정보를 불러오지 못했습니다.' : message),
-            const SizedBox(height: 12),
-            FilledButton(
-              onPressed: onRetry,
-              style: FilledButton.styleFrom(
-                backgroundColor: _taxiAccent,
-                foregroundColor: _taxiAccentForeground,
-              ),
-              child: const Text('다시 시도'),
-            ),
-          ],
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(message.isEmpty ? '택시팟 정보를 불러오지 못했습니다.' : message),
+        const SizedBox(height: 12),
+        FilledButton(
+          onPressed: onRetry,
+          style: FilledButton.styleFrom(
+            backgroundColor: _taxiAccent,
+            foregroundColor: _taxiAccentForeground,
+          ),
+          child: const Text('다시 시도'),
         ),
-      );
+      ],
+    ),
+  );
 }

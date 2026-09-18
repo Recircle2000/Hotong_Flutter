@@ -15,9 +15,8 @@ class TaxiApiException implements Exception {
 
 class TaxiRepository {
   TaxiRepository({required http.Client client, String? baseUrl})
-      : _client = client,
-        _baseUrl =
-            (baseUrl ?? EnvConfig.baseUrl).replaceFirst(RegExp(r'/$'), '');
+    : _client = client,
+      _baseUrl = (baseUrl ?? EnvConfig.baseUrl).replaceFirst(RegExp(r'/$'), '');
 
   final http.Client _client;
   final String _baseUrl;
@@ -45,24 +44,26 @@ class TaxiRepository {
     if (destinationLocationId != null) {
       query['destination_location_id'] = '$destinationLocationId';
     }
-    final data = await _request('GET', '/api/taxi/parties', query: query)
-        as Map<String, dynamic>;
+    final data =
+        await _request('GET', '/api/taxi/parties', query: query)
+            as Map<String, dynamic>;
     return (data['items'] as List<dynamic>)
         .map((item) => TaxiPartySummary.fromJson(item as Map<String, dynamic>))
         .toList();
   }
 
-  Future<List<TaxiPartySummary>> getMyParties({bool history = false}) async {
-    final data = await _request('GET', '/api/taxi/my-parties', query: {
-      'scope': history ? 'history' : 'active',
-    }) as List<dynamic>;
+  Future<List<TaxiPartySummary>> getMyParties({String scope = 'active'}) async {
+    final data =
+        await _request('GET', '/api/taxi/my-parties', query: {'scope': scope})
+            as List<dynamic>;
     return data
         .map((item) => TaxiPartySummary.fromJson(item as Map<String, dynamic>))
         .toList();
   }
 
   Future<TaxiPartyDetail> getParty(String id) async => TaxiPartyDetail.fromJson(
-      await _request('GET', '/api/taxi/parties/$id') as Map<String, dynamic>);
+    await _request('GET', '/api/taxi/parties/$id') as Map<String, dynamic>,
+  );
 
   Future<TaxiPartyDetail> createParty({
     required String clientRequestId,
@@ -74,23 +75,28 @@ class TaxiRepository {
     required DateTime departureAt,
     required int maxMembers,
   }) async {
-    final data = await _request('POST', '/api/taxi/parties', body: {
-      'client_request_id': clientRequestId,
-      'departure_location_id': departureLocationId,
-      'destination_location_id': destinationLocationId,
-      'departure_summary': departureSummary,
-      'destination_summary': destinationSummary,
-      'member_note': memberNote,
-      'departure_at': departureAt.toUtc().toIso8601String(),
-      'max_members': maxMembers,
-    });
+    final data = await _request(
+      'POST',
+      '/api/taxi/parties',
+      body: {
+        'client_request_id': clientRequestId,
+        'departure_location_id': departureLocationId,
+        'destination_location_id': destinationLocationId,
+        'departure_summary': departureSummary,
+        'destination_summary': destinationSummary,
+        'member_note': memberNote,
+        'departure_at': departureAt.toUtc().toIso8601String(),
+        'max_members': maxMembers,
+      },
+    );
     return TaxiPartyDetail.fromJson(data as Map<String, dynamic>);
   }
 
   Future<TaxiPartyDetail> joinParty(String id) async =>
       TaxiPartyDetail.fromJson(
-          await _request('POST', '/api/taxi/parties/$id/join')
-              as Map<String, dynamic>);
+        await _request('POST', '/api/taxi/parties/$id/join')
+            as Map<String, dynamic>,
+      );
 
   Future<TaxiPartyDetail> updateParty(
     String id, {
@@ -128,28 +134,36 @@ class TaxiRepository {
   Future<void> leaveParty(String id) =>
       _request('DELETE', '/api/taxi/parties/$id/members/me');
 
-  Future<void> cancelParty(String id, {String? reason}) =>
-      _request('POST', '/api/taxi/parties/$id/cancel',
-          body: {'reason': reason});
+  Future<void> cancelParty(String id, {String? reason}) => _request(
+    'POST',
+    '/api/taxi/parties/$id/cancel',
+    body: {'reason': reason},
+  );
 
-  Future<void> setRecruitment(String id, bool isOpen) =>
-      _request('PUT', '/api/taxi/parties/$id/recruitment',
-          body: {'is_open': isOpen});
+  Future<void> setRecruitment(String id, bool isOpen) => _request(
+    'PUT',
+    '/api/taxi/parties/$id/recruitment',
+    body: {'is_open': isOpen},
+  );
 
   Future<List<TaxiMessage>> getMessages(String partyId, {int? beforeId}) async {
-    final data = await _request('GET', '/api/taxi/parties/$partyId/messages',
-            query: beforeId == null ? null : {'before_id': '$beforeId'})
-        as Map<String, dynamic>;
+    final data =
+        await _request(
+              'GET',
+              '/api/taxi/parties/$partyId/messages',
+              query: beforeId == null ? null : {'before_id': '$beforeId'},
+            )
+            as Map<String, dynamic>;
     return (data['items'] as List<dynamic>)
         .map((item) => TaxiMessage.fromJson(item as Map<String, dynamic>))
         .toList();
   }
 
   Future<void> markRead(String partyId, int lastMessageId) => _request(
-        'PUT',
-        '/api/taxi/parties/$partyId/messages/read',
-        body: {'last_message_id': lastMessageId},
-      );
+    'PUT',
+    '/api/taxi/parties/$partyId/messages/read',
+    body: {'last_message_id': lastMessageId},
+  );
 
   Future<dynamic> _request(
     String method,
@@ -163,16 +177,25 @@ class TaxiRepository {
     late http.Response response;
     switch (method) {
       case 'POST':
-        response =
-            await _client.post(uri, headers: headers, body: jsonEncode(body));
+        response = await _client.post(
+          uri,
+          headers: headers,
+          body: jsonEncode(body),
+        );
         break;
       case 'PUT':
-        response =
-            await _client.put(uri, headers: headers, body: jsonEncode(body));
+        response = await _client.put(
+          uri,
+          headers: headers,
+          body: jsonEncode(body),
+        );
         break;
       case 'PATCH':
-        response =
-            await _client.patch(uri, headers: headers, body: jsonEncode(body));
+        response = await _client.patch(
+          uri,
+          headers: headers,
+          body: jsonEncode(body),
+        );
         break;
       case 'DELETE':
         response = await _client.delete(uri, headers: headers);
