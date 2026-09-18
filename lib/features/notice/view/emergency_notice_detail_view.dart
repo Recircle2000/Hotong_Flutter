@@ -91,12 +91,14 @@ class EmergencyNoticeDetailView extends StatelessWidget {
   }
 
   String _formatDateTime(DateTime value) {
+    final localValue = value.toLocal();
+
     // 긴급 공지 시각 표시 형식을 yyyy-MM-dd HH:mm으로 고정
-    return '${value.year.toString().padLeft(4, '0')}-'
-        '${value.month.toString().padLeft(2, '0')}-'
-        '${value.day.toString().padLeft(2, '0')} '
-        '${value.hour.toString().padLeft(2, '0')}:'
-        '${value.minute.toString().padLeft(2, '0')}';
+    return '${localValue.year.toString().padLeft(4, '0')}-'
+        '${localValue.month.toString().padLeft(2, '0')}-'
+        '${localValue.day.toString().padLeft(2, '0')} '
+        '${localValue.hour.toString().padLeft(2, '0')}:'
+        '${localValue.minute.toString().padLeft(2, '0')}';
   }
 }
 
