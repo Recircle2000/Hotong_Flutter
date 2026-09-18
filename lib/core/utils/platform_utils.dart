@@ -16,7 +16,7 @@ class PlatformUtils {
       '시내버스 정보는 공공데이터 포털 API를 활용합니다.\n'
       '셔틀버스 정보는 호서대학교 홈페이지 시간표를 기반으로 제공됩니다.\n'
       '1호선 정보는 서울시 API를 활용합니다.\n'
-      '실시간 알림 수신을 위해 공식 HOSEO BUS앱과 같이 이용하시는걸 추천합니다.\n';
+      '실시간 알림 수신을 위해 공식 아이원캠퍼스앱과 같이 이용하시는걸 추천합니다.\n';
 
   // 안드로이드 면책 다이얼로그
   static Future<void> showAndroidDisclaimerDialog(BuildContext context) async {
@@ -92,6 +92,36 @@ class PlatformUtils {
       return false;
     } on MissingPluginException {
       return false;
+    }
+  }
+
+  // UIKit의 UIAlertController로 두 가지 동작이 있는 알림창을 띄운다.
+  // 채널을 사용할 수 없으면 null, 기본 동작은 true, 취소는 false를 반환한다.
+  static Future<bool?> showIOSNativeActionAlertDialog({
+    required String title,
+    required String message,
+    required String actionButtonTitle,
+    String cancelButtonTitle = '닫기',
+  }) async {
+    if (!Platform.isIOS) {
+      return null;
+    }
+
+    try {
+      final selectedAction = await _iosAlertDialogChannel.invokeMethod<String>(
+        'showAction',
+        <String, String>{
+          'title': title,
+          'message': message,
+          'actionButtonTitle': actionButtonTitle,
+          'cancelButtonTitle': cancelButtonTitle,
+        },
+      );
+      return selectedAction == 'action';
+    } on PlatformException {
+      return null;
+    } on MissingPluginException {
+      return null;
     }
   }
 

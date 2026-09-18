@@ -117,7 +117,7 @@ class _NearbyStopsViewState extends State<NearbyStopsView> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('내 주변 정류장 찾기'),
+        title: Text('정류장 시간표'),
         actions: [
           IconButton(
             tooltip: '홈으로 이동',

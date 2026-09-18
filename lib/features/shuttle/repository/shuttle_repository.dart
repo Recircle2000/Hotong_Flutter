@@ -138,6 +138,58 @@ class ShuttleRepository {
         .toList();
   }
 
+  Future<List<JourneyDestination>> fetchJourneyDestinations({
+    required int originStationId,
+    required String date,
+  }) async {
+    final response = await _get(
+      '/shuttle/journey-destinations',
+      query: {
+        'origin_station_id': '$originStationId',
+        'date': date,
+      },
+      headers: _utf8Headers,
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception(
+        'Failed to load journey destinations (${response.statusCode})',
+      );
+    }
+
+    return _decodeList(response.bodyBytes)
+        .map(
+          (item) => JourneyDestination.fromJson(
+            Map<String, dynamic>.from(item),
+          ),
+        )
+        .toList(growable: false);
+  }
+
+  Future<ShuttleJourneySearchResult> fetchJourneys({
+    required int originStationId,
+    required int destinationStationId,
+    required String date,
+  }) async {
+    final response = await _get(
+      '/shuttle/journeys',
+      query: {
+        'origin_station_id': '$originStationId',
+        'destination_station_id': '$destinationStationId',
+        'date': date,
+      },
+      headers: _utf8Headers,
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception('Failed to load journeys (${response.statusCode})');
+    }
+
+    return ShuttleJourneySearchResult.fromJson(
+      _decodeMap(response.bodyBytes),
+    );
+  }
+
   Future<Map<String, dynamic>?> fetchScheduleTypeByDate(String date) async {
     // 날짜 기준 평일/토요일/공휴일 유형 조회
     final response = await _get(

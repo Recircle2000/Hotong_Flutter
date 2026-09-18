@@ -1,4 +1,6 @@
 import 'dart:io';
+import 'package:hsro/features/city_bus/models/city_bus_share.dart';
+import 'package:hsro/shared/widgets/link_share_button.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -40,25 +42,7 @@ class BusMapView extends StatefulWidget {
 
 class _BusMapViewState extends State<BusMapView> {
   // API 키와 UI 표시명을 분리하기 위한 매핑
-  final Map<String, String> routeDisplayNames = {
-    // 노선 이름 표시용
-    "순환5_DOWN": "순환5 (호서대학교 → 천안아산역)",
-    "순환5_UP": "순환5 (천안아산역 → 호서대학교)",
-    "1000_UP": "1000 (탕정면사무소 → 호서대학교)",
-    "1000_DOWN": "1000 (호서대학교 → 탕정면사무소)",
-    "810_UP": "810 (아산터미널 → 호서대학교)",
-    "810_DOWN": "810 (호서대학교 → 아산터미널)",
-    "820_UP": "820 (아산터미널 → 호서대학교)",
-    "820_DOWN": "820 (호서대학교 → 아산터미널)",
-    "821_UP": "821 (아산터미널 → 호서대학교)",
-    "821_DOWN": "821 (호서대학교 → 아산터미널)",
-    "822_UP": "822 (아산터미널 → 호서대학교)",
-    "822_DOWN": "822 (호서대학교 → 아산터미널)",
-    "24_DOWN": "24 (호서대천캠 → 동우아파트)",
-    "24_UP": "24 (동우아파트 → 호서대천캠)",
-    "81_DOWN": "81 (호서대천캠 → 차암2통)",
-    "81_UP": "81 (차암2통 → 호서대천캠)",
-  };
+  final routeDisplayNames = CityBusShare.displayNames;
 
   final Map<String, String> routeSimpleNames = {
     // 노선 이름 간단 표시용
@@ -158,6 +142,13 @@ class _BusMapViewState extends State<BusMapView> {
           );
         }),
         centerTitle: true,
+        actions: [
+          LinkShareButton(
+            content: () => CityBusShare.content(
+              Get.find<BusMapViewModel>().selectedRoute.value,
+            ),
+          ),
+        ],
       ),
       body: GetBuilder<BusMapViewModel>(
         builder: (controller) => Column(

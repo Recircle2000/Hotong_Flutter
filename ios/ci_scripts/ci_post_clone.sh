@@ -4,6 +4,19 @@ set -e
 
 cd $CI_PRIMARY_REPOSITORY_PATH
 
+echo "===== Create .env ====="
+
+mkdir -p assets
+
+cat > assets/.env <<EOF
+NAVER_MAP_CLIENT_ID=$NAVER_MAP_CLIENT_ID
+BASE_URL=$BASE_URL
+PLAY_STORE_ID=$PLAY_STORE_ID
+APPLE_APP_ID=$APPLE_APP_ID
+EOF
+
+echo "✅ assets/.env created"
+
 echo "===== Environment Info ====="
 uname -a || true
 

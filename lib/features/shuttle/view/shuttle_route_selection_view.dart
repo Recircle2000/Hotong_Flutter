@@ -1,26 +1,32 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'dart:io' show Platform;
 import 'package:intl/intl.dart';
 import 'package:tutorial_coach_mark/tutorial_coach_mark.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:hsro/core/utils/platform_utils.dart';
 import 'package:hsro/features/notice/models/emergency_notice_model.dart';
 import 'package:hsro/features/notice/widgets/emergency_notice_banner.dart';
 import 'package:hsro/features/shuttle/models/shuttle_models.dart';
 import 'package:hsro/features/shuttle/view/nearby_stops_view.dart';
+import 'package:hsro/features/shuttle/view/shuttle_journey_result_view.dart';
 import 'package:hsro/features/shuttle/view/shuttle_schedule_view.dart';
 import 'package:hsro/features/shuttle/view/shuttle_station_map_view.dart';
 import 'package:hsro/features/shuttle/viewmodel/shuttle_viewmodel.dart';
+import 'package:hsro/features/shuttle/widgets/shuttle_station_picker.dart';
 import 'package:hsro/shared/widgets/ios_platform_fields.dart';
 import 'package:hsro/shared/widgets/scale_button.dart';
 
 class ShuttleRouteSelectionView extends StatefulWidget {
   final bool startExperienceTour;
+  final bool routeSelectionOnly;
 
   const ShuttleRouteSelectionView({
     super.key,
     this.startExperienceTour = false,
+    this.routeSelectionOnly = false,
   });
 
   @override
@@ -29,38 +35,41 @@ class ShuttleRouteSelectionView extends StatefulWidget {
 }
 
 class _ShuttleRouteSelectionViewState extends State<ShuttleRouteSelectionView> {
+  static const MethodChannel _iosFavoriteJourneyMenuChannel = MethodChannel(
+    'hsro/ios_favorite_journey_menu',
+  );
+  static final Uri _shuttleScheduleSourceUrl = Uri.parse(
+    'https://www.hoseo.ac.kr/Home/Contents.mbz?action=MAPP_2603202792',
+  );
+
   final ShuttleViewModel viewModel = Get.put(ShuttleViewModel());
   // 셔틀 대표 색상
   final Color shuttleColor = const Color(0xFFB83227);
   final ScrollController _scrollController = ScrollController();
   Worker? _errorWorker;
 
-  final GlobalKey _nearbyButtonKey = GlobalKey();
+  final GlobalKey _originFieldKey = GlobalKey();
+  final GlobalKey _destinationFieldKey = GlobalKey();
+  final GlobalKey _journeySearchButtonKey = GlobalKey();
+  final TextEditingController _favoriteNameController = TextEditingController();
+  final FocusNode _favoriteNameFocusNode = FocusNode();
 
   bool _isExperienceTourRunning = false;
+  String? _editingFavoriteKey;
 
   @override
   void initState() {
     super.initState();
     // iOS에서는 날짜 필드 초기값을 먼저 맞춤
     if (Platform.isIOS && viewModel.selectedDate.value.isEmpty) {
-      viewModel.selectDate(
-        DateFormat('yyyy-MM-dd').format(
-          DateTime.now(),
-        ),
-      );
+      viewModel.selectDate(DateFormat('yyyy-MM-dd').format(DateTime.now()));
     }
     // ViewModel 오류 메시지를 스낵바로 연결
     _errorWorker = ever<String?>(viewModel.errorMessage, (message) {
       if (!mounted || message == null || message.isEmpty) return;
-      Get.snackbar(
-        '오류',
-        message,
-        snackPosition: SnackPosition.BOTTOM,
-      );
+      Get.snackbar('오류', message, snackPosition: SnackPosition.BOTTOM);
       viewModel.clearErrorMessage();
     });
-
     if (widget.startExperienceTour) {
       // 체험하기 모드면 첫 프레임 후 튜토리얼 시작
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -73,15 +82,18 @@ class _ShuttleRouteSelectionViewState extends State<ShuttleRouteSelectionView> {
   void dispose() {
     _errorWorker?.dispose();
     _scrollController.dispose();
+    _favoriteNameController.dispose();
+    _favoriteNameFocusNode.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    if (!widget.routeSelectionOnly) {
+      return _buildJourneyScaffold(context);
+    }
     return Scaffold(
-      appBar: AppBar(
-        title: Text('셔틀버스 노선 선택'),
-      ),
+      appBar: AppBar(title: Text('노선별 시간표')),
       body: SafeArea(
         child: Column(
           children: [
@@ -126,153 +138,97 @@ class _ShuttleRouteSelectionViewState extends State<ShuttleRouteSelectionView> {
 
                             try {
                               // 날짜 형식 검증 후 시간표 조회
-                              DateFormat('yyyy-MM-dd')
-                                  .parse(viewModel.selectedDate.value);
+                              DateFormat(
+                                'yyyy-MM-dd',
+                              ).parse(viewModel.selectedDate.value);
 
                               // 조회 버튼을 누를 때만 API를 호출하도록 변경
                               viewModel
                                   .fetchSchedules(
-                                      viewModel.selectedRouteId.value,
-                                      viewModel.selectedDate.value)
+                                    viewModel.selectedRouteId.value,
+                                    viewModel.selectedDate.value,
+                                  )
                                   .then((success) {
-                                if (!context.mounted) {
-                                  return;
-                                }
+                                    if (!context.mounted) {
+                                      return;
+                                    }
 
-                                if (!success) {
-                                  // 해당 날짜 운행 정보가 없으면 안내 팝업 표시
-                                  _showNoScheduleAlert(context);
-                                } else {
-                                  // 조회 성공 시 시간표 화면으로 이동
-                                  Get.to(() => ShuttleScheduleView(
-                                        routeId:
-                                            viewModel.selectedRouteId.value,
-                                        date: viewModel.selectedDate.value,
-                                        routeName: _getSelectedRouteName(),
-                                      ));
-                                }
-                              });
+                                    if (!success) {
+                                      // 해당 날짜 운행 정보가 없으면 안내 팝업 표시
+                                      _showNoScheduleAlert(context);
+                                    } else {
+                                      // 조회 성공 시 시간표 화면으로 이동
+                                      Get.to(
+                                        () => ShuttleScheduleView(
+                                          routeId:
+                                              viewModel.selectedRouteId.value,
+                                          date: viewModel.selectedDate.value,
+                                          routeName: _getSelectedRouteName(),
+                                        ),
+                                      );
+                                    }
+                                  });
                             } catch (e) {
                               debugPrint('날짜 포맷 변환 오류: $e');
                               // 파싱 오류가 나도 조회 자체는 계속 시도
                               viewModel
                                   .fetchSchedules(
-                                      viewModel.selectedRouteId.value,
-                                      viewModel.selectedDate.value)
+                                    viewModel.selectedRouteId.value,
+                                    viewModel.selectedDate.value,
+                                  )
                                   .then((success) {
-                                if (!context.mounted) {
-                                  return;
-                                }
+                                    if (!context.mounted) {
+                                      return;
+                                    }
 
-                                if (!success) {
-                                  _showNoScheduleAlert(context);
-                                } else {
-                                  Get.to(() => ShuttleScheduleView(
-                                        routeId:
-                                            viewModel.selectedRouteId.value,
-                                        date: viewModel.selectedDate.value,
-                                        routeName: _getSelectedRouteName(),
-                                      ));
-                                }
-                              });
+                                    if (!success) {
+                                      _showNoScheduleAlert(context);
+                                    } else {
+                                      Get.to(
+                                        () => ShuttleScheduleView(
+                                          routeId:
+                                              viewModel.selectedRouteId.value,
+                                          date: viewModel.selectedDate.value,
+                                          routeName: _getSelectedRouteName(),
+                                        ),
+                                      );
+                                    }
+                                  });
                             }
                           },
                           child: Container(
                             width: double.infinity,
                             padding: EdgeInsets.symmetric(
-                                horizontal: 50, vertical: 15),
+                              horizontal: 50,
+                              vertical: 15,
+                            ),
                             decoration: BoxDecoration(
                               color: shuttleColor,
                               borderRadius: BorderRadius.circular(20),
                               boxShadow: [
                                 BoxShadow(
-                                    color: Colors.black.withOpacity(0.2),
-                                    blurRadius: 5,
-                                    offset: Offset(0, 3))
+                                  color: Colors.black.withOpacity(0.2),
+                                  blurRadius: 5,
+                                  offset: Offset(0, 3),
+                                ),
                               ],
                             ),
                             child: Text(
                               '시간표 조회',
                               textAlign: TextAlign.center,
                               style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.white),
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
                             ),
                           ),
                         ),
                       ),
 
-                      SizedBox(height: 24),
-
-                      // 섹션 구분선
-                      Divider(
-                        color: shuttleColor.withOpacity(0.3),
-                        thickness: 1.5,
-                      ),
-
-                      SizedBox(height: 24),
-
-                      // 주변 정류장 기준 간편 조회 버튼
-                      Center(
-                        child: Column(
-                          children: [
-                            Container(
-                              key: _nearbyButtonKey,
-                              child: ScaleButton(
-                                onTap: () {
-                                  Get.to(
-                                    () => NearbyStopsView(
-                                      initialDate: _selectedDateOrNull,
-                                    ),
-                                  );
-                                },
-                                child: Container(
-                                  width: double.infinity,
-                                  padding: EdgeInsets.symmetric(
-                                      horizontal: 40, vertical: 15),
-                                  decoration: BoxDecoration(
-                                    color: Colors.green.shade700,
-                                    borderRadius: BorderRadius.circular(20),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: Colors.black.withOpacity(0.2),
-                                        blurRadius: 5,
-                                        offset: Offset(0, 3),
-                                      )
-                                    ],
-                                  ),
-                                  child: Row(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Icon(Icons.location_on,
-                                          color: Colors.white),
-                                      SizedBox(width: 8),
-                                      Text(
-                                        '정류장별 시간표 간편 조회',
-                                        style: TextStyle(
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.bold,
-                                          color: Colors.white,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ),
-                            SizedBox(height: 8),
-                            Text(
-                              '(주변 정류장 검색)',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Theme.of(context).hintColor,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
+                      const SizedBox(height: 10),
+                      _buildScheduleSourceLink(context),
+                      const SizedBox(height: 24),
                     ],
                   ),
                 ),
@@ -284,18 +240,912 @@ class _ShuttleRouteSelectionViewState extends State<ShuttleRouteSelectionView> {
     );
   }
 
+  Widget _buildJourneyScaffold(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('셔틀버스 찾기')),
+      bottomNavigationBar: _buildJourneySearchBar(context),
+      body: SafeArea(
+        child: Column(
+          children: [
+            const EmergencyNoticeBanner(
+              category: EmergencyNoticeCategory.shuttle,
+            ),
+            Expanded(
+              child: SingleChildScrollView(
+                controller: _scrollController,
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildJourneySelectionArea(context),
+                    _buildFavoriteJourneys(context),
+                    const SizedBox(height: 24),
+                    _buildScheduleTypeSelector(context),
+                    const SizedBox(height: 24),
+                    _buildRouteScheduleShortcut(context),
+                    const SizedBox(height: 8),
+                    _buildScheduleSourceLink(context),
+                    const SizedBox(height: 8),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildJourneySearchBar(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return SafeArea(
+      top: false,
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
+        decoration: BoxDecoration(
+          color: Theme.of(context).scaffoldBackgroundColor,
+          border: Border(
+            top: BorderSide(
+              color: Theme.of(context).dividerColor.withValues(alpha: 0.45),
+            ),
+          ),
+        ),
+        child: Container(
+          key: _journeySearchButtonKey,
+          child: Obx(() {
+            final origin = viewModel.selectedOriginStation.value;
+            final destination = viewModel.selectedDestinationStation.value;
+            final isLoadingDestinations =
+                viewModel.isLoadingJourneyDestinations.value;
+            final isSearching = viewModel.isLoadingJourneys.value;
+            final hasUnavailableDate =
+                viewModel.journeyDestinationUnavailableDate.value != null;
+            final canSearch =
+                origin != null &&
+                destination != null &&
+                origin.name != destination.name &&
+                !isLoadingDestinations &&
+                !hasUnavailableDate &&
+                !isSearching;
+            final foregroundColor = canSearch || isSearching
+                ? Colors.white
+                : colorScheme.onSurface.withValues(alpha: 0.38);
+
+            return Semantics(
+              button: true,
+              enabled: canSearch,
+              label: isSearching ? '셔틀 찾는 중' : '셔틀버스 찾기',
+              excludeSemantics: true,
+              child: IgnorePointer(
+                ignoring: !canSearch,
+                child: ScaleButton(
+                  onTap: _openJourneyResults,
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 180),
+                    width: double.infinity,
+                    constraints: const BoxConstraints(minHeight: 54),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 14,
+                    ),
+                    decoration: BoxDecoration(
+                      color: canSearch || isSearching
+                          ? shuttleColor
+                          : colorScheme.onSurface.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(18),
+                      boxShadow: canSearch
+                          ? [
+                              BoxShadow(
+                                color: shuttleColor.withValues(alpha: 0.22),
+                                blurRadius: 8,
+                                offset: const Offset(0, 3),
+                              ),
+                            ]
+                          : null,
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (isSearching) ...[
+                          _buildPlatformLoadingIndicator(
+                            size: 18,
+                            color: Colors.white,
+                            strokeWidth: 2,
+                          ),
+                          const SizedBox(width: 10),
+                        ],
+                        Flexible(
+                          child: Text(
+                            isSearching ? '셔틀 찾는 중…' : '셔틀버스 찾기',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: foregroundColor,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            );
+          }),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRouteScheduleShortcut(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Text(
+            '노선별 전체 시간표를 확인하시겠어요?',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: Theme.of(context).hintColor, fontSize: 12),
+          ),
+          TextButton(
+            onPressed: () => Get.to(
+              () => const ShuttleRouteSelectionView(routeSelectionOnly: true),
+              preventDuplicates: false,
+            ),
+            style: TextButton.styleFrom(
+              foregroundColor: shuttleColor,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              visualDensity: VisualDensity.compact,
+              textStyle: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            child: const Text('노선별 시간표 보기'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildScheduleSourceLink(BuildContext context) {
+    final hintColor = Theme.of(context).hintColor;
+
+    return Center(
+      child: TextButton.icon(
+        onPressed: () => _showScheduleSourceInfo(context),
+        style: TextButton.styleFrom(
+          foregroundColor: hintColor,
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          visualDensity: VisualDensity.compact,
+          textStyle: const TextStyle(fontSize: 12),
+        ),
+        icon: const Icon(Icons.info_outline_rounded, size: 14),
+        label: const Text('시간표 기준 및 출처'),
+      ),
+    );
+  }
+
+  Future<void> _showScheduleSourceInfo(BuildContext context) async {
+    const title = '시간표 기준 안내';
+    const message = '셔틀버스 시간표와 공지사항은 매일 19시를 기준으로 확인해 반영합니다.';
+
+    if (Platform.isIOS) {
+      final shouldOpenHomepage =
+          await PlatformUtils.showIOSNativeActionAlertDialog(
+            title: title,
+            message: message,
+            actionButtonTitle: '홈페이지 이동',
+          );
+
+      if (shouldOpenHomepage != null) {
+        if (shouldOpenHomepage) {
+          await _openShuttleScheduleSource();
+        }
+        return;
+      }
+
+      if (!context.mounted) {
+        return;
+      }
+    }
+
+    return showAdaptiveDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog.adaptive(
+        title: const Text(title),
+        content: const Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('닫기'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.of(dialogContext).pop();
+              _openShuttleScheduleSource();
+            },
+            child: const Text('홈페이지 이동'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _openShuttleScheduleSource() async {
+    final didLaunch = await launchUrl(
+      _shuttleScheduleSourceUrl,
+      mode: LaunchMode.externalApplication,
+    );
+
+    if (!didLaunch) {
+      Get.snackbar(
+        '알림',
+        '호서대학교 셔틀버스 안내 페이지를 열지 못했습니다. 잠시 후 다시 시도해주세요.',
+        snackPosition: SnackPosition.BOTTOM,
+      );
+    }
+  }
+
+  Widget _buildJourneySelectionArea(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          '정류장 선택',
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+        ),
+        const SizedBox(height: 12),
+        Stack(
+          alignment: Alignment.centerRight,
+          children: [
+            Container(
+              decoration: BoxDecoration(
+                color: Theme.of(context).cardColor,
+                borderRadius: BorderRadius.circular(25),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.1),
+                    blurRadius: 10,
+                    offset: const Offset(0, 0),
+                  ),
+                ],
+              ),
+              child: Column(
+                children: [
+                  Container(
+                    key: _originFieldKey,
+                    child: Obx(
+                      () => _buildStationField(
+                        context: context,
+                        label: '출발',
+                        value: viewModel.selectedOriginStation.value?.name,
+                        onTap: () => _selectStation(isOrigin: true),
+                      ),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.only(left: 16, right: 64),
+                    child: Divider(
+                      height: 1,
+                      color: Theme.of(
+                        context,
+                      ).dividerColor.withValues(alpha: 0.45),
+                    ),
+                  ),
+                  Container(
+                    key: _destinationFieldKey,
+                    child: Obx(
+                      () => _buildStationField(
+                        context: context,
+                        label: '도착',
+                        value: viewModel.selectedDestinationStation.value?.name,
+                        onTap: () => _selectStation(isOrigin: false),
+                        isLoading: viewModel.isLoadingJourneyDestinations.value,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Positioned(
+              right: 12,
+              child: Semantics(
+                button: true,
+                label: '출발지와 도착지 바꾸기',
+                child: ScaleButton(
+                  onTap: viewModel.swapJourneyStations,
+                  child: Container(
+                    width: 42,
+                    height: 42,
+                    decoration: BoxDecoration(
+                      color: shuttleColor,
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: shuttleColor.withValues(alpha: 0.25),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: const Icon(
+                      Icons.swap_vert_rounded,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+        Obx(() {
+          final origin = viewModel.selectedOriginStation.value;
+          final destination = viewModel.selectedDestinationStation.value;
+          final unavailableDate =
+              viewModel.journeyDestinationUnavailableDate.value;
+          if (origin == null) return const SizedBox.shrink();
+          return Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 240),
+                  switchInCurve: Curves.easeOutCubic,
+                  switchOutCurve: Curves.easeInCubic,
+                  transitionBuilder: (child, animation) => FadeTransition(
+                    opacity: animation,
+                    child: SizeTransition(
+                      sizeFactor: animation,
+                      axisAlignment: -1,
+                      child: child,
+                    ),
+                  ),
+                  layoutBuilder: (currentChild, previousChildren) => Stack(
+                    alignment: Alignment.topCenter,
+                    children: [
+                      ...previousChildren,
+                      if (currentChild != null) currentChild,
+                    ],
+                  ),
+                  child: unavailableDate != null
+                      ? Container(
+                          key: const ValueKey('journey_unavailable_notice'),
+                          width: double.infinity,
+                          margin: const EdgeInsets.fromLTRB(0, 6, 0, 2),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 10,
+                          ),
+                          decoration: BoxDecoration(
+                            color: shuttleColor.withValues(alpha: 0.08),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.info_outline_rounded,
+                                size: 18,
+                                color:
+                                    Theme.of(context).brightness ==
+                                        Brightness.dark
+                                    ? Colors.redAccent
+                                    : shuttleColor,
+                              ),
+                              const SizedBox(width: 8),
+                              const Expanded(
+                                child: Text(
+                                  '선택한 탑승일에 운행하는 셔틀버스가 없습니다.',
+                                  style: TextStyle(fontSize: 12),
+                                ),
+                              ),
+                            ],
+                          ),
+                        )
+                      : !viewModel.isCampusStationName(origin.name)
+                      ? Padding(
+                          key: const ValueKey('journey_campus_only_notice'),
+                          padding: const EdgeInsets.fromLTRB(12, 4, 12, 0),
+                          child: Text(
+                            '중간 정류장에서는 캠퍼스행 셔틀만 이용할 수 있어요.',
+                            style: TextStyle(
+                              color: Theme.of(context).hintColor,
+                              fontSize: 12,
+                            ),
+                          ),
+                        )
+                      : const SizedBox(key: ValueKey('journey_notice_empty')),
+                ),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: TextButton.icon(
+                          style: TextButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                            visualDensity: VisualDensity.compact,
+                          ),
+                          onPressed: () => Get.to(
+                            () => NearbyStopsView(
+                              initialStationId: origin.id,
+                              initialDate: _selectedDateOrNull,
+                            ),
+                          ),
+                          icon: const Icon(Icons.schedule, size: 17),
+                          label: const Text('출발 정류장 시간표'),
+                        ),
+                      ),
+                    ),
+                    if (destination != null)
+                      Tooltip(
+                        message: viewModel.isSelectedJourneyFavorite
+                            ? '즐겨찾기 해제'
+                            : '즐겨찾기 저장',
+                        child: TextButton.icon(
+                          style: TextButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                            visualDensity: VisualDensity.compact,
+                            foregroundColor: viewModel.isSelectedJourneyFavorite
+                                ? Colors.amber.shade800
+                                : Theme.of(context).hintColor,
+                          ),
+                          onPressed: viewModel.toggleSelectedJourneyFavorite,
+                          icon: Icon(
+                            viewModel.isSelectedJourneyFavorite
+                                ? Icons.star_rounded
+                                : Icons.star_border_rounded,
+                            color: viewModel.isSelectedJourneyFavorite
+                                ? Colors.amber.shade700
+                                : Theme.of(context).hintColor,
+                          ),
+                          label: Text(
+                            viewModel.isSelectedJourneyFavorite
+                                ? '경로 저장됨'
+                                : '경로 저장',
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ],
+            ),
+          );
+        }),
+      ],
+    );
+  }
+
+  Widget _buildStationField({
+    required BuildContext context,
+    required String label,
+    required String? value,
+    required VoidCallback onTap,
+    bool isLoading = false,
+  }) {
+    return ScaleButton(
+      onTap: onTap,
+      child: SizedBox(
+        height: 58,
+        child: Padding(
+          padding: const EdgeInsets.only(left: 16, right: 64),
+          child: Row(
+            children: [
+              SizedBox(
+                width: 34,
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.clip,
+                  style: const TextStyle(fontSize: 12),
+                ),
+              ),
+              Expanded(
+                child: Text(
+                  value ?? '정류장을 선택하세요',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontWeight: value == null
+                        ? FontWeight.normal
+                        : FontWeight.w600,
+                    color: value == null ? Theme.of(context).hintColor : null,
+                  ),
+                ),
+              ),
+              if (isLoading)
+                _buildPlatformLoadingIndicator(size: 16, strokeWidth: 2)
+              else
+                Icon(Icons.chevron_right, color: Theme.of(context).hintColor),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFavoriteJourneys(BuildContext context) {
+    return Obx(() {
+      final favorites = viewModel.validFavoriteJourneys;
+      if (favorites.isEmpty) return const SizedBox.shrink();
+      return Padding(
+        padding: const EdgeInsets.only(top: 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              '즐겨찾는 경로',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+            ),
+            const SizedBox(height: 8),
+            SizedBox(
+              height: 54,
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final fullWidth = constraints.maxWidth + 32;
+                  return OverflowBox(
+                    alignment: Alignment.center,
+                    minWidth: fullWidth,
+                    maxWidth: fullWidth,
+                    child: _EdgeFadingHorizontalList(
+                      height: 54,
+                      itemCount: favorites.length,
+                      itemBuilder: (context, index) {
+                        final favorite = favorites[index];
+                        final isEditing = _editingFavoriteKey == favorite.key;
+                        return ScaleButton(
+                          onTap: isEditing
+                              ? _favoriteNameFocusNode.requestFocus
+                              : () => viewModel.applyFavoriteJourney(favorite),
+                          child: Container(
+                            height: 50,
+                            constraints: const BoxConstraints(maxWidth: 240),
+                            padding: const EdgeInsets.only(left: 16),
+                            decoration: BoxDecoration(
+                              color: Theme.of(context).cardColor,
+                              borderRadius: BorderRadius.circular(25),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.1),
+                                  blurRadius: 10,
+                                  offset: const Offset(0, 0),
+                                ),
+                              ],
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.star_rounded,
+                                  size: 20,
+                                  color: Colors.amber.shade700,
+                                ),
+                                const SizedBox(width: 7),
+                                Flexible(
+                                  child: isEditing
+                                      ? TextField(
+                                          controller: _favoriteNameController,
+                                          focusNode: _favoriteNameFocusNode,
+                                          autofocus: true,
+                                          maxLength: 30,
+                                          maxLines: 1,
+                                          textInputAction: TextInputAction.done,
+                                          style: const TextStyle(
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                          decoration: InputDecoration(
+                                            isDense: true,
+                                            counterText: '',
+                                            hintText: '이름 입력',
+                                            contentPadding:
+                                                const EdgeInsets.symmetric(
+                                                  vertical: 5,
+                                                ),
+                                            enabledBorder: UnderlineInputBorder(
+                                              borderSide: BorderSide(
+                                                color: shuttleColor.withValues(
+                                                  alpha: 0.45,
+                                                ),
+                                              ),
+                                            ),
+                                            focusedBorder: UnderlineInputBorder(
+                                              borderSide: BorderSide(
+                                                color: shuttleColor,
+                                                width: 1.5,
+                                              ),
+                                            ),
+                                          ),
+                                          onSubmitted: (_) =>
+                                              _finishFavoriteRename(),
+                                          onTapOutside: (_) {
+                                            _finishFavoriteRename();
+                                          },
+                                        )
+                                      : Text(
+                                          viewModel.favoriteDisplayName(
+                                            favorite,
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: const TextStyle(
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                ),
+                                SizedBox(
+                                  width: 44,
+                                  height: 44,
+                                  child: isEditing
+                                      ? IconButton(
+                                          padding: EdgeInsets.zero,
+                                          iconSize: 20,
+                                          tooltip: '이름 저장',
+                                          onPressed: _finishFavoriteRename,
+                                          icon: Icon(
+                                            Icons.check_rounded,
+                                            color: shuttleColor,
+                                          ),
+                                        )
+                                      : Platform.isIOS
+                                      ? Builder(
+                                          builder: (menuContext) => IconButton(
+                                            padding: EdgeInsets.zero,
+                                            iconSize: 20,
+                                            tooltip: '더보기',
+                                            onPressed: () =>
+                                                _showIOSFavoriteJourneyMenu(
+                                                  favorite,
+                                                  menuContext,
+                                                ),
+                                            icon: const Icon(Icons.more_vert),
+                                          ),
+                                        )
+                                      : PopupMenuButton<String>(
+                                          padding: EdgeInsets.zero,
+                                          iconSize: 20,
+                                          tooltip: '더보기',
+                                          constraints: const BoxConstraints(
+                                            minWidth: 160,
+                                            maxWidth: 220,
+                                          ),
+                                          menuPadding:
+                                              const EdgeInsets.symmetric(
+                                                vertical: 6,
+                                              ),
+                                          onSelected: (action) =>
+                                              _handleFavoriteJourneyAction(
+                                                favorite,
+                                                action,
+                                              ),
+                                          itemBuilder: (_) => const [
+                                            PopupMenuItem(
+                                              value: 'rename',
+                                              height: 54,
+                                              child: Text(
+                                                '이름 변경',
+                                                style: TextStyle(fontSize: 16),
+                                              ),
+                                            ),
+                                            PopupMenuItem(
+                                              value: 'delete',
+                                              height: 54,
+                                              child: Text(
+                                                '삭제',
+                                                style: TextStyle(fontSize: 16),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      );
+    });
+  }
+
+  Future<void> _selectStation({required bool isOrigin}) async {
+    if (!isOrigin && viewModel.selectedOriginStation.value == null) {
+      Get.snackbar(
+        '알림',
+        '출발 정류장을 먼저 선택해주세요',
+        snackPosition: SnackPosition.BOTTOM,
+      );
+      return;
+    }
+    if (!isOrigin && viewModel.isLoadingJourneyDestinations.value) {
+      Get.snackbar(
+        '알림',
+        '이동 가능한 도착지를 확인하고 있습니다',
+        snackPosition: SnackPosition.BOTTOM,
+      );
+      return;
+    }
+    final allowedIds = isOrigin
+        ? null
+        : viewModel.journeyDestinations
+              .expand(
+                (destination) =>
+                    viewModel.stationIdsForLogicalName(destination.stationName),
+              )
+              .toSet();
+    final pickerStations = isOrigin
+        ? viewModel.logicalJourneyStations
+        : viewModel.sortJourneyStationsForPicker(
+            viewModel.journeyDestinations.map(
+              viewModel.stationForJourneyDestination,
+            ),
+          );
+    final station = await showShuttleStationPicker(
+      context: context,
+      title: isOrigin ? '출발 정류장 선택' : '도착 정류장 선택',
+      stations: pickerStations,
+      favoriteStationsProvider: () => viewModel.favoriteStations,
+      isStationFavorite: viewModel.isStationFavorite,
+      onToggleFavorite: viewModel.toggleStationFavorite,
+      detailStationsProvider: (station) =>
+          viewModel.stationsForLogicalName(station.name),
+      allowedStationIds: allowedIds,
+    );
+    if (station == null) return;
+    if (isOrigin) {
+      await viewModel.selectOriginStation(station);
+    } else {
+      await viewModel.selectDestinationStation(station);
+    }
+  }
+
+  Future<void> _openJourneyResults() async {
+    final origin = viewModel.selectedOriginStation.value;
+    final destination = viewModel.selectedDestinationStation.value;
+    if (origin == null) {
+      Get.snackbar('알림', '출발 정류장을 선택해주세요', snackPosition: SnackPosition.BOTTOM);
+      return;
+    }
+    if (destination == null) {
+      Get.snackbar('알림', '도착 정류장을 선택해주세요', snackPosition: SnackPosition.BOTTOM);
+      return;
+    }
+    if (origin.name == destination.name) {
+      Get.snackbar(
+        '알림',
+        '출발지와 도착지는 달라야 합니다',
+        snackPosition: SnackPosition.BOTTOM,
+      );
+      return;
+    }
+    final result = await viewModel.searchJourneys();
+    if (!mounted || result == null) return;
+    Get.to(() => ShuttleJourneyResultView(initialResult: result));
+  }
+
+  Future<void> _startFavoriteRename(FavoriteShuttleJourney favorite) async {
+    if (_editingFavoriteKey != null && _editingFavoriteKey != favorite.key) {
+      await _finishFavoriteRename();
+    }
+    if (!mounted) return;
+
+    final initialName = favorite.customName?.trim().isNotEmpty == true
+        ? favorite.customName!.trim()
+        : viewModel.favoriteDisplayName(favorite);
+    _favoriteNameController.value = TextEditingValue(
+      text: initialName,
+      selection: TextSelection(baseOffset: 0, extentOffset: initialName.length),
+    );
+    setState(() => _editingFavoriteKey = favorite.key);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _editingFavoriteKey != favorite.key) return;
+      _favoriteNameFocusNode.requestFocus();
+    });
+  }
+
+  Future<void> _finishFavoriteRename() async {
+    final favoriteKey = _editingFavoriteKey;
+    if (favoriteKey == null) return;
+
+    FavoriteShuttleJourney? favorite;
+    for (final item in viewModel.favoriteJourneys) {
+      if (item.key == favoriteKey) {
+        favorite = item;
+        break;
+      }
+    }
+    final editedName = _favoriteNameController.text;
+    _favoriteNameFocusNode.unfocus();
+    if (mounted) setState(() => _editingFavoriteKey = null);
+    if (favorite != null) {
+      await viewModel.renameFavoriteJourney(favorite, editedName);
+    }
+  }
+
+  Future<void> _showIOSFavoriteJourneyMenu(
+    FavoriteShuttleJourney favorite,
+    BuildContext menuContext,
+  ) async {
+    String? action;
+
+    final renderBox = menuContext.findRenderObject() as RenderBox?;
+    if (renderBox == null || !renderBox.hasSize) return;
+    final origin = renderBox.localToGlobal(Offset.zero);
+
+    try {
+      action = await _iosFavoriteJourneyMenuChannel
+          .invokeMethod<String>('show', <String, Object>{
+            'title': viewModel.favoriteDisplayName(favorite),
+            'renameTitle': '이름 변경',
+            'deleteTitle': '삭제',
+            'cancelTitle': '취소',
+            'sourceX': origin.dx,
+            'sourceY': origin.dy,
+            'sourceWidth': renderBox.size.width,
+            'sourceHeight': renderBox.size.height,
+          });
+    } on PlatformException {
+      action = await _showCupertinoFavoriteJourneyMenu(favorite);
+    } on MissingPluginException {
+      action = await _showCupertinoFavoriteJourneyMenu(favorite);
+    }
+
+    if (!mounted || action == null) return;
+    await _handleFavoriteJourneyAction(favorite, action);
+  }
+
+  Future<String?> _showCupertinoFavoriteJourneyMenu(
+    FavoriteShuttleJourney favorite,
+  ) {
+    return showCupertinoModalPopup<String>(
+      context: context,
+      builder: (popupContext) => CupertinoActionSheet(
+        title: Text(viewModel.favoriteDisplayName(favorite)),
+        actions: [
+          CupertinoActionSheetAction(
+            onPressed: () => Navigator.pop(popupContext, 'rename'),
+            child: const Text('이름 변경'),
+          ),
+          CupertinoActionSheetAction(
+            isDestructiveAction: true,
+            onPressed: () => Navigator.pop(popupContext, 'delete'),
+            child: const Text('삭제'),
+          ),
+        ],
+        cancelButton: CupertinoActionSheetAction(
+          onPressed: () => Navigator.pop(popupContext),
+          child: const Text('취소'),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _handleFavoriteJourneyAction(
+    FavoriteShuttleJourney favorite,
+    String action,
+  ) async {
+    if (action == 'rename') {
+      await _startFavoriteRename(favorite);
+    } else if (action == 'delete') {
+      await viewModel.removeFavoriteJourney(favorite);
+    }
+  }
+
   Future<void> _startExperienceTour() async {
     if (!mounted || _isExperienceTourRunning) return;
     _isExperienceTourRunning = true;
-
-    // 하단 버튼까지 보이도록 스크롤
-    if (_scrollController.hasClients) {
-      await _scrollController.animateTo(
-        _scrollController.position.maxScrollExtent,
-        duration: const Duration(milliseconds: 350),
-        curve: Curves.easeOutCubic,
-      );
-    }
 
     await Future.delayed(const Duration(milliseconds: 180));
     if (!mounted) return;
@@ -303,17 +1153,33 @@ class _ShuttleRouteSelectionViewState extends State<ShuttleRouteSelectionView> {
     TutorialCoachMark(
       targets: [
         TargetFocus(
-          identify: 'shuttle_nearby_button',
-          keyTarget: _nearbyButtonKey,
+          identify: 'shuttle_origin_field',
+          keyTarget: _originFieldKey,
           shape: ShapeLightFocus.RRect,
           radius: 16,
           contents: [
             TargetContent(
-              align: ContentAlign.top,
+              align: ContentAlign.bottom,
               builder: (context, controller) => _buildExperienceContent(
                 controller: controller,
-                title: '정류장별 시간표 간편 조회',
-                description: '현재 위치 기준으로 가까운 정류장을 자동 정렬해 빠르게 시간표를 확인할 수 있습니다.',
+                title: '출발 정류장 선택',
+                description: '검색, 현재 위치 또는 지도에서 탑승할 정류장을 선택할 수 있습니다.',
+              ),
+            ),
+          ],
+        ),
+        TargetFocus(
+          identify: 'shuttle_destination_field',
+          keyTarget: _destinationFieldKey,
+          shape: ShapeLightFocus.RRect,
+          radius: 16,
+          contents: [
+            TargetContent(
+              align: ContentAlign.bottom,
+              builder: (context, controller) => _buildExperienceContent(
+                controller: controller,
+                title: '도착 정류장 선택',
+                description: '출발지에서 갈 수 있는 정류장만 확인하고 가는 셔틀을 찾을 수 있습니다.',
                 isLast: true,
               ),
             ),
@@ -324,24 +1190,13 @@ class _ShuttleRouteSelectionViewState extends State<ShuttleRouteSelectionView> {
       hideSkip: true,
       paddingFocus: 8,
       opacityShadow: 0.8,
-      onFinish: () => _openNearbyStopsExperience(),
+      onFinish: () => _completeExperienceTour(proceedToNext: true),
       onSkip: () {
         _completeExperienceTour(proceedToNext: false);
         return true;
       },
       onClickOverlay: (target) {},
     ).show(context: context);
-  }
-
-  Future<void> _openNearbyStopsExperience() async {
-    // 체험하기 흐름을 주변 정류장 화면으로 이어감
-    final shouldContinue = await Get.to(
-      () => NearbyStopsView(
-        startExperienceTour: widget.startExperienceTour,
-        initialDate: _selectedDateOrNull,
-      ),
-    );
-    _completeExperienceTour(proceedToNext: shouldContinue == true);
   }
 
   void _completeExperienceTour({required bool proceedToNext}) {
@@ -429,11 +1284,7 @@ class _ShuttleRouteSelectionViewState extends State<ShuttleRouteSelectionView> {
   }
 
   void _openStationMap() {
-    Get.to(
-      () => ShuttleStationMapView(
-        initialDate: _selectedDateOrNull,
-      ),
-    );
+    Get.to(() => ShuttleStationMapView(initialDate: _selectedDateOrNull));
   }
 
   Widget _buildSelectionArea(BuildContext context) {
@@ -445,8 +1296,10 @@ class _ShuttleRouteSelectionViewState extends State<ShuttleRouteSelectionView> {
 
         SizedBox(height: 24),
 
-        Text('노선 선택',
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+        Text(
+          '노선 선택',
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+        ),
         SizedBox(height: 12),
 
         // 노선 목록 로딩/빈 상태/선택 UI 전환
@@ -454,8 +1307,8 @@ class _ShuttleRouteSelectionViewState extends State<ShuttleRouteSelectionView> {
           () => viewModel.isLoadingRoutes.value
               ? Center(child: _buildPlatformLoadingIndicator())
               : viewModel.routes.isEmpty
-                  ? Text('사용 가능한 노선이 없습니다')
-                  : _buildRouteSelector(context),
+              ? const Text('현재 선택한 날짜에 이용 가능한 노선이 없어요.')
+              : _buildRouteSelector(context),
         ),
 
         SizedBox(height: 20),
@@ -497,8 +1350,9 @@ class _ShuttleRouteSelectionViewState extends State<ShuttleRouteSelectionView> {
         final backgroundColor = brightness == Brightness.dark
             ? shuttleColor.withOpacity(0.2)
             : shuttleColor.withOpacity(0.1);
-        final titleColor =
-            brightness == Brightness.dark ? Colors.redAccent : shuttleColor;
+        final titleColor = brightness == Brightness.dark
+            ? Colors.redAccent
+            : shuttleColor;
 
         return Container(
           padding: const EdgeInsets.all(16),
@@ -532,7 +1386,9 @@ class _ShuttleRouteSelectionViewState extends State<ShuttleRouteSelectionView> {
               ),
               const SizedBox(height: 10),
               Text(
-                '노선과 운행 날짜를 선택해 시간표를 조회하세요.',
+                widget.routeSelectionOnly
+                    ? '노선과 운행 날짜를 선택하면 시간표를 확인할 수 있어요.'
+                    : '출발지와 도착지를 선택하면 이용 가능한 셔틀을 찾아드려요.',
                 style: TextStyle(
                   color: Theme.of(context).hintColor,
                   fontSize: 13,
@@ -565,8 +1421,9 @@ class _ShuttleRouteSelectionViewState extends State<ShuttleRouteSelectionView> {
     return Obx(() {
       final routes = viewModel.routes.toList(growable: false);
       final selectedRouteId = viewModel.selectedRouteId.value;
-      final routeKey =
-          routes.map((route) => '${route.id}:${route.routeName}').join('|');
+      final routeKey = routes
+          .map((route) => '${route.id}:${route.routeName}')
+          .join('|');
 
       return Container(
         height: 50,
@@ -617,8 +1474,10 @@ class _ShuttleRouteSelectionViewState extends State<ShuttleRouteSelectionView> {
           hint: Text('노선을 선택하세요'),
           isExpanded: true,
           underline: SizedBox(), // 밑줄 제거
-          icon: Icon(Icons.arrow_drop_down,
-              color: Theme.of(Get.context!).hintColor),
+          icon: Icon(
+            Icons.arrow_drop_down,
+            color: Theme.of(Get.context!).hintColor,
+          ),
           onChanged: (int? value) {
             if (value != null) {
               viewModel.selectRoute(value);
@@ -677,10 +1536,7 @@ class _ShuttleRouteSelectionViewState extends State<ShuttleRouteSelectionView> {
       children: [
         Text(
           '탑승일',
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-          ),
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
         ),
         SizedBox(height: 12),
         Obx(() {
@@ -719,8 +1575,8 @@ class _ShuttleRouteSelectionViewState extends State<ShuttleRouteSelectionView> {
                       final pickerWidth = availablePickerWidth <= 0
                           ? constraints.maxWidth
                           : (availablePickerWidth < 210
-                              ? availablePickerWidth
-                              : 210.0);
+                                ? availablePickerWidth
+                                : 210.0);
 
                       return Stack(
                         children: [
@@ -752,7 +1608,8 @@ class _ShuttleRouteSelectionViewState extends State<ShuttleRouteSelectionView> {
                                 style: TextStyle(
                                   fontSize: 14,
                                   fontWeight: FontWeight.w600,
-                                  color: Theme.of(context).brightness ==
+                                  color:
+                                      Theme.of(context).brightness ==
                                           Brightness.dark
                                       ? Colors.redAccent
                                       : shuttleColor,
@@ -788,10 +1645,7 @@ class _ShuttleRouteSelectionViewState extends State<ShuttleRouteSelectionView> {
       children: [
         Text(
           '탑승일',
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-          ),
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
         ),
         SizedBox(height: 12),
         _buildDateSelectorWithArrows(
@@ -899,8 +1753,10 @@ class _ShuttleRouteSelectionViewState extends State<ShuttleRouteSelectionView> {
                         ),
                       ),
                     ),
-                    Icon(Icons.calendar_today,
-                        color: Theme.of(context).hintColor),
+                    Icon(
+                      Icons.calendar_today,
+                      color: Theme.of(context).hintColor,
+                    ),
                   ],
                 ),
               ),
@@ -948,8 +1804,8 @@ class _ShuttleRouteSelectionViewState extends State<ShuttleRouteSelectionView> {
               icon,
               color: enabled
                   ? (Theme.of(context).brightness == Brightness.dark
-                      ? Colors.redAccent
-                      : shuttleColor)
+                        ? Colors.redAccent
+                        : shuttleColor)
                   : Theme.of(context).disabledColor,
             ),
           ),
@@ -981,8 +1837,9 @@ class _ShuttleRouteSelectionViewState extends State<ShuttleRouteSelectionView> {
     }
 
     try {
-      final selectedDate =
-          DateFormat('yyyy-MM-dd').parse(viewModel.selectedDate.value);
+      final selectedDate = DateFormat(
+        'yyyy-MM-dd',
+      ).parse(viewModel.selectedDate.value);
       return DateTime(selectedDate.year, selectedDate.month, selectedDate.day);
     } catch (e) {
       return today;
@@ -1026,8 +1883,9 @@ class _ShuttleRouteSelectionViewState extends State<ShuttleRouteSelectionView> {
   }
 
   Future<void> _showAndroidDatePicker(BuildContext context) async {
-    DateTime selectedDate =
-        _clampDateToSelectableRange(_getSelectedDateOrToday());
+    DateTime selectedDate = _clampDateToSelectableRange(
+      _getSelectedDateOrToday(),
+    );
     final firstDate = _getMinimumSelectableDate();
     final lastDate = _getMaximumSelectableDate();
 
@@ -1148,6 +2006,123 @@ class _ShuttleRouteSelectionViewState extends State<ShuttleRouteSelectionView> {
             child: Text('확인'),
             onPressed: () => Navigator.pop(context),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class _EdgeFadingHorizontalList extends StatefulWidget {
+  final double height;
+  final int itemCount;
+  final IndexedWidgetBuilder itemBuilder;
+
+  const _EdgeFadingHorizontalList({
+    required this.height,
+    required this.itemCount,
+    required this.itemBuilder,
+  });
+
+  @override
+  State<_EdgeFadingHorizontalList> createState() =>
+      _EdgeFadingHorizontalListState();
+}
+
+class _EdgeFadingHorizontalListState extends State<_EdgeFadingHorizontalList> {
+  final ScrollController _controller = ScrollController();
+  bool _showLeadingFade = false;
+  bool _showTrailingFade = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller.addListener(_updateFades);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _updateFades());
+  }
+
+  @override
+  void didUpdateWidget(covariant _EdgeFadingHorizontalList oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _updateFades());
+  }
+
+  @override
+  void dispose() {
+    _controller
+      ..removeListener(_updateFades)
+      ..dispose();
+    super.dispose();
+  }
+
+  void _updateFades() {
+    if (!mounted || !_controller.hasClients) return;
+    final position = _controller.position;
+    final showLeading = position.extentBefore > 1;
+    final showTrailing = position.extentAfter > 1;
+    if (showLeading == _showLeadingFade && showTrailing == _showTrailingFade) {
+      return;
+    }
+    setState(() {
+      _showLeadingFade = showLeading;
+      _showTrailingFade = showTrailing;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final backgroundColor = Theme.of(context).scaffoldBackgroundColor;
+    return SizedBox(
+      height: widget.height,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          ListView.separated(
+            controller: _controller,
+            scrollDirection: Axis.horizontal,
+            clipBehavior: Clip.none,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            itemCount: widget.itemCount,
+            separatorBuilder: (_, __) => const SizedBox(width: 8),
+            itemBuilder: widget.itemBuilder,
+          ),
+          if (_showLeadingFade)
+            Positioned(
+              left: 0,
+              top: 0,
+              bottom: 0,
+              width: 18,
+              child: IgnorePointer(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        backgroundColor,
+                        backgroundColor.withValues(alpha: 0),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          if (_showTrailingFade)
+            Positioned(
+              right: 0,
+              top: 0,
+              bottom: 0,
+              width: 18,
+              child: IgnorePointer(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        backgroundColor.withValues(alpha: 0),
+                        backgroundColor,
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
         ],
       ),
     );

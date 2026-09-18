@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:io' show Platform;
 
+import 'package:hsro/features/city_bus/models/city_bus_share.dart';
+import 'package:hsro/shared/widgets/link_share_button.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_naver_map/flutter_naver_map.dart';
 import 'package:get/get.dart';
@@ -412,6 +414,11 @@ class _NaverBusMapDetailViewState extends State<NaverBusMapDetailView> {
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.routeName),
+        actions: [
+          LinkShareButton(
+            content: () => CityBusShare.content(controller.selectedRoute.value),
+          ),
+        ],
         leading: IconButton(
           icon: Icon(
             Platform.isIOS ? Icons.arrow_back_ios : Icons.arrow_back,

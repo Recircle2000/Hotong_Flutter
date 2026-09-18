@@ -143,15 +143,6 @@
               "routeid": "ASB288001027"
             },
             {
-              "gpslati": 36.7943115,
-              "gpslong": 127.1036804,
-              "nodeid": "ASB288002022",
-              "nodenm": "천안아산역",
-              "nodeno": 2022,
-              "nodeord": 16,
-              "routeid": "ASB288001027"
-            },
-            {
               "gpslati": 36.79372,
               "gpslong": 127.1013,
               "nodeid": "ASB288002048",

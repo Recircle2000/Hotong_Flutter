@@ -16,10 +16,12 @@ import 'package:hsro/shared/widgets/scale_button.dart';
 
 class ShuttleStationMapView extends StatefulWidget {
   final String? initialDate;
+  final bool selectionMode;
 
   const ShuttleStationMapView({
     super.key,
     this.initialDate,
+    this.selectionMode = false,
   });
 
   @override
@@ -703,6 +705,10 @@ class _ShuttleStationMapViewState extends State<ShuttleStationMapView> {
 
   Future<void> _handleMarkerTap(_StationMarkerGroup group) async {
     if (group.options.length == 1) {
+      if (widget.selectionMode) {
+        Get.back(result: group.options.first.station);
+        return;
+      }
       await _captureCameraPositionBeforeMarkerFocus();
       await _focusMarkerForBottomSheet(group.position);
       final shouldRestoreCamera =
@@ -715,6 +721,11 @@ class _ShuttleStationMapViewState extends State<ShuttleStationMapView> {
 
     final selectedOption = await _showDirectionPicker(group);
     if (!mounted || selectedOption == null) {
+      return;
+    }
+
+    if (widget.selectionMode) {
+      Get.back(result: selectedOption.station);
       return;
     }
 
@@ -760,7 +771,8 @@ class _ShuttleStationMapViewState extends State<ShuttleStationMapView> {
     }
 
     try {
-      _cameraPositionBeforeMarkerFocus = await mapController.getCameraPosition();
+      _cameraPositionBeforeMarkerFocus =
+          await mapController.getCameraPosition();
     } catch (_) {
       _cameraPositionBeforeMarkerFocus = null;
     }
@@ -1066,7 +1078,8 @@ class _ShuttleStationMapViewState extends State<ShuttleStationMapView> {
                                     vertical: 8,
                                   ),
                                   decoration: BoxDecoration(
-                                    color: _shuttleColor.withValues(alpha: 0.08),
+                                    color:
+                                        _shuttleColor.withValues(alpha: 0.08),
                                     borderRadius: BorderRadius.circular(999),
                                     border: Border.all(
                                       color: _shuttleColor.withValues(

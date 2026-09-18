@@ -17,20 +17,20 @@
                         "routeid": "ASB288000286"
                     },
                     {
-                        "gpslati": 36.79372,
-                        "gpslong": 127.1013,
-                        "nodeid": "ASB288002048",
-                        "nodenm": "호수공원",
-                        "nodeno": 2048,
+                        "gpslati": 36.79628139691294,
+                        "gpslong": 127.10213046592895 ,
+                        "nodeid": "ASB288002049",
+                        "nodenm": "패션1광장",
+                        "nodeno": 2049,
                         "nodeord": 2,
                         "routeid": "ASB288000286"
                     },
                     {
-                        "gpslati": 36.7915,
-                        "gpslong": 127.1036,
-                        "nodeid": "ASB288002219",
-                        "nodenm": "아산역 건너",
-                        "nodeno": 2219,
+                        "gpslati": 36.79333486017998,
+                        "gpslong": 127.10713484355558,
+                        "nodeid": "ASB288002217",
+                        "nodenm": "패션2광장 건너",
+                        "nodeno": 2217,
                         "nodeord": 3,
                         "routeid": "ASB288000286"
                     },
