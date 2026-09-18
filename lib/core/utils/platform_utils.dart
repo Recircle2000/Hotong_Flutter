@@ -16,7 +16,7 @@ class PlatformUtils {
       '시내버스 정보는 공공데이터 포털 API를 활용합니다.\n'
       '셔틀버스 정보는 호서대학교 홈페이지 시간표를 기반으로 제공됩니다.\n'
       '1호선 정보는 서울시 API를 활용합니다.\n'
-      '실시간 알림 수신을 위해 공식 HOSEO BUS앱과 같이 이용하시는걸 추천합니다.\n';
+      '실시간 알림 수신을 위해 공식 아이원캠퍼스앱과 같이 이용하시는걸 추천합니다.\n';
 
   // 안드로이드 면책 다이얼로그
   static Future<void> showAndroidDisclaimerDialog(BuildContext context) async {
