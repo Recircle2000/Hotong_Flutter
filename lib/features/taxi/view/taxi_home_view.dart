@@ -613,14 +613,15 @@ class _TaxiHomeViewState extends State<TaxiHomeView> {
               ),
           ],
         ),
-        bottomNavigationBar: MediaQuery.viewInsetsOf(context).bottom > 0
-            ? null
-            : TaxiTabBar(
-                index: _index,
-                onSelected: _select,
-                unread: controller.totalUnread,
-                enabled: !_busy,
-              ),
+        // 키보드가 뜰 때 탭 바를 빼면 본문 높이가 갑자기 바뀌어 화면이 흔들린다.
+        // 탭 바는 항상 두고, Scaffold가 본문을 키보드 위로 줄이면서 탭 바는
+        // 키보드 아래에 가려지게 둔다.
+        bottomNavigationBar: TaxiTabBar(
+          index: _index,
+          onSelected: _select,
+          unread: controller.totalUnread,
+          enabled: !_busy,
+        ),
       ),
     ),
   );
