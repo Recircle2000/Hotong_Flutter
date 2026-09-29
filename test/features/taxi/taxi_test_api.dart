@@ -7,6 +7,8 @@ class TaxiTestApi {
   final activeIds = <String>[];
   final recentChatIds = <String>[];
   bool fail = false;
+  // 검색 결과 개수. 스크롤이 필요한 화면을 시험할 때 늘린다.
+  int searchPartyCount = 1;
   int creates = 0;
   int joins = 0;
   int locationsReads = 0;
@@ -127,7 +129,10 @@ class TaxiTestApi {
       } else if (path.endsWith('/parties')) {
         partyListReads++;
         result = {
-          'items': [party('search-party')],
+          'items': [
+            party('search-party'),
+            for (var i = 1; i < searchPartyCount; i++) party('search-party-$i'),
+          ],
         };
       } else {
         detailReads++;

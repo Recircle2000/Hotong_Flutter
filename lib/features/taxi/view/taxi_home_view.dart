@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:hsro/features/taxi/widgets/taxi_tab_bar.dart';
 import 'package:get/get.dart';
 import 'package:hsro/core/network/authenticated_api_client.dart';
@@ -638,25 +639,174 @@ class _TaxiHomeViewState extends State<TaxiHomeView> {
   );
 }
 
-class _FindParties extends StatelessWidget {
+class _FindParties extends StatefulWidget {
   const _FindParties({required this.controller, required this.onPartyTap});
   final TaxiHomeViewModel controller;
   final Future<void> Function(TaxiPartySummary party) onPartyTap;
 
   @override
+  State<_FindParties> createState() => _FindPartiesState();
+}
+
+class _FindPartiesState extends State<_FindParties> {
+  final _scrollController = ScrollController();
+  final _searchCardKey = GlobalKey();
+  bool _showCompactBar = false;
+
+  TaxiHomeViewModel get controller => widget.controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_updateCompactBar);
+  }
+
+  @override
+  void dispose() {
+    _scrollController.removeListener(_updateCompactBar);
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  /// 검색 카드가 화면 위로 완전히 가려지면 요약 바를 보여준다.
+  void _updateCompactBar() {
+    final card =
+        _searchCardKey.currentContext?.findRenderObject() as RenderBox?;
+    final offset = _scrollController.offset;
+    bool hidden;
+    if (card == null || !card.attached) {
+      // 멀리 스크롤되어 카드가 목록에서 해제된 경우다.
+      hidden = offset > 0;
+    } else {
+      // 카드 윗면이 화면 맨 위에 오는 스크롤 위치에 카드 높이를 더하면
+      // 카드가 완전히 가려지는 지점이 된다.
+      final viewport = RenderAbstractViewport.of(card);
+      final cardTop = viewport.getOffsetToReveal(card, 0).offset;
+      hidden = offset >= cardTop + card.size.height;
+    }
+    if (hidden != _showCompactBar) setState(() => _showCompactBar = hidden);
+  }
+
+  void _scrollToSearchCard() {
+    unawaited(
+      _scrollController.animateTo(
+        0,
+        duration: const Duration(milliseconds: 320),
+        curve: Curves.easeOutCubic,
+      ),
+    );
+  }
+
+  String _locationName(int? id) {
+    if (id == null) return '전체';
+    for (final location in controller.locations) {
+      if (location.id == id) return location.name;
+    }
+    return '전체';
+  }
+
+  Widget _buildCompactBar(BuildContext context) {
+    final theme = Theme.of(context);
+    return Obx(() {
+      final now = DateTime.now();
+      final selected = controller.selectedDate.value;
+      final isToday =
+          selected.year == now.year &&
+          selected.month == now.month &&
+          selected.day == now.day;
+      final date =
+          '${DateFormat('M/d (E)', 'ko').format(selected)}'
+          '${isToday ? ' · 오늘' : ''}';
+      return Material(
+        color: theme.scaffoldBackgroundColor,
+        elevation: 2,
+        shadowColor: Colors.black26,
+        child: InkWell(
+          onTap: _scrollToSearchCard,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 10, 14, 10),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    '${_locationName(controller.departureLocationId.value)} → '
+                    '${_locationName(controller.destinationLocationId.value)}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Text(
+                  date,
+                  style: theme.textTheme.labelLarge?.copyWith(
+                    color: _taxiAccentText(context),
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(width: 2),
+                Icon(
+                  Icons.expand_more_rounded,
+                  size: 20,
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
+    return Stack(
+      children: [
+        _buildList(context),
+        Positioned(
+          top: 0,
+          left: 0,
+          right: 0,
+          child: IgnorePointer(
+            ignoring: !_showCompactBar,
+            child: AnimatedSlide(
+              offset: _showCompactBar ? Offset.zero : const Offset(0, -1),
+              duration: const Duration(milliseconds: 200),
+              curve: Curves.easeOut,
+              child: AnimatedOpacity(
+                key: const ValueKey('search-compact-bar'),
+                opacity: _showCompactBar ? 1 : 0,
+                duration: const Duration(milliseconds: 160),
+                child: Semantics(
+                  button: true,
+                  label: '검색 조건 바꾸기',
+                  child: _buildCompactBar(context),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildList(BuildContext context) {
     final theme = Theme.of(context);
     return Obx(
       () => RefreshIndicator(
         color: _taxiAccentText(context),
         onRefresh: controller.refreshAll,
         child: ListView(
+          controller: _scrollController,
           physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
           children: [
             if (controller.errorMessage.isNotEmpty)
               _ErrorCard(message: controller.errorMessage.value),
             Container(
+              key: _searchCardKey,
               decoration: _taxiCardDecoration(context),
               padding: const EdgeInsets.all(20),
               child: Column(
@@ -768,7 +918,7 @@ class _FindParties extends StatelessWidget {
               ...controller.parties.map(
                 (party) => _TaxiPartyCard(
                   party: party,
-                  onTap: () => onPartyTap(party),
+                  onTap: () => widget.onPartyTap(party),
                 ),
               ),
           ],

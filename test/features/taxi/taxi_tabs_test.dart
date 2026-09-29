@@ -344,6 +344,28 @@ void main() {
     await tester.pumpWidget(const SizedBox());
   });
 
+  testWidgets('검색 카드가 가려지면 요약 바를 보여주고 누르면 맨 위로 이동한다', (tester) async {
+    final api = TaxiTestApi()..searchPartyCount = 8;
+    await launch(tester, api);
+    double barOpacity() => tester
+        .widget<AnimatedOpacity>(
+          find.byKey(const ValueKey('search-compact-bar')),
+        )
+        .opacity;
+
+    expect(barOpacity(), 0);
+    await tester.drag(find.byType(ListView).first, const Offset(0, -900));
+    await tester.pumpAndSettle();
+    expect(barOpacity(), 1);
+    expect(find.text('전체 → 전체'), findsOneWidget);
+
+    await tester.tap(find.text('전체 → 전체'));
+    await tester.pumpAndSettle();
+    expect(barOpacity(), 0);
+    expect(find.text('어디로 가시나요?'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox());
+  });
+
   testWidgets('다크모드 내비게이션과 99+ 배지', (tester) async {
     await tester.pumpWidget(
       MaterialApp(
