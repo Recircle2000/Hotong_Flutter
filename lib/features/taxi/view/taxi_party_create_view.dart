@@ -74,7 +74,7 @@ InputDecoration _inputDecoration(
   );
 }
 
-/// 10분 단위로 올림된 출발 시각이 지금부터 실제로 얼마 뒤인지 알려준다.
+/// 5분 단위로 올림된 출발 시각이 지금부터 실제로 얼마 뒤인지 알려준다.
 String _relativeDepartureLabel(DateTime departureAt, DateTime now) {
   final seconds = departureAt.difference(now).inSeconds;
   if (seconds <= 0) return '출발 시각이 지났어요';
@@ -533,6 +533,7 @@ class _RouteStep extends StatelessWidget {
   });
 
   static const _quickOffsets = [
+    (label: '지금 출발', offset: Duration.zero),
     (label: '20분 후', offset: Duration(minutes: 20)),
     (label: '30분 후', offset: Duration(minutes: 30)),
     (label: '1시간 후', offset: Duration(hours: 1)),
@@ -693,7 +694,7 @@ class _RouteStep extends StatelessWidget {
             const SizedBox(height: 18),
             const _InfoNotice(
               icon: Icons.schedule_outlined,
-              text: '출발 시각은 오늘 또는 내일, 10분 단위로 선택할 수 있어요.',
+              text: '출발 시각은 오늘 또는 내일, 5분 단위로 선택할 수 있어요.',
             ),
           ],
         ),

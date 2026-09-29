@@ -82,7 +82,7 @@ Future<DateTime?> showTaxiDepartureTimePicker(
                           size: 16, color: theme.colorScheme.onSurfaceVariant),
                       const SizedBox(width: 7),
                       Text(
-                        '오늘과 내일 중 10분 단위로 선택할 수 있어요.',
+                        '오늘과 내일 중 5분 단위로 선택할 수 있어요.',
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: theme.colorScheme.onSurfaceVariant,
                         ),
