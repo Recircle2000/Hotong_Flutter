@@ -335,7 +335,7 @@ class TaxiPartyDetailViewState extends State<TaxiPartyDetailView> {
 
   Widget _buildBody(TaxiPartyDetail? party) {
     if (party == null && controller.isLoading.value) {
-      return const Center(child: CircularProgressIndicator(color: _taxiAccent));
+      return const Center(child: CircularProgressIndicator.adaptive(valueColor: AlwaysStoppedAnimation<Color>(_taxiAccent)));
     }
     if (party == null) {
       return _LoadFailure(

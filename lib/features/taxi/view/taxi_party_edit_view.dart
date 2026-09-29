@@ -827,8 +827,8 @@ class _SaveDock extends StatelessWidget {
               icon: saving
                   ? const SizedBox.square(
                       dimension: 20,
-                      child: CircularProgressIndicator(
-                        color: _taxiAccentForeground,
+                      child: CircularProgressIndicator.adaptive(
+                        valueColor: AlwaysStoppedAnimation<Color>(_taxiAccentForeground),
                         strokeWidth: 2.3,
                       ),
                     )

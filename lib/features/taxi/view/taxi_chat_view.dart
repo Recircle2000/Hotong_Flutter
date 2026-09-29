@@ -254,7 +254,7 @@ class _TaxiChatViewState extends State<TaxiChatView> {
       }
       if (controller.isLoading.value && controller.messages.isEmpty) {
         return const Center(
-          child: CircularProgressIndicator(color: _taxiAccent),
+          child: CircularProgressIndicator.adaptive(valueColor: AlwaysStoppedAnimation<Color>(_taxiAccent)),
         );
       }
       if (controller.messages.isEmpty) {

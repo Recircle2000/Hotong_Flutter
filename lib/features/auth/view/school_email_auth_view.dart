@@ -83,7 +83,7 @@ class SchoolEmailAuthView extends StatelessWidget {
           child: controller.isLoading.value
               ? const SizedBox.square(
                   dimension: 20,
-                  child: CircularProgressIndicator(strokeWidth: 2),
+                  child: CircularProgressIndicator.adaptive(strokeWidth: 2),
                 )
               : const Text('인증번호 받기'),
         ),
@@ -123,7 +123,7 @@ class SchoolEmailAuthView extends StatelessWidget {
           child: controller.isLoading.value
               ? const SizedBox.square(
                   dimension: 20,
-                  child: CircularProgressIndicator(strokeWidth: 2),
+                  child: CircularProgressIndicator.adaptive(strokeWidth: 2),
                 )
               : const Text('인증하기'),
         ),

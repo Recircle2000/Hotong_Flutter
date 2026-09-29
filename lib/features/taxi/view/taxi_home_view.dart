@@ -294,7 +294,7 @@ class _TaxiHomeViewState extends State<TaxiHomeView> {
               color: Theme.of(context).scaffoldBackgroundColor,
               child: controller.isLoading.value && controller.myParties.isEmpty
                   ? const Center(
-                      child: CircularProgressIndicator(color: _taxiAccent),
+                      child: CircularProgressIndicator.adaptive(valueColor: AlwaysStoppedAnimation<Color>(_taxiAccent)),
                     )
                   : _notice(
                       blocked,
@@ -313,7 +313,7 @@ class _TaxiHomeViewState extends State<TaxiHomeView> {
       if (controller.isLoading.value ||
           !controller.hasLoaded.value && controller.errorMessage.isEmpty) {
         return const Center(
-          child: CircularProgressIndicator(color: _taxiAccent),
+          child: CircularProgressIndicator.adaptive(valueColor: AlwaysStoppedAnimation<Color>(_taxiAccent)),
         );
       }
       if (controller.errorMessage.isNotEmpty) {
@@ -419,7 +419,7 @@ class _TaxiHomeViewState extends State<TaxiHomeView> {
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 72),
               child: Center(
-                child: CircularProgressIndicator(color: _taxiAccent),
+                child: CircularProgressIndicator.adaptive(valueColor: AlwaysStoppedAnimation<Color>(_taxiAccent)),
               ),
             )
           else if (chats.isEmpty)
@@ -744,7 +744,7 @@ class _FindParties extends StatelessWidget {
               const Padding(
                 padding: EdgeInsets.all(48),
                 child: Center(
-                  child: CircularProgressIndicator(color: _taxiAccent),
+                  child: CircularProgressIndicator.adaptive(valueColor: AlwaysStoppedAnimation<Color>(_taxiAccent)),
                 ),
               )
             else if (controller.parties.isEmpty)

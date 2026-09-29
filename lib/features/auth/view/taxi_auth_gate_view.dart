@@ -62,7 +62,7 @@ class _TaxiAuthGateViewState extends State<TaxiAuthGateView> {
   Widget _buildBody(BuildContext context) {
     switch (_controller.step.value) {
       case TaxiAuthStep.checking:
-        return const Center(child: CircularProgressIndicator());
+        return const Center(child: CircularProgressIndicator.adaptive());
       case TaxiAuthStep.email:
       case TaxiAuthStep.otp:
         return SchoolEmailAuthView(
@@ -143,7 +143,7 @@ class _StatusView extends StatelessWidget {
               child: isLoading
                   ? const SizedBox.square(
                       dimension: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
+                      child: CircularProgressIndicator.adaptive(strokeWidth: 2),
                     )
                   : Text(primaryLabel),
             ),
