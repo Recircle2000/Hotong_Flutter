@@ -175,20 +175,6 @@ class _TaxiChatViewState extends State<TaxiChatView> {
         titleSpacing: 4,
         title: Row(
           children: [
-            Container(
-              width: 42,
-              height: 42,
-              decoration: BoxDecoration(
-                color: _taxiTint(context),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.local_taxi_outlined,
-                color: _taxiAccent,
-                size: 23,
-              ),
-            ),
-            const SizedBox(width: 11),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,

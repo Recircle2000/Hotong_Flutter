@@ -39,13 +39,11 @@ InputDecoration _inputDecoration(
   BuildContext context, {
   required String label,
   String? hint,
-  IconData? icon,
 }) {
   final colors = Theme.of(context).colorScheme;
   return InputDecoration(
     labelText: label,
     hintText: hint,
-    prefixIcon: icon == null ? null : Icon(icon, size: 20),
     floatingLabelStyle: TextStyle(color: _taxiAccentText(context)),
     filled: true,
     fillColor: colors.onSurface.withValues(alpha: 0.04),
@@ -436,54 +434,36 @@ class _StepProgress extends StatelessWidget {
 }
 
 class _StepIntro extends StatelessWidget {
-  const _StepIntro({
-    required this.icon,
-    required this.title,
-    required this.description,
-  });
+  const _StepIntro({required this.title, required this.description});
 
-  final IconData icon;
   final String title;
   final String description;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: _taxiTint(context),
-            shape: BoxShape.circle,
+    return SizedBox(
+      width: double.infinity,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: theme.textTheme.headlineSmall?.copyWith(
+              fontWeight: FontWeight.bold,
+              fontSize: 22,
+            ),
           ),
-          child: Icon(icon, color: _taxiAccent, size: 28),
-        ),
-        const SizedBox(width: 14),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: theme.textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 22,
-                ),
-              ),
-              const SizedBox(height: 5),
-              Text(
-                description,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                  height: 1.45,
-                ),
-              ),
-            ],
+          const SizedBox(height: 5),
+          Text(
+            description,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+              height: 1.45,
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
@@ -537,7 +517,6 @@ class _RouteStep extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const _StepIntro(
-              icon: Icons.route_rounded,
               title: '어디로, 언제 출발하나요?',
               description: '경로와 만날 장소를 알려주면 같은 방향 사람들이 쉽게 찾을 수 있어요.',
             ),
@@ -550,7 +529,6 @@ class _RouteStep extends StatelessWidget {
                   _LocationDropdown(
                     key: ValueKey('departure-$departureId'),
                     label: '출발 거점',
-                    icon: Icons.trip_origin_rounded,
                     value: departureId,
                     locations: locations,
                     onChanged: onDepartureChanged,
@@ -579,7 +557,6 @@ class _RouteStep extends StatelessWidget {
                   _LocationDropdown(
                     key: ValueKey('destination-$destinationId'),
                     label: '도착 거점',
-                    icon: Icons.location_on_outlined,
                     value: destinationId,
                     locations: locations,
                     onChanged: onDestinationChanged,
@@ -598,19 +575,6 @@ class _RouteStep extends StatelessWidget {
                   padding: const EdgeInsets.all(18),
                   child: Row(
                     children: [
-                      Container(
-                        width: 46,
-                        height: 46,
-                        decoration: const BoxDecoration(
-                          color: _taxiAccent,
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(
-                          Icons.calendar_month_rounded,
-                          color: _taxiAccentForeground,
-                        ),
-                      ),
-                      const SizedBox(width: 14),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -692,7 +656,6 @@ class _RouteStep extends StatelessWidget {
                       context,
                       label: '출발 장소',
                       hint: '예: 정문 택시승강장',
-                      icon: Icons.my_location_rounded,
                     ),
                     validator: (value) => value == null || value.trim().isEmpty
                         ? '출발 장소를 입력해주세요.'
@@ -708,7 +671,6 @@ class _RouteStep extends StatelessWidget {
                       context,
                       label: '도착 장소 (선택)',
                       hint: '예: 3번 출구',
-                      icon: Icons.flag_outlined,
                     ),
                   ),
                 ],
@@ -776,14 +738,12 @@ class _LocationDropdown extends StatelessWidget {
   const _LocationDropdown({
     super.key,
     required this.label,
-    required this.icon,
     required this.value,
     required this.locations,
     required this.onChanged,
   });
 
   final String label;
-  final IconData icon;
   final int? value;
   final List<TaxiLocation> locations;
   final ValueChanged<int?> onChanged;
@@ -796,7 +756,7 @@ class _LocationDropdown extends StatelessWidget {
       icon: const Icon(Icons.expand_more_rounded),
       borderRadius: BorderRadius.circular(16),
       dropdownColor: Theme.of(context).cardColor,
-      decoration: _inputDecoration(context, label: label, icon: icon),
+      decoration: _inputDecoration(context, label: label),
       items: locations
           .map(
             (location) => DropdownMenuItem<int>(
@@ -846,7 +806,6 @@ class _PartyOptionsStep extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const _StepIntro(
-            icon: Icons.people_alt_outlined,
             title: '몇 명을 모집할까요?',
             description: '방장을 포함한 총 인원과 참여자에게 보여줄 안내를 설정하세요.',
           ),
@@ -896,7 +855,6 @@ class _PartyOptionsStep extends StatelessWidget {
                         context,
                         label: '참여자 안내 (선택)',
                         hint: '예: 검은색 우산을 들고 있을게요.',
-                        icon: Icons.chat_bubble_outline_rounded,
                       ).copyWith(
                         alignLabelWithHint: true,
                         helperText: '택시팟에 참여한 사용자에게만 보여요.',
@@ -960,14 +918,6 @@ class _MemberCountButton extends StatelessWidget {
           padding: const EdgeInsets.symmetric(vertical: 14),
           child: Column(
             children: [
-              Icon(
-                Icons.person_outline_rounded,
-                size: 22,
-                color: selected
-                    ? _taxiAccentText(context)
-                    : theme.colorScheme.onSurfaceVariant,
-              ),
-              const SizedBox(height: 5),
               Text(
                 '$count명',
                 style: theme.textTheme.titleSmall?.copyWith(
@@ -1021,12 +971,6 @@ class _CreationSummary extends StatelessWidget {
         children: [
           Row(
             children: [
-              const Icon(
-                Icons.check_circle_outline_rounded,
-                color: _taxiAccent,
-                size: 20,
-              ),
-              const SizedBox(width: 8),
               Expanded(
                 child: Text(
                   '만들 방 미리보기',
