@@ -391,7 +391,6 @@ class _MessageBubble extends StatelessWidget {
   final bool isLastInGroup;
   final VoidCallback onLongPress;
 
-  static const _avatarSize = 34.0;
   static const _outerRadius = Radius.circular(19);
   static const _joinedRadius = Radius.circular(6);
   static const _tailRadius = Radius.circular(5);
@@ -457,41 +456,29 @@ class _MessageBubble extends StatelessWidget {
 
     return Padding(
       padding: EdgeInsets.only(bottom: isLastInGroup ? 14 : 4),
-      child: Row(
-        mainAxisAlignment: isMine
-            ? MainAxisAlignment.end
-            : MainAxisAlignment.start,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (!isMine) ...[
-            if (isFirstInGroup)
-              _SenderAvatar(label: message.senderLabel)
-            else
-              const SizedBox(width: _avatarSize),
-            const SizedBox(width: 9),
-          ],
-          Flexible(
-            child: Column(
-              crossAxisAlignment: isMine
-                  ? CrossAxisAlignment.end
-                  : CrossAxisAlignment.start,
-              children: [
-                if (!isMine && isFirstInGroup)
-                  Padding(
-                    padding: const EdgeInsets.only(left: 4, bottom: 5),
-                    child: Text(
-                      message.senderLabel ?? '익명',
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: colors.onSurfaceVariant,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
+      // 목록 항목 Column이 자식을 가운데 정렬하므로 폭을 채워야
+      // 내 메시지는 오른쪽, 상대 메시지는 왼쪽 끝에 붙는다.
+      child: SizedBox(
+        width: double.infinity,
+        child: Column(
+          crossAxisAlignment: isMine
+              ? CrossAxisAlignment.end
+              : CrossAxisAlignment.start,
+          children: [
+            if (!isMine && isFirstInGroup)
+              Padding(
+                padding: const EdgeInsets.only(left: 4, bottom: 5),
+                child: Text(
+                  message.senderLabel ?? '익명',
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: colors.onSurfaceVariant,
+                    fontWeight: FontWeight.bold,
                   ),
-                bubbleRow,
-              ],
-            ),
-          ),
-        ],
+                ),
+              ),
+            bubbleRow,
+          ],
+        ),
       ),
     );
   }
@@ -533,34 +520,6 @@ class _NewMessagesButton extends StatelessWidget {
               ),
             ],
           ),
-        ),
-      ),
-    );
-  }
-}
-
-class _SenderAvatar extends StatelessWidget {
-  const _SenderAvatar({required this.label});
-
-  final String? label;
-
-  @override
-  Widget build(BuildContext context) {
-    final text = label?.trim();
-    final initial = text == null || text.isEmpty ? '?' : text.characters.first;
-    return Container(
-      width: 34,
-      height: 34,
-      decoration: BoxDecoration(
-        color: _taxiTint(context),
-        shape: BoxShape.circle,
-      ),
-      alignment: Alignment.center,
-      child: Text(
-        initial,
-        style: Theme.of(context).textTheme.labelMedium?.copyWith(
-          color: _taxiAccentText(context),
-          fontWeight: FontWeight.bold,
         ),
       ),
     );
