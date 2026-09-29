@@ -230,7 +230,10 @@ class TaxiPartyCreateViewState extends State<TaxiPartyCreateView> {
     );
   }
 
+  void _dismissKeyboard() => FocusManager.instance.primaryFocus?.unfocus();
+
   Future<void> _next() async {
+    _dismissKeyboard();
     final valid = switch (_currentStep) {
       0 => _validateRoute() && _validateDepartureDetails(),
       _ => true,
@@ -239,6 +242,7 @@ class TaxiPartyCreateViewState extends State<TaxiPartyCreateView> {
   }
 
   Future<void> _submit() async {
+    _dismissKeyboard();
     if (_saving) return;
     if (!_validateRoute()) {
       if (_currentStep != 0) unawaited(_goToStep(0));
@@ -319,45 +323,49 @@ class TaxiPartyCreateViewState extends State<TaxiPartyCreateView> {
                   ),
                 ),
               ),
-        body: Column(
-          children: [
-            _StepProgress(currentStep: _currentStep),
-            Expanded(
-              child: PageView(
-                controller: _pageController,
-                physics: const NeverScrollableScrollPhysics(),
-                children: [
-                  _RouteStep(
-                    formKey: _detailsFormKey,
-                    locations: widget.locations,
-                    departureId: _departureId,
-                    destinationId: _destinationId,
-                    onDepartureChanged: _setDeparture,
-                    onDestinationChanged: _setDestination,
-                    onSwap: _swapLocations,
-                    departureAt: _departureAt,
-                    departureSummary: _departureSummary,
-                    destinationSummary: _destinationSummary,
-                    onPickDateTime: _pickDateTime,
-                    onQuickDeparture: _setDepartureAfter,
-                    onSubmitted: _next,
-                  ),
-                  _PartyOptionsStep(
-                    departure: _departureLocation,
-                    destination: _destinationLocation,
-                    departureSummary: _departureSummary.text.trim(),
-                    destinationSummary: _destinationSummary.text.trim(),
-                    departureAt: _departureAt,
-                    maxMembers: _maxMembers,
-                    memberNote: _memberNote,
-                    onMaxMembersChanged: (value) =>
-                        setState(() => _maxMembers = value),
-                    onEditRoute: _saving ? null : () => _goToStep(0),
-                  ),
-                ],
+        body: GestureDetector(
+          behavior: HitTestBehavior.translucent,
+          onTap: _dismissKeyboard,
+          child: Column(
+            children: [
+              _StepProgress(currentStep: _currentStep),
+              Expanded(
+                child: PageView(
+                  controller: _pageController,
+                  physics: const NeverScrollableScrollPhysics(),
+                  children: [
+                    _RouteStep(
+                      formKey: _detailsFormKey,
+                      locations: widget.locations,
+                      departureId: _departureId,
+                      destinationId: _destinationId,
+                      onDepartureChanged: _setDeparture,
+                      onDestinationChanged: _setDestination,
+                      onSwap: _swapLocations,
+                      departureAt: _departureAt,
+                      departureSummary: _departureSummary,
+                      destinationSummary: _destinationSummary,
+                      onPickDateTime: _pickDateTime,
+                      onQuickDeparture: _setDepartureAfter,
+                      onSubmitted: _next,
+                    ),
+                    _PartyOptionsStep(
+                      departure: _departureLocation,
+                      destination: _destinationLocation,
+                      departureSummary: _departureSummary.text.trim(),
+                      destinationSummary: _destinationSummary.text.trim(),
+                      departureAt: _departureAt,
+                      maxMembers: _maxMembers,
+                      memberNote: _memberNote,
+                      onMaxMembersChanged: (value) =>
+                          setState(() => _maxMembers = value),
+                      onEditRoute: _saving ? null : () => _goToStep(0),
+                    ),
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
         bottomNavigationBar: _BottomActions(
           isLastStep: _currentStep == 1,

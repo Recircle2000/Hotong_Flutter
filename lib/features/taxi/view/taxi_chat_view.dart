@@ -234,7 +234,13 @@ class _TaxiChatViewState extends State<TaxiChatView> {
                 visibleUntil: controller.visibleUntil.value,
               ),
             ),
-            Expanded(child: _buildMessages()),
+            Expanded(
+              child: GestureDetector(
+                behavior: HitTestBehavior.translucent,
+                onTap: () => FocusScope.of(context).unfocus(),
+                child: _buildMessages(),
+              ),
+            ),
             Obx(
               () => controller.errorMessage.isEmpty
                   ? const SizedBox.shrink()
