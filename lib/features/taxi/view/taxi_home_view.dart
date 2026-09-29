@@ -12,6 +12,7 @@ import 'package:hsro/features/taxi/view/taxi_party_create_view.dart';
 import 'package:hsro/features/taxi/view/taxi_party_detail_view.dart';
 import 'package:hsro/features/taxi/view/taxi_chat_view.dart';
 import 'package:hsro/features/taxi/viewmodel/taxi_home_viewmodel.dart';
+import 'package:hsro/shared/widgets/ios_platform_fields.dart';
 import 'package:intl/intl.dart';
 
 // 홈의 택시 메뉴와 동일한 포인트 색상을 사용한다.
@@ -1295,39 +1296,81 @@ class _LocationDropdown extends StatelessWidget {
   final List<TaxiLocation> locations;
   final ValueChanged<int?> onChanged;
 
+  // "전체" 선택지를 네이티브 메뉴에서 구분하기 위한 값. 실제 거점 id와 겹치지 않는다.
+  static const _allLocationsId = 0x7fffffff;
+
+  InputDecoration _decoration(BuildContext context) => InputDecoration(
+    labelText: label,
+    floatingLabelStyle: TextStyle(color: _taxiAccentText(context)),
+    filled: true,
+    fillColor: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.04),
+    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+    border: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(14),
+      borderSide: BorderSide.none,
+    ),
+    enabledBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(14),
+      borderSide: BorderSide.none,
+    ),
+    focusedBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(14),
+      borderSide: const BorderSide(color: _taxiAccent, width: 1.5),
+    ),
+  );
+
+  TextStyle? _valueStyle(BuildContext context) =>
+      Theme.of(context).textTheme.bodyMedium?.copyWith(
+        fontWeight: FontWeight.w600,
+        color: Theme.of(context).colorScheme.onSurface,
+      );
+
   @override
-  Widget build(BuildContext context) => DropdownButtonFormField<int?>(
+  Widget build(BuildContext context) =>
+      Theme.of(context).platform == TargetPlatform.iOS
+      ? _buildIOS(context)
+      : _buildMaterial(context);
+
+  /// iOS는 필드 모양은 유지하고 네이티브 메뉴로 거점을 고른다.
+  Widget _buildIOS(BuildContext context) {
+    final selected = locations.where((l) => l.id == value).firstOrNull;
+    return Stack(
+      children: [
+        InputDecorator(
+          decoration: _decoration(context).copyWith(
+            suffixIcon: const Icon(Icons.expand_more_rounded, size: 20),
+          ),
+          child: Text(
+            selected?.name ?? '전체',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: _valueStyle(context),
+          ),
+        ),
+        Positioned.fill(
+          child: IOSPopupMenuOverlay(
+            options: [
+              const IOSPopupMenuOption(id: _allLocationsId, title: '전체'),
+              for (final location in locations)
+                IOSPopupMenuOption(id: location.id, title: location.name),
+            ],
+            selectedId: value ?? _allLocationsId,
+            onChanged: (id) => onChanged(id == _allLocationsId ? null : id),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMaterial(BuildContext context) => DropdownButtonFormField<int?>(
     key: ValueKey(value),
     initialValue: value,
     isExpanded: true,
     icon: const Icon(Icons.expand_more_rounded, size: 20),
     borderRadius: BorderRadius.circular(16),
     dropdownColor: Theme.of(context).cardColor,
-    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-      fontWeight: FontWeight.w600,
-      color: Theme.of(context).colorScheme.onSurface,
-    ),
-    decoration: InputDecoration(
-      labelText: label,
-      floatingLabelStyle: TextStyle(color: _taxiAccentText(context)),
-      filled: true,
-      fillColor: Theme.of(
-        context,
-      ).colorScheme.onSurface.withValues(alpha: 0.04),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
-        borderSide: BorderSide.none,
-      ),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
-        borderSide: BorderSide.none,
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
-        borderSide: const BorderSide(color: _taxiAccent, width: 1.5),
-      ),
-    ),
+    style: _valueStyle(context),
+    decoration: _decoration(context),
     items: [
       const DropdownMenuItem<int?>(value: null, child: Text('전체')),
       ...locations.map(

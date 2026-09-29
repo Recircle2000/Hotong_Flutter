@@ -6,6 +6,7 @@ import 'package:hsro/features/taxi/repository/taxi_repository.dart';
 import 'package:hsro/features/taxi/utils/taxi_departure_time.dart';
 import 'package:hsro/features/taxi/utils/taxi_ids.dart';
 import 'package:hsro/features/taxi/widgets/taxi_departure_time_picker.dart';
+import 'package:hsro/shared/widgets/ios_platform_fields.dart';
 import 'package:hsro/shared/widgets/scale_button.dart';
 import 'package:intl/intl.dart';
 
@@ -751,6 +752,9 @@ class _LocationDropdown extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (Theme.of(context).platform == TargetPlatform.iOS) {
+      return _buildIOS(context);
+    }
     return DropdownButtonFormField<int>(
       initialValue: value,
       isExpanded: true,
@@ -771,6 +775,37 @@ class _LocationDropdown extends StatelessWidget {
           )
           .toList(),
       onChanged: onChanged,
+    );
+  }
+
+  /// iOS는 필드 모양은 유지하고 네이티브 메뉴로 거점을 고른다.
+  Widget _buildIOS(BuildContext context) {
+    final selected = locations.where((l) => l.id == value).firstOrNull;
+    return Stack(
+      children: [
+        InputDecorator(
+          decoration: _inputDecoration(
+            context,
+            label: label,
+          ).copyWith(suffixIcon: const Icon(Icons.expand_more_rounded)),
+          isEmpty: selected == null,
+          child: Text(
+            selected?.name ?? '',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+        Positioned.fill(
+          child: IOSPopupMenuOverlay(
+            options: [
+              for (final location in locations)
+                IOSPopupMenuOption(id: location.id, title: location.name),
+            ],
+            selectedId: value,
+            onChanged: onChanged,
+          ),
+        ),
+      ],
     );
   }
 }
