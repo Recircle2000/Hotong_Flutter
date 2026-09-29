@@ -35,6 +35,11 @@ class TaxiHomeViewModel extends GetxController with WidgetsBindingObserver {
   final hasLoaded = false.obs;
   // 검색 탭이 보이는 동안에만 실시간 목록 변경 알림으로 다시 조회한다.
   bool _searchVisible = false;
+  // 거점은 거의 바뀌지 않으므로 잠시 재사용해 새로고침 요청 수를 줄인다.
+  static const _locationsMaxAge = Duration(minutes: 10);
+  DateTime? _locationsFetchedAt;
+  // 이용 기록은 내정보 탭에서만 쓰므로 필요할 때만 불러온다.
+  bool _historyNeeded = false;
   Timer? _searchRefreshDebounce;
   int _searchRequestId = 0;
 
@@ -90,6 +95,18 @@ class TaxiHomeViewModel extends GetxController with WidgetsBindingObserver {
     _events = _realtime.events.listen(handleRealtimeEvent);
     unawaited(_realtime.connect());
     unawaited(refreshAll());
+  }
+
+  /// 내정보 탭이나 이용 기록 화면에 들어갈 때 호출한다. 이후 새로고침부터는 함께 갱신한다.
+  Future<void> loadHistory() async {
+    _historyNeeded = true;
+    if (isClosed) return;
+    try {
+      final result = await _repository.getMyParties(scope: 'history');
+      if (!isClosed) history.assignAll(result);
+    } catch (_) {
+      // 기록은 보조 정보라 실패해도 다른 화면은 그대로 둔다.
+    }
   }
 
   void setSearchVisible(bool visible) {
@@ -227,8 +244,15 @@ class TaxiHomeViewModel extends GetxController with WidgetsBindingObserver {
         _refreshPending = false;
         errorMessage.value = '';
         try {
+          final fetchedAt = _locationsFetchedAt;
+          final reuseLocations =
+              locations.isNotEmpty &&
+              fetchedAt != null &&
+              DateTime.now().difference(fetchedAt) < _locationsMaxAge;
           final results = await Future.wait([
-            _repository.getLocations(),
+            reuseLocations
+                ? Future.value(locations.toList())
+                : _repository.getLocations(),
             _repository.getParties(
               date: selectedDate.value,
               departureLocationId: departureLocationId.value,
@@ -237,14 +261,17 @@ class TaxiHomeViewModel extends GetxController with WidgetsBindingObserver {
             ),
             _repository.getMyParties(),
             _repository.getMyParties(scope: 'recent_chats'),
-            _repository.getMyParties(scope: 'history'),
+            if (_historyNeeded) _repository.getMyParties(scope: 'history'),
           ]);
           if (isClosed) return;
+          if (!reuseLocations) _locationsFetchedAt = DateTime.now();
           locations.assignAll(results[0] as List<TaxiLocation>);
           parties.assignAll(results[1] as List<TaxiPartySummary>);
           myParties.assignAll(results[2] as List<TaxiPartySummary>);
           recentChats.assignAll(results[3] as List<TaxiPartySummary>);
-          history.assignAll(results[4] as List<TaxiPartySummary>);
+          if (results.length > 4) {
+            history.assignAll(results[4] as List<TaxiPartySummary>);
+          }
           hasLoaded.value = true;
           _scheduleExpiry();
         } on TaxiApiException catch (error) {

@@ -376,6 +376,38 @@ void main() {
     await tester.pumpWidget(const SizedBox());
   });
 
+  testWidgets('새로고침은 거점을 재사용하고 이용 기록은 내정보에서만 불러온다', (tester) async {
+    final api = TaxiTestApi();
+    late TaxiHomeViewModel viewModel;
+    await launch(
+      tester,
+      api,
+      viewModelBuilder: (auth) => viewModel = TaxiHomeViewModel(
+        repository: api.repository,
+        realtime: TaxiRealtimeService(auth),
+      ),
+    );
+    // 첫 진입은 거점을 받고, 이용 기록은 아직 받지 않는다.
+    expect(api.locationsReads, 1);
+    expect(api.historyReads, 0);
+
+    api.resetReads();
+    await viewModel.refreshAll();
+    await tester.pumpAndSettle();
+    expect(api.locationsReads, 0);
+    expect(api.historyReads, 0);
+    expect(api.totalReads, 3);
+
+    await tab(tester, '내정보');
+    expect(api.historyReads, 1);
+
+    api.resetReads();
+    await viewModel.refreshAll();
+    await tester.pumpAndSettle();
+    expect(api.historyReads, 1);
+    await tester.pumpWidget(const SizedBox());
+  });
+
   testWidgets('다크모드 내비게이션과 99+ 배지', (tester) async {
     await tester.pumpWidget(
       MaterialApp(

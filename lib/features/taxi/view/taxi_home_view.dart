@@ -104,6 +104,8 @@ class _TaxiHomeViewState extends State<TaxiHomeView> {
     controller.setSearchVisible(index == 1);
     // 다른 탭에 있는 동안 놓친 변경이 보이도록 검색 탭 진입 시 목록만 갱신한다.
     if (index == 1) unawaited(controller.refreshParties());
+    // 이용 기록은 내정보 탭에서만 보이므로 이때 불러온다.
+    if (index == 3) unawaited(controller.loadHistory());
   }
 
   void _showCurrentParty() {
