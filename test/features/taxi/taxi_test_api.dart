@@ -17,6 +17,8 @@ class TaxiTestApi {
   int recentChatReads = 0;
   int historyReads = 0;
   int detailReads = 0;
+  int markReads = 0;
+  int? lastMarkedMessageId;
   final departure = DateTime.now().add(const Duration(hours: 1));
   final locations = [
     {
@@ -100,7 +102,14 @@ class TaxiTestApi {
       }
       final path = request.url.path;
       Object? result;
-      if (path.endsWith('/locations')) {
+      if (path.endsWith('/messages/read')) {
+        markReads++;
+        lastMarkedMessageId =
+            (jsonDecode(request.body) as Map)['last_message_id'] as int?;
+        result = {'ok': true};
+      } else if (path.endsWith('/messages')) {
+        result = {'items': [], 'next_before_id': null};
+      } else if (path.endsWith('/locations')) {
         locationsReads++;
         result = locations;
       } else if (path.endsWith('/my-parties')) {

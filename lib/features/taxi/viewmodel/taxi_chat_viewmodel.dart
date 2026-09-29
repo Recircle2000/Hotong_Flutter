@@ -35,6 +35,9 @@ class TaxiChatViewModel extends GetxController {
   StreamSubscription<TaxiRealtimeEvent>? _events;
   Timer? _readOnlyTimer;
   Timer? _expiryTimer;
+  // 메시지가 연달아 올 때마다 읽음 처리(DB 쓰기)를 보내지 않도록 잠시 모은다.
+  Timer? _readDebounce;
+  int? _lastMarkedId;
 
   @override
   void onInit() {
@@ -48,7 +51,7 @@ class TaxiChatViewModel extends GetxController {
               messages.add(message);
               messages.sort((a, b) => a.id.compareTo(b.id));
             }
-            unawaited(markLatestRead());
+            _scheduleMarkRead();
           }
           if (event.type == 'party.updated') {
             unawaited(refreshStatus());
@@ -112,10 +115,23 @@ class TaxiChatViewModel extends GetxController {
     }
   }
 
+  void _scheduleMarkRead() {
+    _readDebounce?.cancel();
+    _readDebounce = Timer(
+      const Duration(seconds: 1),
+      () => unawaited(markLatestRead()),
+    );
+  }
+
   Future<void> markLatestRead() async {
+    _readDebounce?.cancel();
     if (messages.isEmpty) return;
+    final latestId = messages.last.id;
+    // 이미 보낸 위치면 다시 보내지 않는다.
+    if (_lastMarkedId != null && latestId <= _lastMarkedId!) return;
     try {
-      await _repository.markRead(partyId, messages.last.id);
+      await _repository.markRead(partyId, latestId);
+      _lastMarkedId = latestId;
     } catch (_) {}
   }
 
@@ -139,6 +155,9 @@ class TaxiChatViewModel extends GetxController {
 
   @override
   void onClose() {
+    // 모아 두던 읽음 처리가 남아 있으면 나가기 전에 보내 배지가 남지 않게 한다.
+    if (_readDebounce?.isActive ?? false) unawaited(markLatestRead());
+    _readDebounce?.cancel();
     _events?.cancel();
     _readOnlyTimer?.cancel();
     _expiryTimer?.cancel();
