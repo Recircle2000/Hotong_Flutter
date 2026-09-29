@@ -1,7 +1,4 @@
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'package:native_liquid_glass/native_liquid_glass.dart';
 import 'package:get/get.dart';
 import 'package:hsro/features/taxi/models/taxi_models.dart';
 import 'package:hsro/features/taxi/repository/taxi_repository.dart';
@@ -9,6 +6,7 @@ import 'package:hsro/features/taxi/services/taxi_realtime_service.dart';
 import 'package:hsro/features/taxi/view/taxi_chat_view.dart';
 import 'package:hsro/features/taxi/view/taxi_party_edit_view.dart';
 import 'package:hsro/features/taxi/viewmodel/taxi_party_detail_viewmodel.dart';
+import 'package:hsro/features/taxi/widgets/taxi_confirm_dialog.dart';
 import 'package:hsro/shared/widgets/scale_button.dart';
 import 'package:intl/intl.dart';
 
@@ -165,69 +163,13 @@ class TaxiPartyDetailViewState extends State<TaxiPartyDetailView> {
     String message,
     String action, {
     bool nativeIOS = false,
-  }) async {
-    if (nativeIOS && NativeLiquidGlassUtils.supportsLiquidGlass) {
-      try {
-        // UIKit presents this above the native tab bar; no Flutter overlay or
-        // global glass suppression is needed.
-        return await LiquidGlassAlert.destructive(
-          context: context,
-          title: title,
-          message: message,
-          destructiveTitle: action,
-          cancelTitle: '닫기',
-        );
-      } on PlatformException {
-        if (!mounted) return false;
-      } on MissingPluginException {
-        if (!mounted) return false;
-      }
-    }
-    if (nativeIOS && Theme.of(context).platform == TargetPlatform.iOS) {
-      return await showCupertinoDialog<bool>(
-            context: context,
-            builder: (context) => CupertinoAlertDialog(
-              title: Text(title),
-              content: Text(message),
-              actions: [
-                CupertinoDialogAction(
-                  isDefaultAction: true,
-                  onPressed: () => Navigator.pop(context, false),
-                  child: const Text('닫기'),
-                ),
-                CupertinoDialogAction(
-                  isDestructiveAction: true,
-                  onPressed: () => Navigator.pop(context, true),
-                  child: Text(action),
-                ),
-              ],
-            ),
-          ) ??
-          false;
-    }
-    return await showDialog<bool>(
-          context: context,
-          builder: (context) => AlertDialog(
-            title: Text(title),
-            content: Text(message),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context, false),
-                child: const Text('닫기'),
-              ),
-              FilledButton(
-                onPressed: () => Navigator.pop(context, true),
-                style: FilledButton.styleFrom(
-                  backgroundColor: Theme.of(context).colorScheme.error,
-                  foregroundColor: Theme.of(context).colorScheme.onError,
-                ),
-                child: Text(action),
-              ),
-            ],
-          ),
-        ) ??
-        false;
-  }
+  }) => showTaxiDestructiveConfirm(
+    context,
+    title: title,
+    message: message,
+    action: action,
+    nativeIOS: nativeIOS,
+  );
 
   Future<void> _edit(TaxiPartyDetail party) async {
     final updated = await Get.to<bool>(

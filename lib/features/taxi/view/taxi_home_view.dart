@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:hsro/features/taxi/widgets/taxi_confirm_dialog.dart';
 import 'package:hsro/features/taxi/widgets/taxi_tab_bar.dart';
 import 'package:get/get.dart';
 import 'package:hsro/core/network/authenticated_api_client.dart';
@@ -556,6 +557,16 @@ class _TaxiHomeViewState extends State<TaxiHomeView> {
           onTap: _busy
               ? null
               : () async {
+                  // 다시 쓰려면 학교 이메일 인증을 새로 해야 하므로 한 번 더 확인한다.
+                  final confirmed = await showTaxiDestructiveConfirm(
+                    context,
+                    title: '로그아웃할까요?',
+                    message: '다시 이용하려면 학교 이메일 인증이 필요해요.',
+                    action: '로그아웃',
+                    cancelTitle: '취소',
+                    nativeIOS: true,
+                  );
+                  if (!confirmed || !mounted) return;
                   setState(() => _busy = true);
                   try {
                     await widget.onLogout();

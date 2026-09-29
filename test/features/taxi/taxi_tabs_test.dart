@@ -80,7 +80,17 @@ void main() {
     await tab(tester, '내정보');
     expect(find.text('이메일 인증 완료'), findsOneWidget);
     expect(find.text('로그인 정보'), findsNothing);
+    // 로그아웃은 확인창에서 한 번 더 확인해야 실행된다.
     await tester.tap(find.text('로그아웃'));
+    await tester.pumpAndSettle();
+    expect(find.text('로그아웃할까요?'), findsOneWidget);
+    await tester.tap(find.text('취소'));
+    await tester.pumpAndSettle();
+    expect(loggedOut, isFalse);
+
+    await tester.tap(find.text('로그아웃'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, '로그아웃'));
     await tester.pumpAndSettle();
     expect(loggedOut, isTrue);
     await tester.pumpWidget(const SizedBox());
