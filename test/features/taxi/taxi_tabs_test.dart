@@ -121,8 +121,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('천안아산역').last);
     await tester.pumpAndSettle();
-    await tester.tap(find.text('다음'));
-    await tester.pumpAndSettle();
+    // 1단계에서 경로와 만남 장소를 함께 입력한다.
     await tester.enterText(find.byType(TextFormField).first, '정문에서 만나요');
     tester.testTextInput.hide();
     FocusManager.instance.primaryFocus?.unfocus();
@@ -130,11 +129,13 @@ void main() {
     await tab(tester, '팟 검색');
     await tab(tester, '팟 생성');
     expect(find.text('정문에서 만나요'), findsOneWidget);
+    await tester.tap(find.text('다음'));
+    await tester.pumpAndSettle();
+    // 2단계에서 뒤로 가면 입력이 남은 1단계로 돌아온다.
     await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
     expect(find.text('출발 거점'), findsOneWidget);
-    await tester.tap(find.text('다음'));
-    await tester.pumpAndSettle();
+    expect(find.text('정문에서 만나요'), findsOneWidget);
     await tester.tap(find.text('다음'));
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(FilledButton, '택시팟 만들기'));
