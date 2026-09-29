@@ -133,7 +133,7 @@ class TaxiPartyCreateViewState extends State<TaxiPartyCreateView> {
   void initState() {
     super.initState();
     _departureAt = normalizeTaxiDepartureInitial(
-      DateTime.now().add(const Duration(hours: 1)),
+      DateTime.now().add(const Duration(minutes: 20)),
     );
   }
 
@@ -191,6 +191,12 @@ class TaxiPartyCreateViewState extends State<TaxiPartyCreateView> {
     setState(() => _departureAt = selected);
   }
 
+  void _setDepartureAfter(Duration offset) {
+    setState(() {
+      _departureAt = normalizeTaxiDepartureInitial(DateTime.now().add(offset));
+    });
+  }
+
   void _setDeparture(int? value) {
     setState(() {
       _departureId = value;
@@ -214,7 +220,7 @@ class TaxiPartyCreateViewState extends State<TaxiPartyCreateView> {
   }
 
   Future<void> _goToStep(int step) async {
-    if (step < 0 || step > 2 || step == _currentStep) return;
+    if (step < 0 || step > 1 || step == _currentStep) return;
     setState(() => _currentStep = step);
     widget.onStepChanged?.call();
     await _pageController.animateToPage(
@@ -226,8 +232,7 @@ class TaxiPartyCreateViewState extends State<TaxiPartyCreateView> {
 
   Future<void> _next() async {
     final valid = switch (_currentStep) {
-      0 => _validateRoute(),
-      1 => _validateDepartureDetails(),
+      0 => _validateRoute() && _validateDepartureDetails(),
       _ => true,
     };
     if (valid) await _goToStep(_currentStep + 1);
@@ -240,7 +245,7 @@ class TaxiPartyCreateViewState extends State<TaxiPartyCreateView> {
       return;
     }
     if (!_validateDepartureDetails(showMissingMessage: true)) {
-      if (_currentStep != 1) unawaited(_goToStep(1));
+      if (_currentStep != 0) unawaited(_goToStep(0));
       return;
     }
     setState(() => _saving = true);
@@ -323,28 +328,31 @@ class TaxiPartyCreateViewState extends State<TaxiPartyCreateView> {
                 physics: const NeverScrollableScrollPhysics(),
                 children: [
                   _RouteStep(
+                    formKey: _detailsFormKey,
                     locations: widget.locations,
                     departureId: _departureId,
                     destinationId: _destinationId,
                     onDepartureChanged: _setDeparture,
                     onDestinationChanged: _setDestination,
                     onSwap: _swapLocations,
-                  ),
-                  _DepartureDetailsStep(
-                    formKey: _detailsFormKey,
                     departureAt: _departureAt,
                     departureSummary: _departureSummary,
                     destinationSummary: _destinationSummary,
                     onPickDateTime: _pickDateTime,
+                    onQuickDeparture: _setDepartureAfter,
+                    onSubmitted: _next,
                   ),
                   _PartyOptionsStep(
                     departure: _departureLocation,
                     destination: _destinationLocation,
+                    departureSummary: _departureSummary.text.trim(),
+                    destinationSummary: _destinationSummary.text.trim(),
                     departureAt: _departureAt,
                     maxMembers: _maxMembers,
                     memberNote: _memberNote,
                     onMaxMembersChanged: (value) =>
                         setState(() => _maxMembers = value),
+                    onEditRoute: _saving ? null : () => _goToStep(0),
                   ),
                 ],
               ),
@@ -352,10 +360,9 @@ class TaxiPartyCreateViewState extends State<TaxiPartyCreateView> {
           ],
         ),
         bottomNavigationBar: _BottomActions(
-          currentStep: _currentStep,
+          isLastStep: _currentStep == 1,
           saving: _saving,
-          onBack: () => _goToStep(_currentStep - 1),
-          onNext: _currentStep == 2 ? _submit : _next,
+          onNext: _currentStep == 1 ? _submit : _next,
         ),
       ),
     );
@@ -366,7 +373,7 @@ class _StepProgress extends StatelessWidget {
   const _StepProgress({required this.currentStep});
 
   final int currentStep;
-  static const _titles = ['경로 선택', '출발 정보', '모집 설정'];
+  static const _titles = ['경로 · 출발 정보', '모집 설정'];
 
   @override
   Widget build(BuildContext context) {
@@ -377,12 +384,14 @@ class _StepProgress extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            children: List.generate(3, (index) {
+            children: List.generate(_titles.length, (index) {
               return Expanded(
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 220),
                   height: 4,
-                  margin: EdgeInsets.only(right: index == 2 ? 0 : 6),
+                  margin: EdgeInsets.only(
+                    right: index == _titles.length - 1 ? 0 : 6,
+                  ),
                   decoration: BoxDecoration(
                     color: index <= currentStep
                         ? _taxiAccent
@@ -397,7 +406,7 @@ class _StepProgress extends StatelessWidget {
           Row(
             children: [
               Text(
-                '${currentStep + 1}/3',
+                '${currentStep + 1}/${_titles.length}',
                 style: theme.textTheme.labelMedium?.copyWith(
                   color: _taxiAccentText(context),
                   fontWeight: FontWeight.bold,
@@ -473,150 +482,45 @@ class _StepIntro extends StatelessWidget {
 
 class _RouteStep extends StatelessWidget {
   const _RouteStep({
+    required this.formKey,
     required this.locations,
     required this.departureId,
     required this.destinationId,
     required this.onDepartureChanged,
     required this.onDestinationChanged,
     required this.onSwap,
+    required this.departureAt,
+    required this.departureSummary,
+    required this.destinationSummary,
+    required this.onPickDateTime,
+    required this.onQuickDeparture,
+    required this.onSubmitted,
   });
 
+  static const _quickOffsets = [
+    (label: '20분 후', offset: Duration(minutes: 20)),
+    (label: '30분 후', offset: Duration(minutes: 30)),
+    (label: '1시간 후', offset: Duration(hours: 1)),
+  ];
+
+  final GlobalKey<FormState> formKey;
   final List<TaxiLocation> locations;
   final int? departureId;
   final int? destinationId;
   final ValueChanged<int?> onDepartureChanged;
   final ValueChanged<int?> onDestinationChanged;
   final VoidCallback onSwap;
-
-  @override
-  Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(20, 6, 20, 28),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const _StepIntro(
-            icon: Icons.route_rounded,
-            title: '이동할 경로를 선택하세요',
-            description: '같은 경로를 찾는 사람들이 방을 쉽게 발견할 수 있어요.',
-          ),
-          const SizedBox(height: 28),
-          Container(
-            decoration: _cardDecoration(context),
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              children: [
-                _LocationDropdown(
-                  key: ValueKey('departure-$departureId'),
-                  label: '출발 거점',
-                  icon: Icons.trip_origin_rounded,
-                  value: departureId,
-                  locations: locations,
-                  onChanged: onDepartureChanged,
-                ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  child: Row(
-                    children: [
-                      const Expanded(child: Divider()),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 10),
-                        child: IconButton.filledTonal(
-                          tooltip: '출발지와 도착지 바꾸기',
-                          onPressed: onSwap,
-                          style: IconButton.styleFrom(
-                            backgroundColor: _taxiTint(context),
-                            foregroundColor: _taxiAccentText(context),
-                          ),
-                          icon: const Icon(Icons.swap_vert_rounded),
-                        ),
-                      ),
-                      const Expanded(child: Divider()),
-                    ],
-                  ),
-                ),
-                _LocationDropdown(
-                  key: ValueKey('destination-$destinationId'),
-                  label: '도착 거점',
-                  icon: Icons.location_on_outlined,
-                  value: destinationId,
-                  locations: locations,
-                  onChanged: onDestinationChanged,
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 18),
-          const _InfoNotice(
-            icon: Icons.lightbulb_outline_rounded,
-            text: '정확한 승차 장소는 다음 단계에서 입력할 수 있어요.',
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _LocationDropdown extends StatelessWidget {
-  const _LocationDropdown({
-    super.key,
-    required this.label,
-    required this.icon,
-    required this.value,
-    required this.locations,
-    required this.onChanged,
-  });
-
-  final String label;
-  final IconData icon;
-  final int? value;
-  final List<TaxiLocation> locations;
-  final ValueChanged<int?> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return DropdownButtonFormField<int>(
-      initialValue: value,
-      isExpanded: true,
-      icon: const Icon(Icons.expand_more_rounded),
-      borderRadius: BorderRadius.circular(16),
-      dropdownColor: Theme.of(context).cardColor,
-      decoration: _inputDecoration(context, label: label, icon: icon),
-      items: locations
-          .map(
-            (location) => DropdownMenuItem<int>(
-              value: location.id,
-              child: Text(
-                location.name,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-          )
-          .toList(),
-      onChanged: onChanged,
-    );
-  }
-}
-
-class _DepartureDetailsStep extends StatelessWidget {
-  const _DepartureDetailsStep({
-    required this.formKey,
-    required this.departureAt,
-    required this.departureSummary,
-    required this.destinationSummary,
-    required this.onPickDateTime,
-  });
-
-  final GlobalKey<FormState> formKey;
   final DateTime departureAt;
   final TextEditingController departureSummary;
   final TextEditingController destinationSummary;
   final VoidCallback onPickDateTime;
+  final ValueChanged<Duration> onQuickDeparture;
+  final VoidCallback onSubmitted;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final now = DateTime.now();
     return Form(
       key: formKey,
       child: SingleChildScrollView(
@@ -625,11 +529,57 @@ class _DepartureDetailsStep extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const _StepIntro(
-              icon: Icons.schedule_rounded,
-              title: '언제, 어디서 만날까요?',
-              description: '탑승할 시간과 서로 찾기 쉬운 장소를 알려주세요.',
+              icon: Icons.route_rounded,
+              title: '어디로, 언제 출발하나요?',
+              description: '경로와 만날 장소를 알려주면 같은 방향 사람들이 쉽게 찾을 수 있어요.',
             ),
             const SizedBox(height: 28),
+            Container(
+              decoration: _cardDecoration(context),
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                children: [
+                  _LocationDropdown(
+                    key: ValueKey('departure-$departureId'),
+                    label: '출발 거점',
+                    icon: Icons.trip_origin_rounded,
+                    value: departureId,
+                    locations: locations,
+                    onChanged: onDepartureChanged,
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    child: Row(
+                      children: [
+                        const Expanded(child: Divider()),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 10),
+                          child: IconButton.filledTonal(
+                            tooltip: '출발지와 도착지 바꾸기',
+                            onPressed: onSwap,
+                            style: IconButton.styleFrom(
+                              backgroundColor: _taxiTint(context),
+                              foregroundColor: _taxiAccentText(context),
+                            ),
+                            icon: const Icon(Icons.swap_vert_rounded),
+                          ),
+                        ),
+                        const Expanded(child: Divider()),
+                      ],
+                    ),
+                  ),
+                  _LocationDropdown(
+                    key: ValueKey('destination-$destinationId'),
+                    label: '도착 거점',
+                    icon: Icons.location_on_outlined,
+                    value: destinationId,
+                    locations: locations,
+                    onChanged: onDestinationChanged,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
             Material(
               color: _taxiTint(context),
               borderRadius: BorderRadius.circular(20),
@@ -685,6 +635,26 @@ class _DepartureDetailsStep extends StatelessWidget {
                 ),
               ),
             ),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                for (final (index, quick) in _quickOffsets.indexed) ...[
+                  if (index > 0) const SizedBox(width: 8),
+                  Expanded(
+                    child: _QuickTimeChip(
+                      label: quick.label,
+                      selected:
+                          departureAt ==
+                          normalizeTaxiDepartureInitial(
+                            now.add(quick.offset),
+                            now: now,
+                          ),
+                      onTap: () => onQuickDeparture(quick.offset),
+                    ),
+                  ),
+                ],
+              ],
+            ),
             const SizedBox(height: 16),
             Container(
               decoration: _cardDecoration(context),
@@ -725,6 +695,7 @@ class _DepartureDetailsStep extends StatelessWidget {
                     controller: destinationSummary,
                     maxLength: 80,
                     textInputAction: TextInputAction.done,
+                    onFieldSubmitted: (_) => onSubmitted(),
                     decoration: _inputDecoration(
                       context,
                       label: '도착 장소 (선택)',
@@ -747,22 +718,116 @@ class _DepartureDetailsStep extends StatelessWidget {
   }
 }
 
+class _QuickTimeChip extends StatelessWidget {
+  const _QuickTimeChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Material(
+      color: selected
+          ? _taxiTint(context, 0.18)
+          : theme.colorScheme.onSurface.withValues(alpha: 0.04),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(
+          color: selected
+              ? _taxiAccent
+              : theme.colorScheme.onSurface.withValues(alpha: 0.08),
+          width: selected ? 1.5 : 1,
+        ),
+      ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          child: Text(
+            label,
+            textAlign: TextAlign.center,
+            style: theme.textTheme.labelLarge?.copyWith(
+              color: selected ? _taxiAccentText(context) : null,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _LocationDropdown extends StatelessWidget {
+  const _LocationDropdown({
+    super.key,
+    required this.label,
+    required this.icon,
+    required this.value,
+    required this.locations,
+    required this.onChanged,
+  });
+
+  final String label;
+  final IconData icon;
+  final int? value;
+  final List<TaxiLocation> locations;
+  final ValueChanged<int?> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return DropdownButtonFormField<int>(
+      initialValue: value,
+      isExpanded: true,
+      icon: const Icon(Icons.expand_more_rounded),
+      borderRadius: BorderRadius.circular(16),
+      dropdownColor: Theme.of(context).cardColor,
+      decoration: _inputDecoration(context, label: label, icon: icon),
+      items: locations
+          .map(
+            (location) => DropdownMenuItem<int>(
+              value: location.id,
+              child: Text(
+                location.name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          )
+          .toList(),
+      onChanged: onChanged,
+    );
+  }
+}
+
 class _PartyOptionsStep extends StatelessWidget {
   const _PartyOptionsStep({
     required this.departure,
     required this.destination,
+    required this.departureSummary,
+    required this.destinationSummary,
     required this.departureAt,
     required this.maxMembers,
     required this.memberNote,
     required this.onMaxMembersChanged,
+    required this.onEditRoute,
   });
 
   final TaxiLocation? departure;
   final TaxiLocation? destination;
+  final String departureSummary;
+  final String destinationSummary;
   final DateTime departureAt;
   final int maxMembers;
   final TextEditingController memberNote;
   final ValueChanged<int> onMaxMembersChanged;
+  final VoidCallback? onEditRoute;
 
   @override
   Widget build(BuildContext context) {
@@ -836,8 +901,11 @@ class _PartyOptionsStep extends StatelessWidget {
           _CreationSummary(
             departure: departure,
             destination: destination,
+            departureSummary: departureSummary,
+            destinationSummary: destinationSummary,
             departureAt: departureAt,
             maxMembers: maxMembers,
+            onEdit: onEditRoute,
           ),
           const SizedBox(height: 18),
           const _InfoNotice(
@@ -911,18 +979,27 @@ class _CreationSummary extends StatelessWidget {
   const _CreationSummary({
     required this.departure,
     required this.destination,
+    required this.departureSummary,
+    required this.destinationSummary,
     required this.departureAt,
     required this.maxMembers,
+    required this.onEdit,
   });
 
   final TaxiLocation? departure;
   final TaxiLocation? destination;
+  final String departureSummary;
+  final String destinationSummary;
   final DateTime departureAt;
   final int maxMembers;
+  final VoidCallback? onEdit;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final meetingPlace = destinationSummary.isEmpty
+        ? '$departureSummary에서 만나요'
+        : '$departureSummary 출발 · $destinationSummary 도착';
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(18),
@@ -942,20 +1019,33 @@ class _CreationSummary extends StatelessWidget {
                 size: 20,
               ),
               const SizedBox(width: 8),
-              Text(
-                '만들 방 미리보기',
-                style: theme.textTheme.titleSmall?.copyWith(
-                  color: _taxiAccentText(context),
-                  fontWeight: FontWeight.bold,
+              Expanded(
+                child: Text(
+                  '만들 방 미리보기',
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    color: _taxiAccentText(context),
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
+              ),
+              TextButton(
+                onPressed: onEdit,
+                style: TextButton.styleFrom(
+                  foregroundColor: _taxiAccentText(context),
+                  visualDensity: VisualDensity.compact,
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                ),
+                child: const Text('수정'),
               ),
             ],
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 8),
           _SummaryLine(
             icon: Icons.route_rounded,
             text: '${departure?.name ?? '-'} → ${destination?.name ?? '-'}',
           ),
+          const SizedBox(height: 10),
+          _SummaryLine(icon: Icons.place_outlined, text: meetingPlace),
           const SizedBox(height: 10),
           _SummaryLine(
             icon: Icons.schedule_rounded,
@@ -964,7 +1054,7 @@ class _CreationSummary extends StatelessWidget {
           const SizedBox(height: 10),
           _SummaryLine(
             icon: Icons.people_outline_rounded,
-            text: '최대 $maxMembers명 · 현재 1명',
+            text: '나 포함 1/$maxMembers명',
           ),
         ],
       ),
@@ -1027,15 +1117,13 @@ class _InfoNotice extends StatelessWidget {
 
 class _BottomActions extends StatelessWidget {
   const _BottomActions({
-    required this.currentStep,
+    required this.isLastStep,
     required this.saving,
-    required this.onBack,
     required this.onNext,
   });
 
-  final int currentStep;
+  final bool isLastStep;
   final bool saving;
-  final VoidCallback onBack;
   final VoidCallback onNext;
 
   @override
@@ -1049,27 +1137,6 @@ class _BottomActions extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(20, 10, 20, 12),
           child: Row(
             children: [
-              if (currentStep > 0) ...[
-                SizedBox(
-                  height: 56,
-                  child: OutlinedButton(
-                    onPressed: saving ? null : onBack,
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: theme.colorScheme.onSurface,
-                      side: BorderSide(
-                        color: theme.colorScheme.onSurface.withValues(
-                          alpha: 0.15,
-                        ),
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(18),
-                      ),
-                    ),
-                    child: const Text('이전'),
-                  ),
-                ),
-                const SizedBox(width: 10),
-              ],
               Expanded(
                 child: SizedBox(
                   height: 56,
@@ -1097,7 +1164,7 @@ class _BottomActions extends StatelessWidget {
                               strokeWidth: 2.3,
                             ),
                           )
-                        : Text(currentStep == 2 ? '택시팟 만들기' : '다음'),
+                        : Text(isLastStep ? '택시팟 만들기' : '다음'),
                   ),
                 ),
               ),
