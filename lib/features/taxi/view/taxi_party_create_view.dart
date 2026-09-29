@@ -73,6 +73,21 @@ InputDecoration _inputDecoration(
   );
 }
 
+/// 10분 단위로 올림된 출발 시각이 지금부터 실제로 얼마 뒤인지 알려준다.
+String _relativeDepartureLabel(DateTime departureAt, DateTime now) {
+  final seconds = departureAt.difference(now).inSeconds;
+  if (seconds <= 0) return '출발 시각이 지났어요';
+  final minutes = (seconds / 60).ceil();
+  final hours = minutes ~/ 60;
+  final rest = minutes % 60;
+  final text = hours == 0
+      ? '$minutes분'
+      : rest == 0
+      ? '$hours시간'
+      : '$hours시간 $rest분';
+  return '지금부터 $text 후 출발';
+}
+
 class TaxiPartyCreateView extends StatefulWidget {
   const TaxiPartyCreateView({
     super.key,
@@ -116,6 +131,8 @@ class TaxiPartyCreateViewState extends State<TaxiPartyCreateView> {
   int? _destinationId;
   int _maxMembers = 4;
   late DateTime _departureAt;
+  // 출발까지 남은 시간 문구가 실제 시간과 어긋나지 않도록 주기적으로 다시 그린다.
+  Timer? _clockTimer;
   bool _saving = false;
 
   TaxiLocation? get _departureLocation => _locationForId(_departureId);
@@ -135,10 +152,14 @@ class TaxiPartyCreateViewState extends State<TaxiPartyCreateView> {
     _departureAt = normalizeTaxiDepartureInitial(
       DateTime.now().add(const Duration(minutes: 20)),
     );
+    _clockTimer = Timer.periodic(const Duration(seconds: 15), (_) {
+      if (mounted) setState(() {});
+    });
   }
 
   @override
   void dispose() {
+    _clockTimer?.cancel();
     _pageController.dispose();
     _departureSummary.dispose();
     _destinationSummary.dispose();
@@ -595,6 +616,14 @@ class _RouteStep extends StatelessWidget {
                               ).format(departureAt),
                               style: theme.textTheme.titleMedium?.copyWith(
                                 fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              _relativeDepartureLabel(departureAt, now),
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: _taxiAccentText(context),
+                                fontWeight: FontWeight.w600,
                               ),
                             ),
                           ],
