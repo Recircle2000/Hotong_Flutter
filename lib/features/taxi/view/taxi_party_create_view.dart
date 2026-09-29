@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:hsro/features/taxi/models/taxi_models.dart';
 import 'package:hsro/features/taxi/repository/taxi_repository.dart';
@@ -212,6 +213,25 @@ class TaxiPartyCreateViewState extends State<TaxiPartyCreateView> {
     setState(() => _departureAt = selected);
   }
 
+  void _setDepartureDay(int dayOffset) {
+    final now = DateTime.now();
+    // 날짜만 바꾸고 시각은 유지하되, 오늘로 옮겨 이미 지난 시각이면 가장 빠른 시각으로 맞춘다.
+    final moved = DateTime(
+      now.year,
+      now.month,
+      now.day + dayOffset,
+      _departureAt.hour,
+      _departureAt.minute,
+    );
+    setState(() {
+      _departureAt = normalizeTaxiDepartureInitial(moved, now: now);
+    });
+  }
+
+  void _setDepartureTime(DateTime value) {
+    setState(() => _departureAt = normalizeTaxiDepartureInitial(value));
+  }
+
   void _setDepartureAfter(Duration offset) {
     setState(() {
       _departureAt = normalizeTaxiDepartureInitial(DateTime.now().add(offset));
@@ -367,6 +387,8 @@ class TaxiPartyCreateViewState extends State<TaxiPartyCreateView> {
                       departureSummary: _departureSummary,
                       destinationSummary: _destinationSummary,
                       onPickDateTime: _pickDateTime,
+                      onDepartureDayChanged: _setDepartureDay,
+                      onDepartureTimeChanged: _setDepartureTime,
                       onQuickDeparture: _setDepartureAfter,
                       onSubmitted: _next,
                     ),
@@ -504,6 +526,8 @@ class _RouteStep extends StatelessWidget {
     required this.departureSummary,
     required this.destinationSummary,
     required this.onPickDateTime,
+    required this.onDepartureDayChanged,
+    required this.onDepartureTimeChanged,
     required this.onQuickDeparture,
     required this.onSubmitted,
   });
@@ -525,6 +549,8 @@ class _RouteStep extends StatelessWidget {
   final TextEditingController departureSummary;
   final TextEditingController destinationSummary;
   final VoidCallback onPickDateTime;
+  final ValueChanged<int> onDepartureDayChanged;
+  final ValueChanged<DateTime> onDepartureTimeChanged;
   final ValueChanged<Duration> onQuickDeparture;
   final VoidCallback onSubmitted;
 
@@ -588,55 +614,12 @@ class _RouteStep extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 16),
-            Material(
-              color: _taxiTint(context),
-              borderRadius: BorderRadius.circular(20),
-              child: InkWell(
-                borderRadius: BorderRadius.circular(20),
-                onTap: onPickDateTime,
-                child: Padding(
-                  padding: const EdgeInsets.all(18),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              '출발 시각',
-                              style: theme.textTheme.labelMedium?.copyWith(
-                                color: _taxiAccentText(context),
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              DateFormat(
-                                'M월 d일 (E) HH:mm',
-                                'ko',
-                              ).format(departureAt),
-                              style: theme.textTheme.titleMedium?.copyWith(
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              _relativeDepartureLabel(departureAt, now),
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: _taxiAccentText(context),
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Icon(
-                        Icons.chevron_right_rounded,
-                        color: _taxiAccentText(context),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
+            _DepartureTimeCard(
+              departureAt: departureAt,
+              now: now,
+              onPickDateTime: onPickDateTime,
+              onDayChanged: onDepartureDayChanged,
+              onTimeChanged: onDepartureTimeChanged,
             ),
             const SizedBox(height: 10),
             Row(
@@ -714,6 +697,195 @@ class _RouteStep extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _DepartureTimeCard extends StatelessWidget {
+  const _DepartureTimeCard({
+    required this.departureAt,
+    required this.now,
+    required this.onPickDateTime,
+    required this.onDayChanged,
+    required this.onTimeChanged,
+  });
+
+  final DateTime departureAt;
+  final DateTime now;
+  final VoidCallback onPickDateTime;
+  final ValueChanged<int> onDayChanged;
+  final ValueChanged<DateTime> onTimeChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    if (theme.platform == TargetPlatform.iOS) {
+      return _buildIOS(context, theme);
+    }
+    return Material(
+      color: _taxiTint(context),
+      borderRadius: BorderRadius.circular(20),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(20),
+        onTap: onPickDateTime,
+        child: Padding(
+          padding: const EdgeInsets.all(18),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '출발 시각',
+                      style: theme.textTheme.labelMedium?.copyWith(
+                        color: _taxiAccentText(context),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      DateFormat('M월 d일 (E) HH:mm', 'ko').format(departureAt),
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      _relativeDepartureLabel(departureAt, now),
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: _taxiAccentText(context),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                Icons.chevron_right_rounded,
+                color: _taxiAccentText(context),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// iOS는 시트 없이 카드 안에서 오늘/내일과 시각을 바로 고른다.
+  Widget _buildIOS(BuildContext context, ThemeData theme) {
+    final today = DateTime(now.year, now.month, now.day);
+    final tomorrow = DateTime(now.year, now.month, now.day + 1);
+    final selectedDay = DateTime(
+      departureAt.year,
+      departureAt.month,
+      departureAt.day,
+    );
+    final dayOffset = selectedDay == today ? 0 : 1;
+    final minimum = taxiDepartureMinimum(now: now);
+    final maximum = taxiDepartureMaximum(now: now);
+    // 자정 직전에는 오늘 고를 수 있는 시각이 남지 않는다.
+    final canPickToday =
+        DateTime(minimum.year, minimum.month, minimum.day) == today;
+
+    final dayStart = dayOffset == 0 ? today : tomorrow;
+    final dayEnd = DateTime(
+      dayStart.year,
+      dayStart.month,
+      dayStart.day,
+      23,
+      50,
+    );
+    final pickerMinimum = minimum.isAfter(dayStart) ? minimum : dayStart;
+    final pickerMaximum = dayEnd.isBefore(maximum) ? dayEnd : maximum;
+
+    Widget segment(String label, DateTime day, {bool enabled = true}) =>
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: Text(
+            '$label ${DateFormat('M/d (E)', 'ko').format(day)}',
+            style: theme.textTheme.labelLarge?.copyWith(
+              fontWeight: FontWeight.w600,
+              color: enabled
+                  ? null
+                  : theme.colorScheme.onSurface.withValues(alpha: 0.3),
+            ),
+          ),
+        );
+
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: _taxiTint(context),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text(
+                '출발 시각',
+                style: theme.textTheme.labelMedium?.copyWith(
+                  color: _taxiAccentText(context),
+                ),
+              ),
+              const Spacer(),
+              Text(
+                _relativeDepartureLabel(departureAt, now),
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: _taxiAccentText(context),
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: CupertinoSlidingSegmentedControl<int>(
+                  groupValue: dayOffset,
+                  backgroundColor: theme.colorScheme.onSurface.withValues(
+                    alpha: 0.06,
+                  ),
+                  thumbColor: theme.cardColor,
+                  children: {
+                    0: segment('오늘', today, enabled: canPickToday),
+                    1: segment('내일', tomorrow),
+                  },
+                  onValueChanged: (value) {
+                    if (value == null || value == dayOffset) return;
+                    if (value == 0 && !canPickToday) return;
+                    onDayChanged(value);
+                  },
+                ),
+              ),
+              const SizedBox(width: 12),
+              Container(
+                width: 92,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: theme.cardColor,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: IOSCompactTimePickerField(
+                  // 날짜나 선택 가능 범위가 바뀌면 네이티브 선택기를 새로 만든다.
+                  key: ValueKey(
+                    '${departureAt.millisecondsSinceEpoch}|'
+                    '${pickerMinimum.millisecondsSinceEpoch}|'
+                    '${pickerMaximum.millisecondsSinceEpoch}',
+                  ),
+                  initialDateTime: departureAt,
+                  minimumDateTime: pickerMinimum,
+                  maximumDateTime: pickerMaximum,
+                  minuteInterval: taxiDepartureMinuteInterval,
+                  onChanged: onTimeChanged,
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }

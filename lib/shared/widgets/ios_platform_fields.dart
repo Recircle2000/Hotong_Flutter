@@ -196,3 +196,71 @@ class _IOSPopupMenuOverlayState extends State<IOSPopupMenuOverlay> {
     });
   }
 }
+
+/// iOS 네이티브 compact 시간 선택기. 누르면 시스템 시간 휠 팝업이 열린다.
+///
+/// 선택기는 [initialDateTime]의 날짜를 유지한 채 시각만 바꿔 돌려준다.
+/// 날짜나 범위가 바뀌면 [key]를 바꿔 네이티브 뷰를 새로 만들어야 한다.
+class IOSCompactTimePickerField extends StatefulWidget {
+  final DateTime initialDateTime;
+  final DateTime minimumDateTime;
+  final DateTime maximumDateTime;
+  final int minuteInterval;
+  final double fontSize;
+  final ValueChanged<DateTime> onChanged;
+
+  const IOSCompactTimePickerField({
+    super.key,
+    required this.initialDateTime,
+    required this.minimumDateTime,
+    required this.maximumDateTime,
+    required this.onChanged,
+    this.minuteInterval = 1,
+    this.fontSize = 20,
+  });
+
+  @override
+  State<IOSCompactTimePickerField> createState() =>
+      _IOSCompactTimePickerFieldState();
+}
+
+class _IOSCompactTimePickerFieldState extends State<IOSCompactTimePickerField> {
+  MethodChannel? _channel;
+
+  @override
+  void dispose() {
+    _channel?.setMethodCallHandler(null);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return UiKitView(
+      viewType: 'hsro/ios_compact_date_picker',
+      creationParams: {
+        'mode': 'time',
+        'displayFormat': 'HH:mm',
+        'minuteInterval': widget.minuteInterval,
+        'fontSize': widget.fontSize,
+        'bold': true,
+        'initialDate': widget.initialDateTime.millisecondsSinceEpoch,
+        'minimumDate': widget.minimumDateTime.millisecondsSinceEpoch,
+        'maximumDate': widget.maximumDateTime.millisecondsSinceEpoch,
+      },
+      creationParamsCodec: const StandardMessageCodec(),
+      onPlatformViewCreated: _handlePlatformViewCreated,
+    );
+  }
+
+  void _handlePlatformViewCreated(int viewId) {
+    _channel = MethodChannel('hsro/ios_compact_date_picker_$viewId');
+    _channel!.setMethodCallHandler((call) async {
+      if (call.method != 'onChanged' || call.arguments == null) {
+        return;
+      }
+      widget.onChanged(
+        DateTime.fromMillisecondsSinceEpoch(call.arguments as int),
+      );
+    });
+  }
+}
