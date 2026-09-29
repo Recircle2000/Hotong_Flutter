@@ -3,6 +3,7 @@ import 'package:hsro/features/taxi/models/taxi_models.dart';
 import 'package:hsro/features/taxi/utils/taxi_departure_time.dart';
 import 'package:hsro/features/taxi/viewmodel/taxi_party_detail_viewmodel.dart';
 import 'package:hsro/features/taxi/widgets/taxi_departure_time_picker.dart';
+import 'package:hsro/shared/widgets/scale_button.dart';
 import 'package:intl/intl.dart';
 
 const _taxiAccent = Color(0xFFF5A623);
@@ -807,33 +808,42 @@ class _SaveDock extends StatelessWidget {
         top: false,
         child: Padding(
           padding: const EdgeInsets.fromLTRB(20, 10, 20, 12),
-          child: SizedBox(
-            width: double.infinity,
-            height: 56,
-            child: FilledButton.icon(
-              onPressed: saving ? null : onSave,
-              style: FilledButton.styleFrom(
-                backgroundColor: _taxiAccent,
-                foregroundColor: _taxiAccentForeground,
-                disabledBackgroundColor: _taxiAccent.withValues(alpha: 0.45),
-                textStyle: theme.textTheme.labelLarge?.copyWith(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(18),
+          child: ScaleButton(
+            onTap: saving ? null : onSave,
+            child: AbsorbPointer(
+              child: SizedBox(
+                width: double.infinity,
+                height: 56,
+                child: FilledButton.icon(
+                  onPressed: saving ? null : onSave,
+                  style: FilledButton.styleFrom(
+                    backgroundColor: _taxiAccent,
+                    foregroundColor: _taxiAccentForeground,
+                    disabledBackgroundColor: _taxiAccent.withValues(
+                      alpha: 0.45,
+                    ),
+                    textStyle: theme.textTheme.labelLarge?.copyWith(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(18),
+                    ),
+                  ),
+                  icon: saving
+                      ? const SizedBox.square(
+                          dimension: 20,
+                          child: CircularProgressIndicator.adaptive(
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              _taxiAccentForeground,
+                            ),
+                            strokeWidth: 2.3,
+                          ),
+                        )
+                      : const Icon(Icons.check_rounded),
+                  label: Text(saving ? '저장 중' : '변경사항 저장'),
                 ),
               ),
-              icon: saving
-                  ? const SizedBox.square(
-                      dimension: 20,
-                      child: CircularProgressIndicator.adaptive(
-                        valueColor: AlwaysStoppedAnimation<Color>(_taxiAccentForeground),
-                        strokeWidth: 2.3,
-                      ),
-                    )
-                  : const Icon(Icons.check_rounded),
-              label: Text(saving ? '저장 중' : '변경사항 저장'),
             ),
           ),
         ),

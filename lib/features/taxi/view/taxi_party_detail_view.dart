@@ -9,6 +9,7 @@ import 'package:hsro/features/taxi/services/taxi_realtime_service.dart';
 import 'package:hsro/features/taxi/view/taxi_chat_view.dart';
 import 'package:hsro/features/taxi/view/taxi_party_edit_view.dart';
 import 'package:hsro/features/taxi/viewmodel/taxi_party_detail_viewmodel.dart';
+import 'package:hsro/shared/widgets/scale_button.dart';
 import 'package:intl/intl.dart';
 
 const _taxiAccent = Color(0xFFF5A623);
@@ -335,7 +336,11 @@ class TaxiPartyDetailViewState extends State<TaxiPartyDetailView> {
 
   Widget _buildBody(TaxiPartyDetail? party) {
     if (party == null && controller.isLoading.value) {
-      return const Center(child: CircularProgressIndicator.adaptive(valueColor: AlwaysStoppedAnimation<Color>(_taxiAccent)));
+      return const Center(
+        child: CircularProgressIndicator.adaptive(
+          valueColor: AlwaysStoppedAnimation<Color>(_taxiAccent),
+        ),
+      );
     }
     if (party == null) {
       return _LoadFailure(
@@ -403,6 +408,15 @@ class TaxiPartyDetailViewState extends State<TaxiPartyDetailView> {
 
     // 탭 안에 들어갈 때는 아래 탭 바가 하단 영역을 맡으므로,
     // 그림자와 별도 표면색 없이 화면 배경에 자연스럽게 이어지게 한다.
+    final VoidCallback? primaryAction =
+        controller.isLoading.value ||
+            _joining ||
+            (canJoin && !(widget.joinAllowed?.call() ?? true))
+        ? null
+        : canJoin
+        ? _join
+        : () => _openChat(party);
+
     return Material(
       elevation: widget.embedded ? 0 : 14,
       color: widget.embedded
@@ -421,55 +435,53 @@ class TaxiPartyDetailViewState extends State<TaxiPartyDetailView> {
                   onPressed: widget.onShowCurrent,
                   child: const Text('현재팟 확인하기'),
                 ),
-              SizedBox(
-                width: double.infinity,
-                height: 52,
-                child: FilledButton(
-                  style: FilledButton.styleFrom(
-                    backgroundColor: _taxiAccent,
-                    foregroundColor: _taxiAccentForeground,
-                    disabledBackgroundColor: _taxiAccent.withValues(
-                      alpha: 0.45,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                  ),
-                  onPressed:
-                      controller.isLoading.value ||
-                          _joining ||
-                          (canJoin && !(widget.joinAllowed?.call() ?? true))
-                      ? null
-                      : canJoin
-                      ? _join
-                      : () => _openChat(party),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        canJoin
-                            ? Icons.group_add_outlined
-                            : Icons.chat_bubble_outline,
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        canJoin
-                            ? ((widget.joinAllowed?.call() ?? true)
-                                  ? '택시팟 참여하기'
-                                  : '현재팟 확인 후 참여할 수 있어요')
-                            : party.chatStatus == 'read_only'
-                            ? '채팅 기록 보기'
-                            : '택시팟 채팅하기',
-                      ),
-                      if (!canJoin && party.unreadCount > 0) ...[
-                        const SizedBox(width: 8),
-                        Badge(
-                          backgroundColor: _taxiAccentForeground,
-                          textColor: Colors.white,
-                          label: Text('${party.unreadCount}'),
+              ScaleButton(
+                onTap: primaryAction,
+                child: AbsorbPointer(
+                  child: SizedBox(
+                    width: double.infinity,
+                    height: 52,
+                    child: FilledButton(
+                      style: FilledButton.styleFrom(
+                        backgroundColor: _taxiAccent,
+                        foregroundColor: _taxiAccentForeground,
+                        disabledBackgroundColor: _taxiAccent.withValues(
+                          alpha: 0.45,
                         ),
-                      ],
-                    ],
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                      ),
+                      onPressed: primaryAction,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            canJoin
+                                ? Icons.group_add_outlined
+                                : Icons.chat_bubble_outline,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            canJoin
+                                ? ((widget.joinAllowed?.call() ?? true)
+                                      ? '택시팟 참여하기'
+                                      : '현재팟 확인 후 참여할 수 있어요')
+                                : party.chatStatus == 'read_only'
+                                ? '채팅 기록 보기'
+                                : '택시팟 채팅하기',
+                          ),
+                          if (!canJoin && party.unreadCount > 0) ...[
+                            const SizedBox(width: 8),
+                            Badge(
+                              backgroundColor: _taxiAccentForeground,
+                              textColor: Colors.white,
+                              label: Text('${party.unreadCount}'),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
                   ),
                 ),
               ),
