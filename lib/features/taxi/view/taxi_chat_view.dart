@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:hsro/features/taxi/models/taxi_models.dart';
 import 'package:hsro/features/taxi/repository/taxi_repository.dart';
@@ -46,6 +47,11 @@ class _TaxiChatViewState extends State<TaxiChatView> {
   late final TaxiChatViewModel controller;
   Worker? _messageWorker;
   bool _hasText = false;
+  bool _didInitialScroll = false;
+  int _lastMessageCount = 0;
+  final _unseenCount = 0.obs;
+
+  static const _nearBottomThreshold = 120.0;
 
   @override
   void initState() {
@@ -64,7 +70,41 @@ class _TaxiChatViewState extends State<TaxiChatView> {
       ),
       tag: _tag,
     );
-    _messageWorker = ever(controller.messages, (_) => _scrollToBottom());
+    _scrollController.addListener(_handleScroll);
+    _messageWorker = ever(controller.messages, _handleMessagesChanged);
+  }
+
+  bool get _isNearBottom {
+    if (!_scrollController.hasClients) return true;
+    final position = _scrollController.position;
+    return position.maxScrollExtent - position.pixels < _nearBottomThreshold;
+  }
+
+  void _handleScroll() {
+    if (_unseenCount.value > 0 && _isNearBottom) _unseenCount.value = 0;
+  }
+
+  void _handleMessagesChanged(List<TaxiMessage> messages) {
+    final added = messages.length - _lastMessageCount;
+    _lastMessageCount = messages.length;
+    if (messages.isEmpty) {
+      _didInitialScroll = false;
+      _unseenCount.value = 0;
+      return;
+    }
+    if (!_didInitialScroll) {
+      _didInitialScroll = true;
+      _scrollToBottom(animate: false);
+      return;
+    }
+    if (added <= 0) return;
+    // 내가 보냈거나 이미 맨 아래를 보고 있을 때만 따라 내려가고,
+    // 이전 대화를 읽는 중이면 위치를 유지한 채 새 메시지 개수만 알린다.
+    if (messages.last.isMine || _isNearBottom) {
+      _scrollToBottom();
+    } else {
+      _unseenCount.value += added;
+    }
   }
 
   void _handleTextChanged() {
@@ -72,18 +112,36 @@ class _TaxiChatViewState extends State<TaxiChatView> {
     if (hasText != _hasText) setState(() => _hasText = hasText);
   }
 
-  void _scrollToBottom() {
+  void _scrollToBottom({bool animate = true}) {
+    _unseenCount.value = 0;
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_scrollController.hasClients) {
+      if (!_scrollController.hasClients) return;
+      final target = _scrollController.position.maxScrollExtent;
+      if (animate) {
         unawaited(
           _scrollController.animateTo(
-            _scrollController.position.maxScrollExtent,
+            target,
             duration: const Duration(milliseconds: 180),
             curve: Curves.easeOut,
           ),
         );
+      } else {
+        _scrollController.jumpTo(target);
       }
     });
+  }
+
+  void _copyMessage(TaxiMessage message) {
+    unawaited(Clipboard.setData(ClipboardData(text: message.content)));
+    unawaited(HapticFeedback.selectionClick());
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        const SnackBar(
+          content: Text('메시지를 복사했어요.'),
+          duration: Duration(seconds: 2),
+        ),
+      );
   }
 
   void _send() {
@@ -97,6 +155,7 @@ class _TaxiChatViewState extends State<TaxiChatView> {
     _messageWorker?.dispose();
     _textController.removeListener(_handleTextChanged);
     _textController.dispose();
+    _scrollController.removeListener(_handleScroll);
     _scrollController.dispose();
     Get.delete<TaxiChatViewModel>(tag: _tag);
     super.dispose();
@@ -209,29 +268,67 @@ class _TaxiChatViewState extends State<TaxiChatView> {
       if (controller.messages.isEmpty) {
         return const _EmptyChat();
       }
-      return ListView.builder(
-        controller: _scrollController,
-        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-        padding: const EdgeInsets.fromLTRB(16, 14, 16, 20),
-        itemCount: controller.messages.length,
-        itemBuilder: (context, index) {
-          final message = controller.messages[index];
-          final showDate =
-              index == 0 ||
-              !_isSameDay(
-                controller.messages[index - 1].createdAt,
-                message.createdAt,
+      final messages = controller.messages;
+      return Stack(
+        children: [
+          ListView.builder(
+            controller: _scrollController,
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 20),
+            itemCount: messages.length,
+            itemBuilder: (context, index) {
+              final message = messages[index];
+              final previous = index > 0 ? messages[index - 1] : null;
+              final next = index + 1 < messages.length
+                  ? messages[index + 1]
+                  : null;
+              final showDate =
+                  previous == null ||
+                  !_isSameDay(previous.createdAt, message.createdAt);
+              return Column(
+                children: [
+                  if (showDate) _DateSeparator(date: message.createdAt),
+                  _MessageBubble(
+                    message: message,
+                    isFirstInGroup:
+                        showDate || !_isContinuation(previous, message),
+                    isLastInGroup:
+                        next == null || !_isContinuation(message, next),
+                    onLongPress: () => _copyMessage(message),
+                  ),
+                ],
               );
-          return Column(
-            children: [
-              if (showDate) _DateSeparator(date: message.createdAt),
-              _MessageBubble(message: message),
-            ],
-          );
-        },
+            },
+          ),
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 12,
+            child: Center(
+              child: Obx(
+                () => _unseenCount.value == 0
+                    ? const SizedBox.shrink()
+                    : _NewMessagesButton(
+                        count: _unseenCount.value,
+                        onTap: _scrollToBottom,
+                      ),
+              ),
+            ),
+          ),
+        ],
       );
     });
   }
+
+  /// 같은 사람이 같은 분에 이어서 보낸 메시지는 하나의 묶음으로 보여준다.
+  bool _isContinuation(TaxiMessage previous, TaxiMessage current) =>
+      !previous.isSystem &&
+      !current.isSystem &&
+      previous.isMine == current.isMine &&
+      previous.senderLabel == current.senderLabel &&
+      _isSameDay(previous.createdAt, current.createdAt) &&
+      previous.createdAt.hour == current.createdAt.hour &&
+      previous.createdAt.minute == current.createdAt.minute;
 
   bool _isSameDay(DateTime first, DateTime second) =>
       first.year == second.year &&
@@ -276,9 +373,22 @@ class _ChatLifecycleNotice extends StatelessWidget {
 }
 
 class _MessageBubble extends StatelessWidget {
-  const _MessageBubble({required this.message});
+  const _MessageBubble({
+    required this.message,
+    required this.isFirstInGroup,
+    required this.isLastInGroup,
+    required this.onLongPress,
+  });
 
   final TaxiMessage message;
+  final bool isFirstInGroup;
+  final bool isLastInGroup;
+  final VoidCallback onLongPress;
+
+  static const _avatarSize = 34.0;
+  static const _outerRadius = Radius.circular(19);
+  static const _joinedRadius = Radius.circular(6);
+  static const _tailRadius = Radius.circular(5);
 
   @override
   Widget build(BuildContext context) {
@@ -287,7 +397,8 @@ class _MessageBubble extends StatelessWidget {
     }
 
     final theme = Theme.of(context);
-    final colors = Theme.of(context).colorScheme;
+    final colors = theme.colorScheme;
+    final isMine = message.isMine;
     final time = Text(
       DateFormat('HH:mm').format(message.createdAt),
       style: theme.textTheme.labelSmall?.copyWith(
@@ -296,50 +407,70 @@ class _MessageBubble extends StatelessWidget {
       ),
     );
 
-    final bubble = Container(
-      constraints: BoxConstraints(
-        maxWidth: MediaQuery.sizeOf(context).width * 0.68,
-      ),
-      padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 11),
-      decoration: BoxDecoration(
-        color: message.isMine
-            ? _taxiAccent
-            : colors.onSurface.withValues(alpha: 0.055),
-        borderRadius: BorderRadius.only(
-          topLeft: const Radius.circular(19),
-          topRight: const Radius.circular(19),
-          bottomLeft: Radius.circular(message.isMine ? 19 : 5),
-          bottomRight: Radius.circular(message.isMine ? 5 : 19),
+    // 묶음 안쪽 모서리는 작게 깎아 풍선이 이어져 보이게 하고,
+    // 마지막 풍선에만 꼬리 모서리를 남긴다.
+    final senderSideTop = isFirstInGroup ? _outerRadius : _joinedRadius;
+    final senderSideBottom = isLastInGroup ? _tailRadius : _joinedRadius;
+    final bubble = GestureDetector(
+      onLongPress: onLongPress,
+      child: Container(
+        constraints: BoxConstraints(
+          maxWidth: MediaQuery.sizeOf(context).width * 0.68,
         ),
-      ),
-      child: Text(
-        message.content,
-        style: theme.textTheme.bodyMedium?.copyWith(
-          color: message.isMine ? _taxiAccentForeground : colors.onSurface,
-          height: 1.4,
+        padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 11),
+        decoration: BoxDecoration(
+          color: isMine
+              ? _taxiAccent
+              : colors.onSurface.withValues(alpha: 0.055),
+          borderRadius: BorderRadius.only(
+            topLeft: isMine ? _outerRadius : senderSideTop,
+            topRight: isMine ? senderSideTop : _outerRadius,
+            bottomLeft: isMine ? _outerRadius : senderSideBottom,
+            bottomRight: isMine ? senderSideBottom : _outerRadius,
+          ),
+        ),
+        child: Text(
+          message.content,
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: isMine ? _taxiAccentForeground : colors.onSurface,
+            height: 1.4,
+          ),
         ),
       ),
     );
 
+    final bubbleRow = Row(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        if (isMine && isLastInGroup) ...[time, const SizedBox(width: 6)],
+        Flexible(child: bubble),
+        if (!isMine && isLastInGroup) ...[const SizedBox(width: 6), time],
+      ],
+    );
+
     return Padding(
-      padding: const EdgeInsets.only(bottom: 14),
+      padding: EdgeInsets.only(bottom: isLastInGroup ? 14 : 4),
       child: Row(
-        mainAxisAlignment: message.isMine
+        mainAxisAlignment: isMine
             ? MainAxisAlignment.end
             : MainAxisAlignment.start,
-        crossAxisAlignment: CrossAxisAlignment.end,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (!message.isMine) ...[
-            _SenderAvatar(label: message.senderLabel),
+          if (!isMine) ...[
+            if (isFirstInGroup)
+              _SenderAvatar(label: message.senderLabel)
+            else
+              const SizedBox(width: _avatarSize),
             const SizedBox(width: 9),
           ],
           Flexible(
             child: Column(
-              crossAxisAlignment: message.isMine
+              crossAxisAlignment: isMine
                   ? CrossAxisAlignment.end
                   : CrossAxisAlignment.start,
               children: [
-                if (!message.isMine) ...[
+                if (!isMine && isFirstInGroup)
                   Padding(
                     padding: const EdgeInsets.only(left: 4, bottom: 5),
                     child: Text(
@@ -350,18 +481,53 @@ class _MessageBubble extends StatelessWidget {
                       ),
                     ),
                   ),
-                ],
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: message.isMine
-                      ? [time, const SizedBox(width: 6), bubble]
-                      : [bubble, const SizedBox(width: 6), time],
-                ),
+                bubbleRow,
               ],
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _NewMessagesButton extends StatelessWidget {
+  const _NewMessagesButton({required this.count, required this.onTap});
+
+  final int count;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: _taxiAccent,
+      elevation: 3,
+      shadowColor: Colors.black26,
+      shape: const StadiumBorder(),
+      child: InkWell(
+        customBorder: const StadiumBorder(),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                count > 99 ? '새 메시지 99+' : '새 메시지 $count',
+                style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                  color: _taxiAccentForeground,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(width: 4),
+              const Icon(
+                Icons.keyboard_arrow_down_rounded,
+                size: 18,
+                color: _taxiAccentForeground,
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
