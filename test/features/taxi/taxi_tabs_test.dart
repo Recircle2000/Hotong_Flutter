@@ -309,6 +309,41 @@ void main() {
     await tester.pumpWidget(const SizedBox());
   });
 
+  testWidgets('목록 변경 알림은 검색 탭에서만 모아서 목록만 다시 조회한다', (tester) async {
+    final api = TaxiTestApi();
+    late TaxiHomeViewModel viewModel;
+    await launch(
+      tester,
+      api,
+      viewModelBuilder: (auth) => viewModel = TaxiHomeViewModel(
+        repository: api.repository,
+        realtime: TaxiRealtimeService(auth),
+      ),
+    );
+    api.resetReads();
+
+    for (var i = 0; i < 3; i++) {
+      viewModel.handleRealtimeEvent(
+        const TaxiRealtimeEvent(type: 'parties.changed', partyId: 'p'),
+      );
+    }
+    await tester.pump(const Duration(seconds: 1));
+    expect(api.totalReads, 0);
+    await tester.pump(const Duration(seconds: 2));
+    await tester.pumpAndSettle();
+    expect(api.partyListReads, 1);
+    expect(api.totalReads, 1);
+
+    await tab(tester, '팟 생성');
+    api.resetReads();
+    viewModel.handleRealtimeEvent(
+      const TaxiRealtimeEvent(type: 'parties.changed', partyId: 'p'),
+    );
+    await tester.pump(const Duration(seconds: 3));
+    expect(api.totalReads, 0);
+    await tester.pumpWidget(const SizedBox());
+  });
+
   testWidgets('다크모드 내비게이션과 99+ 배지', (tester) async {
     await tester.pumpWidget(
       MaterialApp(

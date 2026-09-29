@@ -32,6 +32,10 @@ class TaxiHomeViewModel extends GetxController with WidgetsBindingObserver {
   Completer<void>? _refreshCompletion;
   Timer? _expiryTimer;
   final hasLoaded = false.obs;
+  // 검색 탭이 보이는 동안에만 실시간 목록 변경 알림으로 다시 조회한다.
+  bool _searchVisible = false;
+  Timer? _searchRefreshDebounce;
+  int _searchRequestId = 0;
 
   bool get canCreateOrJoin =>
       hasLoaded.value &&
@@ -87,7 +91,47 @@ class TaxiHomeViewModel extends GetxController with WidgetsBindingObserver {
     unawaited(refreshAll());
   }
 
+  void setSearchVisible(bool visible) {
+    _searchVisible = visible;
+    if (!visible) _searchRefreshDebounce?.cancel();
+  }
+
+  /// 팟 검색 목록만 현재 필터로 다시 받는다. 다른 목록은 실시간 이벤트로 맞춰진다.
+  Future<void> refreshParties() async {
+    if (isClosed) return;
+    _searchRefreshDebounce?.cancel();
+    final requestId = ++_searchRequestId;
+    try {
+      final result = await _repository.getParties(
+        date: selectedDate.value,
+        departureLocationId: departureLocationId.value,
+        destinationLocationId: destinationLocationId.value,
+        includeUnavailable: includeUnavailable.value,
+      );
+      // 필터를 바꾸는 사이 늦게 도착한 이전 응답은 버린다.
+      if (isClosed || requestId != _searchRequestId) return;
+      parties.assignAll(result);
+    } catch (_) {
+      // 목록 보정 실패는 다음 알림이나 탭 진입 때 다시 맞춘다.
+    }
+  }
+
+  void _scheduleSearchRefresh() {
+    // 숨겨진 동안의 변경은 검색 탭에 다시 들어올 때 한 번에 갱신한다.
+    if (!_searchVisible || isClosed) return;
+    // 팟 생성·참여가 몰려도 접속자 전원이 매번 재조회하지 않도록 잠시 모아서 한 번만 받는다.
+    _searchRefreshDebounce?.cancel();
+    _searchRefreshDebounce = Timer(
+      const Duration(seconds: 2),
+      () => unawaited(refreshParties()),
+    );
+  }
+
   void handleRealtimeEvent(TaxiRealtimeEvent event) {
+    if (event.type == 'parties.changed') {
+      _scheduleSearchRefresh();
+      return;
+    }
     if (event.type != 'message.created' && event.type != 'party.updated') {
       return;
     }
@@ -173,6 +217,9 @@ class TaxiHomeViewModel extends GetxController with WidgetsBindingObserver {
     }
     final completion = Completer<void>();
     _refreshCompletion = completion;
+    // 전체 갱신이 목록도 새로 받으므로, 이전 필터로 보낸 목록 전용 요청 결과는 버린다.
+    _searchRefreshDebounce?.cancel();
+    _searchRequestId++;
     isLoading.value = true;
     try {
       do {
@@ -269,6 +316,7 @@ class TaxiHomeViewModel extends GetxController with WidgetsBindingObserver {
       timer.cancel();
     }
     _partyRefreshDebounces.clear();
+    _searchRefreshDebounce?.cancel();
     _expiryTimer?.cancel();
     _events?.cancel();
     unawaited(_realtime.dispose());

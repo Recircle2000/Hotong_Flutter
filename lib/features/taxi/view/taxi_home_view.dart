@@ -76,6 +76,7 @@ class _TaxiHomeViewState extends State<TaxiHomeView> {
           ),
       tag: _tag,
     );
+    controller.setSearchVisible(_index == 1);
   }
 
   @override
@@ -96,6 +97,10 @@ class _TaxiHomeViewState extends State<TaxiHomeView> {
       _index = index;
       _visited.add(index);
     });
+    // 검색 탭이 보일 때만 실시간 목록 변경 알림으로 다시 조회한다.
+    controller.setSearchVisible(index == 1);
+    // 다른 탭에 있는 동안 놓친 변경이 보이도록 검색 탭 진입 시 목록만 갱신한다.
+    if (index == 1) unawaited(controller.refreshParties());
   }
 
   void _showCurrentParty() {
