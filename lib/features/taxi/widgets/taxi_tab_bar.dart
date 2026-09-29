@@ -22,11 +22,18 @@ class TaxiTabBar extends StatelessWidget {
     Icons.local_taxi_outlined,
     Icons.person_outline,
   ];
+  // iOS 기본 탭 바처럼 선택 전에는 외곽선, 선택 후에는 채움 심볼을 쓴다.
   static const symbols = [
     'plus.circle',
     'magnifyingglass',
-    'car.side',
-    'person.crop.circle',
+    'car',
+    'person',
+  ];
+  static const selectedSymbols = [
+    'plus.circle.fill',
+    'magnifyingglass',
+    'car.fill',
+    'person.fill',
   ];
 
   @override
@@ -52,13 +59,15 @@ class TaxiTabBar extends StatelessWidget {
         child: LiquidGlassTabBar(
           currentIndex: index,
           onTabSelected: select,
-          iconSize: 24,
           selectedItemColor: const Color(0xFFF5A623),
           items: List.generate(
             4,
             (item) => LiquidGlassTabItem(
               label: labels[item],
               icon: NativeLiquidGlassIcon.sfSymbol(symbols[item]),
+              selectedIcon: NativeLiquidGlassIcon.sfSymbol(
+                selectedSymbols[item],
+              ),
               iosBadgeValue: item == 2 && unread > 0 ? badge : null,
             ),
           ),
