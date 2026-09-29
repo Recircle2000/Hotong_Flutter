@@ -300,7 +300,9 @@ class _TaxiHomeViewState extends State<TaxiHomeView> {
               color: Theme.of(context).scaffoldBackgroundColor,
               child: controller.isLoading.value && controller.myParties.isEmpty
                   ? const Center(
-                      child: CircularProgressIndicator.adaptive(valueColor: AlwaysStoppedAnimation<Color>(_taxiAccent)),
+                      child: CircularProgressIndicator.adaptive(
+                        valueColor: AlwaysStoppedAnimation<Color>(_taxiAccent),
+                      ),
                     )
                   : _notice(
                       blocked,
@@ -319,7 +321,9 @@ class _TaxiHomeViewState extends State<TaxiHomeView> {
       if (controller.isLoading.value ||
           !controller.hasLoaded.value && controller.errorMessage.isEmpty) {
         return const Center(
-          child: CircularProgressIndicator.adaptive(valueColor: AlwaysStoppedAnimation<Color>(_taxiAccent)),
+          child: CircularProgressIndicator.adaptive(
+            valueColor: AlwaysStoppedAnimation<Color>(_taxiAccent),
+          ),
         );
       }
       if (controller.errorMessage.isNotEmpty) {
@@ -425,7 +429,9 @@ class _TaxiHomeViewState extends State<TaxiHomeView> {
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 72),
               child: Center(
-                child: CircularProgressIndicator.adaptive(valueColor: AlwaysStoppedAnimation<Color>(_taxiAccent)),
+                child: CircularProgressIndicator.adaptive(
+                  valueColor: AlwaysStoppedAnimation<Color>(_taxiAccent),
+                ),
               ),
             )
           else if (chats.isEmpty)
@@ -751,7 +757,9 @@ class _FindParties extends StatelessWidget {
               const Padding(
                 padding: EdgeInsets.all(48),
                 child: Center(
-                  child: CircularProgressIndicator.adaptive(valueColor: AlwaysStoppedAnimation<Color>(_taxiAccent)),
+                  child: CircularProgressIndicator.adaptive(
+                    valueColor: AlwaysStoppedAnimation<Color>(_taxiAccent),
+                  ),
                 ),
               )
             else if (controller.parties.isEmpty)
@@ -1149,7 +1157,7 @@ class _TaxiPartyCard extends StatelessWidget {
         : colors.onSurfaceVariant;
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 16),
+      margin: const EdgeInsets.only(bottom: 12),
       decoration: _taxiCardDecoration(context),
       child: Material(
         color: Colors.transparent,
@@ -1158,19 +1166,41 @@ class _TaxiPartyCard extends StatelessWidget {
         child: InkWell(
           onTap: onTap,
           child: Padding(
-            padding: const EdgeInsets.all(20),
+            padding: const EdgeInsets.fromLTRB(18, 16, 18, 14),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
                   children: [
+                    // 날짜를 출발 시각 옆에 붙여 카드 높이를 줄인다.
                     Expanded(
-                      child: Text(
-                        '${DateFormat('HH:mm').format(party.departureAt)} 출발',
-                        style: theme.textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 22,
-                        ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.baseline,
+                        textBaseline: TextBaseline.alphabetic,
+                        children: [
+                          Text(
+                            '${DateFormat('HH:mm').format(party.departureAt)} 출발',
+                            style: theme.textTheme.titleLarge?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 22,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Flexible(
+                            child: Text(
+                              DateFormat(
+                                'M월 d일 (E)',
+                                'ko',
+                              ).format(party.departureAt),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                color: colors.onSurfaceVariant,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -1193,7 +1223,7 @@ class _TaxiPartyCard extends StatelessWidget {
                     ),
                   ],
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 10),
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -1220,28 +1250,8 @@ class _TaxiPartyCard extends StatelessWidget {
                     ),
                   ],
                 ),
-                const SizedBox(height: 10),
-                Row(
-                  children: [
-                    Icon(
-                      Icons.calendar_today_outlined,
-                      size: 17,
-                      color: colors.onSurfaceVariant,
-                    ),
-                    const SizedBox(width: 7),
-                    Expanded(
-                      child: Text(
-                        DateFormat('M월 d일 (E)', 'ko').format(party.departureAt),
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: colors.onSurfaceVariant,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
                 Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  padding: const EdgeInsets.symmetric(vertical: 10),
                   child: Divider(
                     height: 1,
                     color: colors.onSurface.withValues(alpha: 0.08),
