@@ -401,11 +401,16 @@ class TaxiPartyDetailViewState extends State<TaxiPartyDetailView> {
       return null;
     }
 
+    // 탭 안에 들어갈 때는 아래 탭 바가 하단 영역을 맡으므로,
+    // 그림자와 별도 표면색 없이 화면 배경에 자연스럽게 이어지게 한다.
     return Material(
-      elevation: 14,
-      color: Theme.of(context).colorScheme.surface,
+      elevation: widget.embedded ? 0 : 14,
+      color: widget.embedded
+          ? Theme.of(context).scaffoldBackgroundColor
+          : Theme.of(context).colorScheme.surface,
       child: SafeArea(
         top: false,
+        bottom: !widget.embedded,
         child: Padding(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
           child: Column(
