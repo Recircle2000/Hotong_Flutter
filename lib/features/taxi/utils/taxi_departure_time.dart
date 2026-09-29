@@ -69,3 +69,9 @@ String? validateTaxiDepartureTime(
   }
   return null;
 }
+
+/// 팟을 만들 수 있는 마지막 날짜. 검색 날짜도 이 범위를 넘지 않게 맞춘다.
+DateTime taxiLastSelectableDay({DateTime? now}) {
+  final maximum = taxiDepartureMaximum(now: now);
+  return DateTime(maximum.year, maximum.month, maximum.day);
+}

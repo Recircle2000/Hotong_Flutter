@@ -12,6 +12,7 @@ import 'package:hsro/features/taxi/services/taxi_realtime_service.dart';
 import 'package:hsro/features/taxi/view/taxi_party_create_view.dart';
 import 'package:hsro/features/taxi/view/taxi_party_detail_view.dart';
 import 'package:hsro/features/taxi/view/taxi_chat_view.dart';
+import 'package:hsro/features/taxi/utils/taxi_departure_time.dart';
 import 'package:hsro/features/taxi/viewmodel/taxi_home_viewmodel.dart';
 import 'package:hsro/shared/widgets/ios_platform_fields.dart';
 import 'package:intl/intl.dart';
@@ -939,7 +940,7 @@ class _DateSelector extends StatelessWidget {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final date = DateTime(selected.year, selected.month, selected.day);
-    final last = today.add(const Duration(days: 7));
+    final last = taxiLastSelectableDay(now: now);
     return Container(
       decoration: BoxDecoration(
         color: _taxiTint(context),

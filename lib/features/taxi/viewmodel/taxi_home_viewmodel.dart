@@ -5,6 +5,7 @@ import 'package:get/get.dart';
 import 'package:hsro/features/taxi/models/taxi_models.dart';
 import 'package:hsro/features/taxi/repository/taxi_repository.dart';
 import 'package:hsro/features/taxi/services/taxi_realtime_service.dart';
+import 'package:hsro/features/taxi/utils/taxi_departure_time.dart';
 
 class TaxiHomeViewModel extends GetxController with WidgetsBindingObserver {
   TaxiHomeViewModel({
@@ -290,7 +291,7 @@ class TaxiHomeViewModel extends GetxController with WidgetsBindingObserver {
     );
     final today = DateTime.now();
     final first = DateTime(today.year, today.month, today.day);
-    final last = first.add(const Duration(days: 7));
+    final last = taxiLastSelectableDay(now: today);
     if (next.isBefore(first) || next.isAfter(last)) return;
     selectedDate.value = next;
     unawaited(refreshAll());

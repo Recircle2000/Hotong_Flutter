@@ -18,6 +18,10 @@ void main() {
     );
   });
 
+  test('last selectable day is tomorrow', () {
+    expect(taxiLastSelectableDay(now: now), DateTime(2026, 9, 14));
+  });
+
   test('initial value is rounded and clamped to the allowed range', () {
     expect(
       normalizeTaxiDepartureInitial(
