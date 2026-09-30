@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:hsro/features/city_bus/view/grouped_bus_view.dart';
@@ -5,6 +7,7 @@ import 'package:hsro/features/auth/view/taxi_auth_gate_view.dart';
 import 'package:hsro/features/settings/viewmodel/settings_viewmodel.dart';
 import 'package:hsro/features/shuttle/view/shuttle_route_selection_view.dart';
 import 'package:hsro/features/subway/view/subway_view.dart';
+import 'package:hsro/features/taxi/services/taxi_availability_service.dart';
 import 'package:hsro/shared/widgets/scale_button.dart';
 
 class HomeTransportMenuSection extends StatelessWidget {
@@ -16,6 +19,53 @@ class HomeTransportMenuSection extends StatelessWidget {
 
   final GlobalKey sectionKey;
   final SettingsViewModel settingsViewModel;
+
+  Widget _buildBottomRow() {
+    final subway = Expanded(
+      child: _TransportMenuCard(
+        title: '지하철',
+        icon: Icons.subway_outlined,
+        color: const Color(0xFF0052A4),
+        onTap: () => Get.to(
+          () => SubwayView(
+            stationName: settingsViewModel.selectedSubwayStation.value,
+          ),
+        ),
+        height: 80,
+        isCompact: true,
+      ),
+    );
+    if (!Get.isRegistered<TaxiAvailabilityService>()) {
+      return Row(children: [subway, const SizedBox(width: 16), _taxiCard()]);
+    }
+    final availability = Get.find<TaxiAvailabilityService>();
+    return Obx(
+      () => Row(
+        children: [
+          subway,
+          if (availability.showTaxiMenu) ...[
+            const SizedBox(width: 16),
+            _taxiCard(availability),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _taxiCard([TaxiAvailabilityService? availability]) => Expanded(
+    child: _TransportMenuCard(
+      title: '택시',
+      icon: Icons.local_taxi_outlined,
+      color: const Color(0xFFF5A623),
+      onTap: () async {
+        await Get.to(() => const TaxiAuthGateView());
+        // 택시 화면에서 팟을 나가거나 끝냈다면 메뉴 노출 여부를 다시 확인한다.
+        unawaited(availability?.refresh());
+      },
+      height: 80,
+      isCompact: true,
+    ),
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -50,39 +100,10 @@ class HomeTransportMenuSection extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 12),
-          // 지하철/택시 카드
+          // 지하철/택시 카드. 택시 서비스가 꺼지면 지하철이 한 줄을 채운다.
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Row(
-              children: [
-                Expanded(
-                  child: _TransportMenuCard(
-                    title: '지하철',
-                    icon: Icons.subway_outlined,
-                    color: const Color(0xFF0052A4),
-                    onTap: () => Get.to(
-                      () => SubwayView(
-                        stationName:
-                            settingsViewModel.selectedSubwayStation.value,
-                      ),
-                    ),
-                    height: 80,
-                    isCompact: true,
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: _TransportMenuCard(
-                    title: '택시',
-                    icon: Icons.local_taxi_outlined,
-                    color: const Color(0xFFF5A623),
-                    onTap: () => Get.to(() => const TaxiAuthGateView()),
-                    height: 80,
-                    isCompact: true,
-                  ),
-                ),
-              ],
-            ),
+            child: _buildBottomRow(),
           ),
         ],
       ),
@@ -163,11 +184,7 @@ class _TransportMenuCard extends StatelessWidget {
                       color: color.withValues(alpha: 0.1),
                       shape: BoxShape.circle,
                     ),
-                    child: Icon(
-                      icon,
-                      size: 48,
-                      color: color,
-                    ),
+                    child: Icon(icon, size: 48, color: color),
                   ),
                   const SizedBox(height: 24),
                   Text(

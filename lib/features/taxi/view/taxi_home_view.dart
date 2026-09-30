@@ -9,6 +9,7 @@ import 'package:hsro/core/network/authenticated_api_client.dart';
 import 'package:hsro/core/services/auth_service.dart';
 import 'package:hsro/features/taxi/models/taxi_models.dart';
 import 'package:hsro/features/taxi/repository/taxi_repository.dart';
+import 'package:hsro/features/taxi/services/taxi_availability_service.dart';
 import 'package:hsro/features/taxi/services/taxi_realtime_service.dart';
 import 'package:hsro/features/taxi/view/taxi_party_create_view.dart';
 import 'package:hsro/features/taxi/view/taxi_party_detail_view.dart';
@@ -234,6 +235,7 @@ class _TaxiHomeViewState extends State<TaxiHomeView> {
     String message, {
     bool retry = false,
     bool current = false,
+    bool showNavigation = true,
   }) => Center(
     child: SingleChildScrollView(
       padding: const EdgeInsets.all(24),
@@ -256,7 +258,7 @@ class _TaxiHomeViewState extends State<TaxiHomeView> {
               onPressed: _showCurrentParty,
               child: const Text('현재팟 보기'),
             ),
-          if (!retry && !current) ...[
+          if (showNavigation && !retry && !current) ...[
             FilledButton(
               onPressed: () => _select(1),
               child: const Text('팟 검색'),
@@ -271,8 +273,14 @@ class _TaxiHomeViewState extends State<TaxiHomeView> {
   Widget _createTab() {
     final ready =
         controller.hasLoaded.value && controller.locations.length >= 2;
+    // 서버에서 택시 서비스를 끄면 새 팟은 만들 수 없고 진행 중인 팟만 이용한다.
+    final serviceStopped =
+        Get.isRegistered<TaxiAvailabilityService>() &&
+        !Get.find<TaxiAvailabilityService>().taxiEnabled.value;
     String? blocked;
-    if (controller.myParties.isNotEmpty) {
+    if (serviceStopped) {
+      blocked = '현재 택시팟 서비스를 운영하지 않아요.\n진행 중인 팟의 채팅은 계속 이용할 수 있어요.';
+    } else if (controller.myParties.isNotEmpty) {
       blocked = '이미 모집 중인 택시팟이 있어요.\n모집 종료 후 새로운 팟을 만들 수 있습니다.';
     } else if (controller.errorMessage.isNotEmpty) {
       blocked = controller.errorMessage.value;
@@ -312,7 +320,8 @@ class _TaxiHomeViewState extends State<TaxiHomeView> {
                   : _notice(
                       blocked,
                       current: controller.myParties.isNotEmpty,
-                      retry: controller.myParties.isEmpty,
+                      retry: !serviceStopped && controller.myParties.isEmpty,
+                      showNavigation: !serviceStopped,
                     ),
             ),
           ),

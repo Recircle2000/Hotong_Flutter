@@ -13,6 +13,7 @@ import 'package:hsro/core/utils/bus_static_data_loader.dart';
 import 'package:hsro/core/utils/bus_times_loader.dart';
 import 'package:hsro/core/utils/env_config.dart';
 import 'package:hsro/features/settings/viewmodel/settings_viewmodel.dart';
+import 'package:hsro/features/taxi/services/taxi_availability_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 void main() async {
@@ -47,6 +48,11 @@ void main() async {
     ).init();
   }
   Get.put<AuthService>(authService, permanent: true);
+  // 서버 스위치로 홈의 택시 메뉴를 켜고 끈다. 저장된 값만 읽고 네트워크는 기다리지 않는다.
+  Get.put(
+    await TaxiAvailabilityService(authService: authService).init(),
+    permanent: true,
+  );
   await FlutterNaverMap().init(
       clientId: EnvConfig.naverMapClientId,
       onAuthFailed: (ex) => switch (ex) {
