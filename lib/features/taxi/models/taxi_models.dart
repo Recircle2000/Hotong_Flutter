@@ -304,3 +304,17 @@ class TaxiRealtimeEvent {
             : null,
       );
 }
+
+/// 택시팟 참여자 신고 사유. [code]는 서버 값이다.
+enum TaxiReportReason {
+  noShow('no_show', '노쇼', '약속 장소에 나타나지 않았어요'),
+  abuse('abuse', '욕설·비매너', '불쾌한 말이나 행동을 했어요'),
+  payment('payment', '정산 문제', '택시비를 보내지 않거나 다르게 요구했어요'),
+  other('other', '기타', '');
+
+  const TaxiReportReason(this.code, this.label, this.description);
+
+  final String code;
+  final String label;
+  final String description;
+}

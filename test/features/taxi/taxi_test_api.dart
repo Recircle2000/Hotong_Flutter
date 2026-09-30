@@ -19,6 +19,12 @@ class TaxiTestApi {
   int detailReads = 0;
   int markReads = 0;
   int? lastMarkedMessageId;
+  // 팟 상세의 참여자 목록과 채팅 메시지. 신고 화면을 시험할 때 채운다.
+  List<Map<String, Object?>> members = [];
+  List<Map<String, Object?>> messages = [];
+  final reports = <Map<String, Object?>>[];
+  // 설정하면 신고 요청이 이 오류로 실패한다.
+  ({int status, String code, String message})? reportError;
   final departure = DateTime.now().add(const Duration(hours: 1));
   final locations = [
     {
@@ -85,7 +91,7 @@ class TaxiTestApi {
       'is_member': activeIds.contains(id),
       'unread_count': 3,
       'member_note': null,
-      'members': [],
+      'members': members,
       'cancellation_reason': null,
       'created_at': DateTime.now().toUtc().toIso8601String(),
     };
@@ -102,13 +108,31 @@ class TaxiTestApi {
       }
       final path = request.url.path;
       Object? result;
-      if (path.endsWith('/messages/read')) {
+      if (path.endsWith('/reports')) {
+        final error = reportError;
+        if (error != null) {
+          return http.Response.bytes(
+            utf8.encode(
+              jsonEncode({
+                'detail': {'code': error.code, 'message': error.message},
+              }),
+            ),
+            error.status,
+          );
+        }
+        reports.add(Map<String, Object?>.from(jsonDecode(request.body) as Map));
+        result = {
+          'id': reports.length,
+          'created_at': DateTime.now().toUtc().toIso8601String(),
+        };
+        return http.Response(jsonEncode(result), 201);
+      } else if (path.endsWith('/messages/read')) {
         markReads++;
         lastMarkedMessageId =
             (jsonDecode(request.body) as Map)['last_message_id'] as int?;
         result = {'ok': true};
       } else if (path.endsWith('/messages')) {
-        result = {'items': [], 'next_before_id': null};
+        result = {'items': messages, 'next_before_id': null};
       } else if (path.endsWith('/locations')) {
         locationsReads++;
         result = locations;

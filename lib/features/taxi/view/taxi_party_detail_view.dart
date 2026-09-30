@@ -6,8 +6,10 @@ import 'package:hsro/features/taxi/services/taxi_realtime_service.dart';
 import 'package:hsro/features/taxi/view/taxi_chat_view.dart';
 import 'package:hsro/features/taxi/view/taxi_party_edit_view.dart';
 import 'package:hsro/features/taxi/viewmodel/taxi_party_detail_viewmodel.dart';
+import 'package:hsro/features/taxi/widgets/taxi_action_sheet.dart';
 import 'package:hsro/features/taxi/widgets/taxi_app_bar_leading.dart';
 import 'package:hsro/features/taxi/widgets/taxi_confirm_dialog.dart';
+import 'package:hsro/features/taxi/widgets/taxi_report_sheet.dart';
 import 'package:hsro/features/taxi/widgets/taxi_theme.dart';
 import 'package:hsro/shared/widgets/scale_button.dart';
 import 'package:intl/intl.dart';
@@ -234,6 +236,31 @@ class TaxiPartyDetailViewState extends State<TaxiPartyDetailView> {
     await widget.onMembershipChanged?.call();
   }
 
+  Future<void> _showMemberActions(
+    TaxiPartyDetail party,
+    TaxiMember member,
+  ) async {
+    final action = await showTaxiActionSheet<String>(
+      context,
+      title: member.label,
+      actions: const [
+        TaxiSheetAction(
+          value: 'report',
+          label: '신고하기',
+          icon: Icons.flag_outlined,
+          destructive: true,
+        ),
+      ],
+    );
+    if (action != 'report' || !mounted) return;
+    await reportTaxiMember(
+      context,
+      repository: widget.repository,
+      partyId: party.id,
+      targetLabel: member.label,
+    );
+  }
+
   @override
   Widget build(BuildContext context) => Obx(() {
     final party = controller.party.value;
@@ -292,7 +319,13 @@ class TaxiPartyDetailViewState extends State<TaxiPartyDetailView> {
           const SizedBox(height: 14),
           _RouteOverviewCard(party: party),
           const SizedBox(height: 16),
-          _MembersCard(party: party),
+          _MembersCard(
+            party: party,
+            // 참여 중인 사람만 다른 참여자를 신고할 수 있다.
+            onMemberTap: party.isMember
+                ? (member) => _showMemberActions(party, member)
+                : null,
+          ),
           if (party.cancellationReason?.isNotEmpty == true) ...[
             const SizedBox(height: 16),
             _ErrorBanner(message: '취소 사유: ${party.cancellationReason}'),
@@ -769,9 +802,10 @@ class _RoutePoint extends StatelessWidget {
 }
 
 class _MembersCard extends StatelessWidget {
-  const _MembersCard({required this.party});
+  const _MembersCard({required this.party, this.onMemberTap});
 
   final TaxiPartyDetail party;
+  final ValueChanged<TaxiMember>? onMemberTap;
 
   @override
   Widget build(BuildContext context) {
@@ -812,7 +846,13 @@ class _MembersCard extends StatelessWidget {
               final itemWidth = (constraints.maxWidth - gap) / 2;
               final members = <Widget>[
                 ...party.members.map(
-                  (member) => _MemberTile(member: member, width: itemWidth),
+                  (member) => _MemberTile(
+                    member: member,
+                    width: itemWidth,
+                    onTap: member.isMe || onMemberTap == null
+                        ? null
+                        : () => onMemberTap!(member),
+                  ),
                 ),
                 ...List.generate(
                   party.remainingSeats,
@@ -829,63 +869,79 @@ class _MembersCard extends StatelessWidget {
 }
 
 class _MemberTile extends StatelessWidget {
-  const _MemberTile({required this.member, required this.width});
+  const _MemberTile({required this.member, required this.width, this.onTap});
 
   final TaxiMember member;
   final double width;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
-    return Container(
+    final shape = RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(16),
+      side: BorderSide(color: colors.outlineVariant),
+    );
+    return SizedBox(
       width: width,
-      padding: const EdgeInsets.all(11),
-      decoration: BoxDecoration(
+      child: Material(
         color: colors.surfaceContainerLowest,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: colors.outlineVariant),
-      ),
-      child: Row(
-        children: [
-          CircleAvatar(
-            radius: 18,
-            backgroundColor: member.isOwner
-                ? taxiAccent
-                : colors.onSurfaceVariant,
-            foregroundColor: member.isOwner
-                ? taxiAccentForeground
-                : colors.surface,
-            child: Icon(
-              member.isOwner ? Icons.star_outline : Icons.person_outline,
-              size: 19,
-            ),
-          ),
-          const SizedBox(width: 9),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+        shape: shape,
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.all(11),
+            child: Row(
               children: [
-                Text(
-                  member.label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.labelLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
+                CircleAvatar(
+                  radius: 18,
+                  backgroundColor: member.isOwner
+                      ? taxiAccent
+                      : colors.onSurfaceVariant,
+                  foregroundColor: member.isOwner
+                      ? taxiAccentForeground
+                      : colors.surface,
+                  child: Icon(
+                    member.isOwner ? Icons.star_outline : Icons.person_outline,
+                    size: 19,
                   ),
                 ),
-                if (member.isMe)
-                  Text(
-                    '나',
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: taxiAccentText(context),
-                      fontWeight: FontWeight.bold,
-                    ),
+                const SizedBox(width: 9),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        member.label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.labelLarge?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      if (member.isMe)
+                        Text(
+                          '나',
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: taxiAccentText(context),
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                if (onTap != null)
+                  Icon(
+                    Icons.more_horiz_rounded,
+                    size: 18,
+                    color: colors.onSurfaceVariant,
                   ),
               ],
             ),
           ),
-        ],
+        ),
       ),
     );
   }

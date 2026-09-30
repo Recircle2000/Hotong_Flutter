@@ -7,7 +7,9 @@ import 'package:hsro/features/taxi/models/taxi_models.dart';
 import 'package:hsro/features/taxi/repository/taxi_repository.dart';
 import 'package:hsro/features/taxi/services/taxi_realtime_service.dart';
 import 'package:hsro/features/taxi/viewmodel/taxi_chat_viewmodel.dart';
+import 'package:hsro/features/taxi/widgets/taxi_action_sheet.dart';
 import 'package:hsro/features/taxi/widgets/taxi_app_bar_leading.dart';
+import 'package:hsro/features/taxi/widgets/taxi_report_sheet.dart';
 import 'package:hsro/features/taxi/widgets/taxi_theme.dart';
 import 'package:intl/intl.dart';
 
@@ -129,6 +131,43 @@ class _TaxiChatViewState extends State<TaxiChatView> {
           duration: Duration(seconds: 2),
         ),
       );
+  }
+
+  /// 내 메시지는 바로 복사하고, 다른 참여자 메시지는 복사·신고 메뉴를 띄운다.
+  Future<void> _onMessageLongPress(TaxiMessage message) async {
+    final label = message.senderLabel;
+    if (message.isMine || label == null) {
+      _copyMessage(message);
+      return;
+    }
+    unawaited(HapticFeedback.selectionClick());
+    final action = await showTaxiActionSheet<String>(
+      context,
+      title: label,
+      actions: const [
+        TaxiSheetAction(value: 'copy', label: '복사', icon: Icons.copy_rounded),
+        TaxiSheetAction(
+          value: 'report',
+          label: '신고하기',
+          icon: Icons.flag_outlined,
+          destructive: true,
+        ),
+      ],
+    );
+    if (!mounted) return;
+    switch (action) {
+      case 'copy':
+        _copyMessage(message);
+      case 'report':
+        FocusManager.instance.primaryFocus?.unfocus();
+        await reportTaxiMember(
+          context,
+          repository: widget.repository,
+          partyId: widget.party.id,
+          targetLabel: label,
+          messageId: message.id,
+        );
+    }
   }
 
   void _send() {
@@ -277,7 +316,7 @@ class _TaxiChatViewState extends State<TaxiChatView> {
                         showDate || !_isContinuation(previous, message),
                     isLastInGroup:
                         next == null || !_isContinuation(message, next),
-                    onLongPress: () => _copyMessage(message),
+                    onLongPress: () => _onMessageLongPress(message),
                   ),
                 ],
               );

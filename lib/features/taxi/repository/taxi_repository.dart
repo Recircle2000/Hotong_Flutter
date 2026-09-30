@@ -165,6 +165,24 @@ class TaxiRepository {
     body: {'last_message_id': lastMessageId},
   );
 
+  /// 신고 대상은 앱에 보이는 익명 라벨(방장 / 참여자 N)로 보낸다.
+  Future<void> reportMember(
+    String partyId, {
+    required String targetLabel,
+    required TaxiReportReason reason,
+    String? detail,
+    int? messageId,
+  }) => _request(
+    'POST',
+    '/api/taxi/parties/$partyId/reports',
+    body: {
+      'target_label': targetLabel,
+      'reason': reason.code,
+      'detail': detail,
+      'message_id': messageId,
+    },
+  );
+
   Future<dynamic> _request(
     String method,
     String path, {
