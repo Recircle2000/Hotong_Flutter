@@ -1,3 +1,5 @@
+import 'package:intl/intl.dart';
+
 class TaxiLocation {
   const TaxiLocation({
     required this.id,
@@ -317,4 +319,75 @@ enum TaxiReportReason {
   final String code;
   final String label;
   final String description;
+}
+
+/// 관리자가 부과한 택시팟 제재. 경고는 이용 제한이 없다.
+class TaxiSanction {
+  const TaxiSanction({
+    required this.id,
+    required this.level,
+    required this.reason,
+    required this.startsAt,
+    required this.endsAt,
+  });
+
+  final int id;
+
+  /// warning, suspend_3d, suspend_7d, permanent
+  final String level;
+  final String reason;
+  final DateTime startsAt;
+  final DateTime? endsAt;
+
+  bool get isWarning => level == 'warning';
+  bool get isPermanent => level == 'permanent';
+
+  String get levelLabel => switch (level) {
+    'warning' => '경고',
+    'suspend_3d' => '3일 이용 정지',
+    'suspend_7d' => '7일 이용 정지',
+    _ => '영구 이용 정지',
+  };
+
+  /// 정지 기간 안내. 경고는 null이다.
+  String? get periodLabel {
+    if (isWarning) return null;
+    final ends = endsAt;
+    if (ends == null) return '영구';
+    return '${DateFormat('M월 d일 HH:mm', 'ko').format(ends)}까지';
+  }
+
+  factory TaxiSanction.fromJson(Map<String, dynamic> json) => TaxiSanction(
+    id: json['id'] as int,
+    level: json['level'] as String,
+    reason: json['reason'] as String,
+    startsAt: DateTime.parse(json['starts_at'] as String).toLocal(),
+    endsAt: json['ends_at'] == null
+        ? null
+        : DateTime.parse(json['ends_at'] as String).toLocal(),
+  );
+}
+
+class TaxiRestriction {
+  const TaxiRestriction({this.userKey, this.suspension, this.notice});
+
+  /// 이의제기 때 알려줄 내 고유번호 6자리. 관리자 화면의 익명 ID와 같다.
+  final String? userKey;
+
+  /// 지금 적용 중인 이용 정지
+  final TaxiSanction? suspension;
+
+  /// 아직 확인하지 않은 제재 안내(경고 포함)
+  final TaxiSanction? notice;
+
+  factory TaxiRestriction.fromJson(Map<String, dynamic> json) =>
+      TaxiRestriction(
+        userKey: json['user_key'] as String?,
+        suspension: json['suspension'] is Map<String, dynamic>
+            ? TaxiSanction.fromJson(json['suspension'] as Map<String, dynamic>)
+            : null,
+        notice: json['notice'] is Map<String, dynamic>
+            ? TaxiSanction.fromJson(json['notice'] as Map<String, dynamic>)
+            : null,
+      );
 }

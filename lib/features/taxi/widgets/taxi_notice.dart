@@ -9,6 +9,7 @@ class TaxiNotice extends StatelessWidget {
     this.showRetry = false,
     this.onRetry,
     this.onShowCurrent,
+    this.onAppeal,
   });
 
   final String message;
@@ -19,6 +20,9 @@ class TaxiNotice extends StatelessWidget {
 
   /// null이 아니면 현재팟 보기 버튼을 보여준다.
   final VoidCallback? onShowCurrent;
+
+  /// null이 아니면 이용 제한 이의제기 버튼을 보여준다.
+  final VoidCallback? onAppeal;
 
   @override
   Widget build(BuildContext context) => Center(
@@ -35,6 +39,8 @@ class TaxiNotice extends StatelessWidget {
             FilledButton(onPressed: onRetry, child: const Text('다시 시도')),
           if (onShowCurrent != null)
             FilledButton(onPressed: onShowCurrent, child: const Text('현재팟 보기')),
+          if (onAppeal != null)
+            TextButton(onPressed: onAppeal, child: const Text('이의제기')),
         ],
       ),
     ),

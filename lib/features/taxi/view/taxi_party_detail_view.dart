@@ -28,6 +28,7 @@ class TaxiPartyDetailView extends StatefulWidget {
     this.onMembershipChanged,
     this.onShowCurrent,
     this.joinAllowed,
+    this.joinBlockedLabel,
     this.summary,
     this.onBack,
   });
@@ -43,6 +44,9 @@ class TaxiPartyDetailView extends StatefulWidget {
   final Future<void> Function()? onMembershipChanged;
   final VoidCallback? onShowCurrent;
   final bool Function()? joinAllowed;
+
+  /// 참여를 막는 사유가 현재팟이 아닐 때(이용 제한 등) 버튼에 대신 보여줄 문구.
+  final String? Function()? joinBlockedLabel;
   final TaxiPartySummary? summary;
   final VoidCallback? onBack;
 
@@ -369,12 +373,14 @@ class TaxiPartyDetailViewState extends State<TaxiPartyDetailView> {
     if ((!party.isMember && !canJoin) || party.chatStatus == 'expired') {
       return null;
     }
+    final blockedLabel = canJoin ? widget.joinBlockedLabel?.call() : null;
 
     // 탭 안에 들어갈 때는 아래 탭 바가 하단 영역을 맡으므로,
     // 그림자와 별도 표면색 없이 화면 배경에 자연스럽게 이어지게 한다.
     final VoidCallback? primaryAction =
         controller.isLoading.value ||
             _joining ||
+            blockedLabel != null ||
             (canJoin && !(widget.joinAllowed?.call() ?? true))
         ? null
         : canJoin
@@ -394,7 +400,9 @@ class TaxiPartyDetailViewState extends State<TaxiPartyDetailView> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              if (canJoin && !(widget.joinAllowed?.call() ?? true))
+              if (blockedLabel == null &&
+                  canJoin &&
+                  !(widget.joinAllowed?.call() ?? true))
                 TextButton(
                   onPressed: widget.onShowCurrent,
                   child: const Text('현재팟 확인하기'),
@@ -428,9 +436,10 @@ class TaxiPartyDetailViewState extends State<TaxiPartyDetailView> {
                           const SizedBox(width: 8),
                           Text(
                             canJoin
-                                ? ((widget.joinAllowed?.call() ?? true)
-                                      ? '택시팟 참여하기'
-                                      : '현재팟 확인 후 참여할 수 있어요')
+                                ? blockedLabel ??
+                                      ((widget.joinAllowed?.call() ?? true)
+                                          ? '택시팟 참여하기'
+                                          : '현재팟 확인 후 참여할 수 있어요')
                                 : party.chatStatus == 'read_only'
                                 ? '채팅 기록 보기'
                                 : '택시팟 채팅하기',

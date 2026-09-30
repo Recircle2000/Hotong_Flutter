@@ -23,6 +23,11 @@ class TaxiTestApi {
   List<Map<String, Object?>> members = [];
   List<Map<String, Object?>> messages = [];
   final reports = <Map<String, Object?>>[];
+  // 제재 상태. /me/restriction 응답으로 그대로 내려간다.
+  Map<String, Object?>? suspension;
+  Map<String, Object?>? notice;
+  final acknowledgedSanctions = <int>[];
+  int restrictionReads = 0;
   // 설정하면 신고 요청이 이 오류로 실패한다.
   ({int status, String code, String message})? reportError;
   final departure = DateTime.now().add(const Duration(hours: 1));
@@ -108,7 +113,18 @@ class TaxiTestApi {
       }
       final path = request.url.path;
       Object? result;
-      if (path.endsWith('/reports')) {
+      if (path.endsWith('/me/restriction')) {
+        restrictionReads++;
+        result = {
+          'user_key': 'a1b2c3',
+          'suspension': suspension,
+          'notice': notice,
+        };
+      } else if (path.endsWith('/ack')) {
+        acknowledgedSanctions.add(int.parse(path.split('/')[5]));
+        notice = null;
+        return http.Response('', 204);
+      } else if (path.endsWith('/reports')) {
         final error = reportError;
         if (error != null) {
           return http.Response.bytes(

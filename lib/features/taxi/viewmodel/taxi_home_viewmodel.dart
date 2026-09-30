@@ -33,6 +33,8 @@ class TaxiHomeViewModel extends GetxController with WidgetsBindingObserver {
   Completer<void>? _refreshCompletion;
   Timer? _expiryTimer;
   final hasLoaded = false.obs;
+  // 관리자 제재 상태. 필터를 바꿀 때마다 받지 않고 진입·복귀·생성/참여 직전에만 확인한다.
+  final restriction = Rxn<TaxiRestriction>();
   // 검색 탭이 보이는 동안에만 실시간 목록 변경 알림으로 다시 조회한다.
   bool _searchVisible = false;
   // 거점은 거의 바뀌지 않으므로 잠시 재사용해 새로고침 요청 수를 줄인다.
@@ -47,7 +49,38 @@ class TaxiHomeViewModel extends GetxController with WidgetsBindingObserver {
       hasLoaded.value &&
       !isLoading.value &&
       errorMessage.value.isEmpty &&
-      myParties.isEmpty;
+      myParties.isEmpty &&
+      suspension == null;
+
+  TaxiSanction? get suspension => restriction.value?.suspension;
+
+  String? get userKey => restriction.value?.userKey;
+
+  Future<void> refreshRestriction() async {
+    if (isClosed) return;
+    try {
+      final result = await _repository.getRestriction();
+      if (!isClosed) restriction.value = result;
+    } catch (_) {
+      // 확인하지 못하면 이전 상태를 유지한다. 실제 제한은 서버가 생성·참여 때 다시 확인한다.
+    }
+  }
+
+  /// 안내를 확인한 제재는 다시 띄우지 않는다.
+  Future<void> acknowledgeNotice(TaxiSanction notice) async {
+    final current = restriction.value;
+    if (current?.notice?.id == notice.id) {
+      restriction.value = TaxiRestriction(
+        userKey: current!.userKey,
+        suspension: current.suspension,
+      );
+    }
+    try {
+      await _repository.acknowledgeSanction(notice.id);
+    } catch (_) {
+      // 전송에 실패하면 다음 진입 때 한 번 더 안내된다.
+    }
+  }
 
   void acceptParty(TaxiPartyDetail party) {
     myParties.removeWhere((item) => item.id == party.id);
@@ -95,6 +128,7 @@ class TaxiHomeViewModel extends GetxController with WidgetsBindingObserver {
     _events = _realtime.events.listen(handleRealtimeEvent);
     unawaited(_realtime.connect());
     unawaited(refreshAll());
+    unawaited(refreshRestriction());
   }
 
   /// 내정보 탭이나 이용 기록 화면에 들어갈 때 호출한다. 이후 새로고침부터는 함께 갱신한다.
@@ -334,6 +368,7 @@ class TaxiHomeViewModel extends GetxController with WidgetsBindingObserver {
     if (state == AppLifecycleState.resumed) {
       unawaited(_realtime.connect());
       unawaited(refreshAll());
+      unawaited(refreshRestriction());
     }
   }
 

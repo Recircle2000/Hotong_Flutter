@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:hsro/features/taxi/viewmodel/taxi_home_viewmodel.dart';
 import 'package:hsro/features/taxi/widgets/taxi_theme.dart';
@@ -11,6 +14,7 @@ class TaxiProfileTab extends StatelessWidget {
     required this.email,
     required this.onHistory,
     required this.onLogout,
+    required this.onAppeal,
   });
 
   final TaxiHomeViewModel controller;
@@ -19,6 +23,7 @@ class TaxiProfileTab extends StatelessWidget {
 
   /// null이면 로그아웃 버튼을 비활성화한다.
   final VoidCallback? onLogout;
+  final VoidCallback onAppeal;
 
   @override
   Widget build(BuildContext context) => Obx(
@@ -43,9 +48,44 @@ class TaxiProfileTab extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               const Text('이메일 인증 완료'),
+              if (controller.userKey case final userKey?) ...[
+                const SizedBox(height: 12),
+                _UserKeyRow(userKey: userKey),
+              ],
             ],
           ),
         ),
+        if (controller.suspension case final suspension?) ...[
+          const SizedBox(height: 12),
+          Card(
+            color: Theme.of(context).colorScheme.errorContainer,
+            child: ListTile(
+              leading: Icon(
+                Icons.block_rounded,
+                color: Theme.of(context).colorScheme.onErrorContainer,
+              ),
+              title: Text(
+                suspension.isPermanent
+                    ? '택시팟 이용 영구 제한'
+                    : '이용 제한 중 · ${suspension.periodLabel}',
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onErrorContainer,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              subtitle: Text(
+                '사유: ${suspension.reason}',
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onErrorContainer,
+                ),
+              ),
+              trailing: TextButton(
+                onPressed: onAppeal,
+                child: const Text('이의제기'),
+              ),
+            ),
+          ),
+        ],
         const SizedBox(height: 20),
         Card(
           child: ListTile(
@@ -70,4 +110,46 @@ class TaxiProfileTab extends StatelessWidget {
       ],
     ),
   );
+}
+
+/// 이의제기·문의 때 운영진이 사용자를 찾을 수 있는 고유번호.
+class _UserKeyRow extends StatelessWidget {
+  const _UserKeyRow({required this.userKey});
+
+  final String userKey;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Row(
+      children: [
+        Text(
+          '고유번호',
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
+        const SizedBox(width: 8),
+        Text(
+          userKey,
+          style: theme.textTheme.titleSmall?.copyWith(
+            fontFamily: 'monospace',
+            fontWeight: FontWeight.bold,
+            letterSpacing: 1.2,
+          ),
+        ),
+        const Spacer(),
+        TextButton.icon(
+          onPressed: () {
+            unawaited(Clipboard.setData(ClipboardData(text: userKey)));
+            ScaffoldMessenger.of(context)
+              ..hideCurrentSnackBar()
+              ..showSnackBar(const SnackBar(content: Text('고유번호를 복사했어요.')));
+          },
+          icon: const Icon(Icons.copy_rounded, size: 16),
+          label: const Text('복사'),
+        ),
+      ],
+    );
+  }
 }

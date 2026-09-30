@@ -183,6 +183,13 @@ class TaxiRepository {
     },
   );
 
+  Future<TaxiRestriction> getRestriction() async => TaxiRestriction.fromJson(
+    await _request('GET', '/api/taxi/me/restriction') as Map<String, dynamic>,
+  );
+
+  Future<void> acknowledgeSanction(int id) =>
+      _request('POST', '/api/taxi/me/sanctions/$id/ack');
+
   Future<dynamic> _request(
     String method,
     String path, {

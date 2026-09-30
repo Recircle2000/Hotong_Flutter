@@ -18,6 +18,7 @@ import 'package:hsro/features/taxi/view/taxi_party_history_view.dart';
 import 'package:hsro/features/taxi/viewmodel/taxi_home_viewmodel.dart';
 import 'package:hsro/features/taxi/widgets/taxi_app_bar_leading.dart';
 import 'package:hsro/features/taxi/widgets/taxi_confirm_dialog.dart';
+import 'package:hsro/features/taxi/widgets/taxi_sanction_notice.dart';
 import 'package:hsro/features/taxi/widgets/taxi_tab_bar.dart';
 
 class TaxiHomeView extends StatefulWidget {
@@ -41,6 +42,8 @@ class _TaxiHomeViewState extends State<TaxiHomeView> {
   String? _selectedPartyId;
   GlobalKey<TaxiPartyCreateViewState> _createKey = GlobalKey();
   final Map<String, GlobalKey<TaxiPartyDetailViewState>> _detailKeys = {};
+  Worker? _restrictionWorker;
+  bool _showingNotice = false;
 
   @override
   void initState() {
@@ -58,10 +61,13 @@ class _TaxiHomeViewState extends State<TaxiHomeView> {
       tag: _tag,
     );
     controller.setSearchVisible(_index == 1);
+    // 확인하지 않은 제재가 있으면 택시 화면에 들어올 때 한 번 안내한다.
+    _restrictionWorker = ever(controller.restriction, (_) => _showNotice());
   }
 
   @override
   void dispose() {
+    _restrictionWorker?.dispose();
     Get.delete<TaxiHomeViewModel>(tag: _tag);
     super.dispose();
   }
@@ -120,13 +126,35 @@ class _TaxiHomeViewState extends State<TaxiHomeView> {
     );
   }
 
+  Future<void> _showNotice() async {
+    final notice = controller.restriction.value?.notice;
+    if (notice == null || _showingNotice || !mounted) return;
+    _showingNotice = true;
+    try {
+      await showTaxiSanctionNotice(
+        context,
+        notice,
+        userKey: controller.userKey,
+      );
+      await controller.acknowledgeNotice(notice);
+    } finally {
+      _showingNotice = false;
+    }
+  }
+
   Future<bool> _canSubmit() async {
-    await controller.refreshAll();
+    await Future.wait([
+      controller.refreshAll(),
+      controller.refreshRestriction(),
+    ]);
     if (!mounted) return false;
     final allowed = controller.canCreateOrJoin;
     if (!allowed) {
+      final suspension = controller.suspension;
       _message(
-        controller.errorMessage.isNotEmpty
+        suspension != null
+            ? taxiSuspensionMessage(suspension)
+            : controller.errorMessage.isNotEmpty
             ? controller.errorMessage.value
             : '이미 참여 중인 택시팟이 있습니다.',
       );
@@ -156,6 +184,8 @@ class _TaxiHomeViewState extends State<TaxiHomeView> {
         realtime: controller.realtime,
         canJoin: _canSubmit,
         joinAllowed: () => controller.canCreateOrJoin,
+        joinBlockedLabel: () =>
+            controller.suspension == null ? null : '이용 제한 중이라 참여할 수 없어요',
         onMembershipChanged: controller.refreshAll,
         onShowCurrent: () {
           Get.back();
@@ -285,6 +315,7 @@ class _TaxiHomeViewState extends State<TaxiHomeView> {
                             if (mounted) setState(() {});
                           },
                           onShowCurrent: _showCurrentParty,
+                          onAppeal: openTaxiAppeal,
                         ),
                         1 => TaxiFindPartiesTab(
                           controller: controller,
@@ -308,6 +339,7 @@ class _TaxiHomeViewState extends State<TaxiHomeView> {
                         ),
                         _ => TaxiProfileTab(
                           controller: controller,
+                          onAppeal: openTaxiAppeal,
                           email: authService.currentUserEmail,
                           onHistory: _history,
                           onLogout: _busy ? null : _logout,
