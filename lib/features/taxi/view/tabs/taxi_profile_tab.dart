@@ -15,6 +15,7 @@ class TaxiProfileTab extends StatelessWidget {
     required this.onHistory,
     required this.onLogout,
     required this.onAppeal,
+    this.onDeleteAccount,
   });
 
   final TaxiHomeViewModel controller;
@@ -24,6 +25,9 @@ class TaxiProfileTab extends StatelessWidget {
   /// null이면 로그아웃 버튼을 비활성화한다.
   final VoidCallback? onLogout;
   final VoidCallback onAppeal;
+
+  /// null이면 회원 탈퇴 버튼을 숨기거나(미지원) 비활성화한다(처리 중).
+  final VoidCallback? onDeleteAccount;
 
   @override
   Widget build(BuildContext context) => Obx(
@@ -105,6 +109,19 @@ class TaxiProfileTab extends StatelessWidget {
             ),
             title: const Text('로그아웃'),
             onTap: onLogout,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Align(
+          alignment: Alignment.centerRight,
+          child: TextButton(
+            key: const ValueKey('delete-account'),
+            onPressed: onDeleteAccount,
+            style: TextButton.styleFrom(
+              foregroundColor: Theme.of(context).colorScheme.error,
+              textStyle: Theme.of(context).textTheme.bodySmall,
+            ),
+            child: const Text('회원 탈퇴'),
           ),
         ),
       ],

@@ -162,6 +162,12 @@ class AuthViewModel extends GetxController {
     }
   }
 
+  /// 서버에서 계정을 지운 뒤 이 기기의 세션도 정리한다. 실패하면 예외를 그대로 던진다.
+  Future<void> deleteAccount() async {
+    await _repository.deleteAccount();
+    await logout();
+  }
+
   Future<void> logout() async {
     if (isLoading.value) return;
     final generation = ++_operationGeneration;

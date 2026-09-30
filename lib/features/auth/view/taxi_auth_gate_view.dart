@@ -49,7 +49,10 @@ class _TaxiAuthGateViewState extends State<TaxiAuthGateView> {
   Widget build(BuildContext context) {
     return Obx(() {
       if (_controller.step.value == TaxiAuthStep.verified) {
-        return TaxiHomeView(onLogout: _controller.logout);
+        return TaxiHomeView(
+          onLogout: _controller.logout,
+          onDeleteAccount: _controller.deleteAccount,
+        );
       }
       return Scaffold(
         appBar: AppBar(

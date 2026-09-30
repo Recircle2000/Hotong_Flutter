@@ -4,9 +4,12 @@ import 'package:http/http.dart' as http;
 import 'package:hsro/core/utils/env_config.dart';
 
 class AppAuthApiException implements Exception {
-  const AppAuthApiException(this.statusCode);
+  const AppAuthApiException(this.statusCode, [this.message]);
 
   final int statusCode;
+
+  /// 서버가 사용자에게 보여줄 안내 문구를 보냈을 때만 있다.
+  final String? message;
 }
 
 class InvalidAppAuthResponseException implements Exception {}
@@ -39,6 +42,25 @@ class AuthRepository {
       throw InvalidAppAuthResponseException();
     }
     return userId.toLowerCase();
+  }
+
+  /// 회원 탈퇴. 진행 중인 팟이 있으면 서버가 409와 안내 문구를 돌려준다.
+  Future<void> deleteAccount() async {
+    final baseUrl =
+        (_baseUrl ?? EnvConfig.baseUrl).replaceFirst(RegExp(r'/$'), '');
+    final response = await _client.delete(
+      Uri.parse('$baseUrl/api/app-auth/me'),
+      headers: const {'Accept': 'application/json'},
+    );
+    if (response.statusCode == 204) return;
+    String? message;
+    try {
+      final detail = jsonDecode(utf8.decode(response.bodyBytes))['detail'];
+      if (detail is Map<String, dynamic>) {
+        message = detail['message'] as String?;
+      }
+    } catch (_) {}
+    throw AppAuthApiException(response.statusCode, message);
   }
 
   void close() => _client.close();

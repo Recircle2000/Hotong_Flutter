@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:hsro/core/network/authenticated_api_client.dart';
 import 'package:hsro/core/services/auth_service.dart';
+import 'package:hsro/features/auth/repository/auth_repository.dart';
 import 'package:hsro/features/taxi/models/taxi_models.dart';
 import 'package:hsro/features/taxi/repository/taxi_repository.dart';
 import 'package:hsro/features/taxi/services/taxi_realtime_service.dart';
@@ -22,9 +23,17 @@ import 'package:hsro/features/taxi/widgets/taxi_sanction_notice.dart';
 import 'package:hsro/features/taxi/widgets/taxi_tab_bar.dart';
 
 class TaxiHomeView extends StatefulWidget {
-  const TaxiHomeView({super.key, required this.onLogout, this.viewModel});
+  const TaxiHomeView({
+    super.key,
+    required this.onLogout,
+    this.onDeleteAccount,
+    this.viewModel,
+  });
 
   final Future<void> Function() onLogout;
+
+  /// 회원 탈퇴. 서버가 거절하면 [AppAuthApiException]을 던진다.
+  final Future<void> Function()? onDeleteAccount;
   final TaxiHomeViewModel? viewModel;
 
   @override
@@ -232,6 +241,37 @@ class _TaxiHomeViewState extends State<TaxiHomeView> {
     await controller.refreshAll();
   }
 
+  Future<void> _deleteAccount() async {
+    final deleteAccount = widget.onDeleteAccount;
+    if (deleteAccount == null) return;
+    final confirmed = await showTaxiDestructiveConfirm(
+      context,
+      title: '탈퇴할까요?',
+      message:
+          '학교 이메일 인증 정보와 택시팟 참여 기록이 삭제돼요. '
+          '신고·이용 제한 기록은 운영 정책에 따라 일정 기간 보관돼요.',
+      action: '탈퇴',
+      cancelTitle: '취소',
+      nativeIOS: true,
+    );
+    if (!confirmed || !mounted) return;
+    // 탈퇴하면 이 화면이 사라지므로 앱 전체의 메신저와 내비게이터를 미리 잡아 둔다.
+    final messenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context);
+    setState(() => _busy = true);
+    try {
+      await deleteAccount();
+      navigator.popUntil((route) => route.isFirst);
+      messenger.showSnackBar(const SnackBar(content: Text('탈퇴가 완료됐어요.')));
+    } on AppAuthApiException catch (error) {
+      _message(error.message ?? '탈퇴하지 못했습니다. 다시 시도해주세요.');
+    } catch (_) {
+      _message('탈퇴하지 못했습니다. 다시 시도해주세요.');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   Future<void> _logout() async {
     // 다시 쓰려면 학교 이메일 인증을 새로 해야 하므로 한 번 더 확인한다.
     final confirmed = await showTaxiDestructiveConfirm(
@@ -343,6 +383,10 @@ class _TaxiHomeViewState extends State<TaxiHomeView> {
                           email: authService.currentUserEmail,
                           onHistory: _history,
                           onLogout: _busy ? null : _logout,
+                          onDeleteAccount:
+                              _busy || widget.onDeleteAccount == null
+                              ? null
+                              : _deleteAccount,
                         ),
                       },
               ),
