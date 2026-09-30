@@ -8,22 +8,8 @@ import 'package:hsro/features/taxi/repository/taxi_repository.dart';
 import 'package:hsro/features/taxi/services/taxi_realtime_service.dart';
 import 'package:hsro/features/taxi/viewmodel/taxi_chat_viewmodel.dart';
 import 'package:hsro/features/taxi/widgets/taxi_app_bar_leading.dart';
+import 'package:hsro/features/taxi/widgets/taxi_theme.dart';
 import 'package:intl/intl.dart';
-
-const _taxiAccent = Color(0xFFF5A623);
-const _taxiAccentForeground = Color(0xFF30210A);
-
-Color _taxiTint(BuildContext context, [double? alpha]) =>
-    _taxiAccent.withValues(
-      alpha:
-          alpha ??
-          (Theme.of(context).brightness == Brightness.dark ? 0.16 : 0.12),
-    );
-
-Color _taxiAccentText(BuildContext context) =>
-    Theme.of(context).brightness == Brightness.dark
-    ? const Color(0xFFFFC766)
-    : const Color(0xFF855300);
 
 class TaxiChatView extends StatefulWidget {
   const TaxiChatView({
@@ -258,7 +244,7 @@ class _TaxiChatViewState extends State<TaxiChatView> {
       if (controller.isLoading.value && controller.messages.isEmpty) {
         return const Center(
           child: CircularProgressIndicator.adaptive(
-            valueColor: AlwaysStoppedAnimation<Color>(_taxiAccent),
+            valueColor: AlwaysStoppedAnimation<Color>(taxiAccent),
           ),
         );
       }
@@ -355,13 +341,13 @@ class _ChatLifecycleNotice extends StatelessWidget {
         : '${DateFormat('M월 d일 HH:mm').format(writableUntil)}까지 대화할 수 있어요.';
     return Container(
       width: double.infinity,
-      color: _taxiTint(context),
+      color: taxiTint(context),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
       child: Text(
         text,
         textAlign: TextAlign.center,
         style: Theme.of(context).textTheme.labelMedium?.copyWith(
-          color: _taxiAccentText(context),
+          color: taxiAccentText(context),
           fontWeight: FontWeight.w600,
         ),
       ),
@@ -416,7 +402,7 @@ class _MessageBubble extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 11),
         decoration: BoxDecoration(
           color: isMine
-              ? _taxiAccent
+              ? taxiAccent
               : colors.onSurface.withValues(alpha: 0.055),
           borderRadius: BorderRadius.only(
             topLeft: isMine ? _outerRadius : senderSideTop,
@@ -428,7 +414,7 @@ class _MessageBubble extends StatelessWidget {
         child: Text(
           message.content,
           style: theme.textTheme.bodyMedium?.copyWith(
-            color: isMine ? _taxiAccentForeground : colors.onSurface,
+            color: isMine ? taxiAccentForeground : colors.onSurface,
             height: 1.4,
           ),
         ),
@@ -484,7 +470,7 @@ class _NewMessagesButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: _taxiAccent,
+      color: taxiAccent,
       elevation: 3,
       shadowColor: Colors.black26,
       shape: const StadiumBorder(),
@@ -499,7 +485,7 @@ class _NewMessagesButton extends StatelessWidget {
               Text(
                 count > 99 ? '새 메시지 99+' : '새 메시지 $count',
                 style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                  color: _taxiAccentForeground,
+                  color: taxiAccentForeground,
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -507,7 +493,7 @@ class _NewMessagesButton extends StatelessWidget {
               const Icon(
                 Icons.keyboard_arrow_down_rounded,
                 size: 18,
-                color: _taxiAccentForeground,
+                color: taxiAccentForeground,
               ),
             ],
           ),
@@ -654,7 +640,7 @@ class _MessageComposer extends StatelessWidget {
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(22),
                   borderSide: BorderSide(
-                    color: _taxiAccent.withValues(alpha: 0.65),
+                    color: taxiAccent.withValues(alpha: 0.65),
                     width: 1.3,
                   ),
                 ),
@@ -668,7 +654,7 @@ class _MessageComposer extends StatelessWidget {
             height: 46,
             decoration: BoxDecoration(
               color: canSend
-                  ? _taxiAccent
+                  ? taxiAccent
                   : theme.colorScheme.onSurface.withValues(alpha: 0.08),
               shape: BoxShape.circle,
             ),
@@ -678,7 +664,7 @@ class _MessageComposer extends StatelessWidget {
               icon: Icon(
                 Icons.arrow_upward_rounded,
                 color: canSend
-                    ? _taxiAccentForeground
+                    ? taxiAccentForeground
                     : theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
               ),
             ),
@@ -767,12 +753,12 @@ class _EmptyChat extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(18),
               decoration: BoxDecoration(
-                color: _taxiTint(context),
+                color: taxiTint(context),
                 shape: BoxShape.circle,
               ),
               child: const Icon(
                 Icons.chat_bubble_outline_rounded,
-                color: _taxiAccent,
+                color: taxiAccent,
                 size: 34,
               ),
             ),

@@ -17,32 +17,9 @@ import 'package:hsro/features/taxi/widgets/taxi_app_bar_leading.dart';
 import 'package:hsro/features/taxi/view/taxi_chat_view.dart';
 import 'package:hsro/features/taxi/utils/taxi_departure_time.dart';
 import 'package:hsro/features/taxi/viewmodel/taxi_home_viewmodel.dart';
+import 'package:hsro/features/taxi/widgets/taxi_theme.dart';
 import 'package:hsro/shared/widgets/ios_platform_fields.dart';
 import 'package:intl/intl.dart';
-
-// 홈의 택시 메뉴와 동일한 포인트 색상을 사용한다.
-const _taxiAccent = Color(0xFFF5A623);
-
-Color _taxiTint(BuildContext context) => _taxiAccent.withValues(
-  alpha: Theme.of(context).brightness == Brightness.dark ? 0.16 : 0.12,
-);
-
-Color _taxiAccentText(BuildContext context) =>
-    Theme.of(context).brightness == Brightness.dark
-    ? const Color(0xFFFFC766)
-    : const Color(0xFF855300);
-
-BoxDecoration _taxiCardDecoration(BuildContext context) => BoxDecoration(
-  color: Theme.of(context).cardColor,
-  borderRadius: BorderRadius.circular(24),
-  boxShadow: [
-    BoxShadow(
-      color: Colors.black.withValues(alpha: 0.06),
-      blurRadius: 16,
-      offset: const Offset(0, 4),
-    ),
-  ],
-);
 
 class TaxiHomeView extends StatefulWidget {
   const TaxiHomeView({super.key, required this.onLogout, this.viewModel});
@@ -243,7 +220,7 @@ class _TaxiHomeViewState extends State<TaxiHomeView> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.local_taxi_outlined, size: 48, color: _taxiAccent),
+          const Icon(Icons.local_taxi_outlined, size: 48, color: taxiAccent),
           const SizedBox(height: 16),
           Text(message, textAlign: TextAlign.center),
           const SizedBox(height: 16),
@@ -315,7 +292,7 @@ class _TaxiHomeViewState extends State<TaxiHomeView> {
               child: controller.isLoading.value && controller.myParties.isEmpty
                   ? const Center(
                       child: CircularProgressIndicator.adaptive(
-                        valueColor: AlwaysStoppedAnimation<Color>(_taxiAccent),
+                        valueColor: AlwaysStoppedAnimation<Color>(taxiAccent),
                       ),
                     )
                   : _notice(
@@ -337,7 +314,7 @@ class _TaxiHomeViewState extends State<TaxiHomeView> {
           !controller.hasLoaded.value && controller.errorMessage.isEmpty) {
         return const Center(
           child: CircularProgressIndicator.adaptive(
-            valueColor: AlwaysStoppedAnimation<Color>(_taxiAccent),
+            valueColor: AlwaysStoppedAnimation<Color>(taxiAccent),
           ),
         );
       }
@@ -346,12 +323,12 @@ class _TaxiHomeViewState extends State<TaxiHomeView> {
       }
       return RefreshIndicator(
         onRefresh: controller.refreshAll,
-        color: _taxiAccent,
+        color: taxiAccent,
         child: ListView(
           physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.fromLTRB(20, 28, 20, 28),
           children: [
-            const Icon(Icons.local_taxi_outlined, size: 48, color: _taxiAccent),
+            const Icon(Icons.local_taxi_outlined, size: 48, color: taxiAccent),
             const SizedBox(height: 14),
             Text(
               '모집 중인 팟이 없어요',
@@ -431,7 +408,7 @@ class _TaxiHomeViewState extends State<TaxiHomeView> {
   Widget _recentChatsPane() {
     final chats = controller.recentChats;
     return RefreshIndicator(
-      color: _taxiAccent,
+      color: taxiAccent,
       onRefresh: controller.refreshAll,
       child: ListView(
         key: const ValueKey('recent-chats-pane'),
@@ -445,7 +422,7 @@ class _TaxiHomeViewState extends State<TaxiHomeView> {
               padding: EdgeInsets.symmetric(vertical: 72),
               child: Center(
                 child: CircularProgressIndicator.adaptive(
-                  valueColor: AlwaysStoppedAnimation<Color>(_taxiAccent),
+                  valueColor: AlwaysStoppedAnimation<Color>(taxiAccent),
                 ),
               ),
             )
@@ -528,7 +505,7 @@ class _TaxiHomeViewState extends State<TaxiHomeView> {
     padding: const EdgeInsets.all(20),
     children: [
       Container(
-        decoration: _taxiCardDecoration(context),
+        decoration: taxiCardDecoration(context),
         padding: const EdgeInsets.all(24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -536,7 +513,7 @@ class _TaxiHomeViewState extends State<TaxiHomeView> {
             const Icon(
               Icons.account_circle_outlined,
               size: 42,
-              color: _taxiAccent,
+              color: taxiAccent,
             ),
             const SizedBox(height: 16),
             SelectableText(
@@ -551,7 +528,7 @@ class _TaxiHomeViewState extends State<TaxiHomeView> {
       const SizedBox(height: 20),
       Card(
         child: ListTile(
-          leading: const Icon(Icons.history, color: _taxiAccent),
+          leading: const Icon(Icons.history, color: taxiAccent),
           title: const Text('참여 기록'),
           subtitle: Text('최근 30일 · ${controller.history.length}건'),
           trailing: const Icon(Icons.chevron_right),
@@ -770,7 +747,7 @@ class _FindPartiesState extends State<_FindParties> {
                 Text(
                   date,
                   style: theme.textTheme.labelLarge?.copyWith(
-                    color: _taxiAccentText(context),
+                    color: taxiAccentText(context),
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -824,7 +801,7 @@ class _FindPartiesState extends State<_FindParties> {
     final theme = Theme.of(context);
     return Obx(
       () => RefreshIndicator(
-        color: _taxiAccentText(context),
+        color: taxiAccentText(context),
         onRefresh: controller.refreshAll,
         child: ListView(
           controller: _scrollController,
@@ -835,7 +812,7 @@ class _FindPartiesState extends State<_FindParties> {
               _ErrorCard(message: controller.errorMessage.value),
             Container(
               key: _searchCardKey,
-              decoration: _taxiCardDecoration(context),
+              decoration: taxiCardDecoration(context),
               padding: const EdgeInsets.all(20),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -845,12 +822,12 @@ class _FindPartiesState extends State<_FindParties> {
                       Container(
                         padding: const EdgeInsets.all(10),
                         decoration: BoxDecoration(
-                          color: _taxiTint(context),
+                          color: taxiTint(context),
                           shape: BoxShape.circle,
                         ),
                         child: const Icon(
                           Icons.local_taxi_outlined,
-                          color: _taxiAccent,
+                          color: taxiAccent,
                           size: 26,
                         ),
                       ),
@@ -892,7 +869,7 @@ class _FindPartiesState extends State<_FindParties> {
                         tooltip: '출발지와 도착지 바꾸기',
                         onPressed: controller.swapLocations,
                         icon: const Icon(Icons.swap_horiz_rounded, size: 22),
-                        color: _taxiAccentText(context),
+                        color: taxiAccentText(context),
                       ),
                       Expanded(
                         child: _LocationDropdown(
@@ -923,7 +900,7 @@ class _FindPartiesState extends State<_FindParties> {
                 Text('마감된 방 보기', style: theme.textTheme.bodySmall),
                 const SizedBox(width: 4),
                 Switch.adaptive(
-                  activeTrackColor: _taxiAccent,
+                  activeTrackColor: taxiAccent,
                   activeThumbColor: const Color(0xFF30210A),
                   value: controller.includeUnavailable.value,
                   onChanged: controller.toggleUnavailable,
@@ -936,7 +913,7 @@ class _FindPartiesState extends State<_FindParties> {
                 padding: EdgeInsets.all(48),
                 child: Center(
                   child: CircularProgressIndicator.adaptive(
-                    valueColor: AlwaysStoppedAnimation<Color>(_taxiAccent),
+                    valueColor: AlwaysStoppedAnimation<Color>(taxiAccent),
                   ),
                 ),
               )
@@ -970,7 +947,7 @@ class _DateSelector extends StatelessWidget {
     final last = taxiLastSelectableDay(now: now);
     return Container(
       decoration: BoxDecoration(
-        color: _taxiTint(context),
+        color: taxiTint(context),
         borderRadius: BorderRadius.circular(14),
       ),
       child: Row(
@@ -987,7 +964,7 @@ class _DateSelector extends StatelessWidget {
               '${DateFormat('M월 d일 (E)', 'ko').format(selected)}${date == today ? ' · 오늘' : ''}',
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                color: _taxiAccentText(context),
+                color: taxiAccentText(context),
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -1014,19 +991,19 @@ class _EmptyParties extends StatelessWidget {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 36),
-      decoration: _taxiCardDecoration(context),
+      decoration: taxiCardDecoration(context),
       child: Column(
         children: [
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: _taxiTint(context),
+              color: taxiTint(context),
               shape: BoxShape.circle,
             ),
             child: const Icon(
               Icons.local_taxi_outlined,
               size: 32,
-              color: _taxiAccent,
+              color: taxiAccent,
             ),
           ),
           const SizedBox(height: 16),
@@ -1072,7 +1049,7 @@ class _TaxiPartyHistoryView extends StatelessWidget {
       ),
       body: Obx(
         () => RefreshIndicator(
-          color: _taxiAccentText(context),
+          color: taxiAccentText(context),
           onRefresh: controller.refreshAll,
           child: ListView(
             physics: const AlwaysScrollableScrollPhysics(),
@@ -1200,12 +1177,12 @@ class _CurrentSectionButton extends StatelessWidget {
             height: 46,
             padding: const EdgeInsets.symmetric(horizontal: 10),
             decoration: BoxDecoration(
-              color: selected ? _taxiAccent : Colors.transparent,
+              color: selected ? taxiAccent : Colors.transparent,
               borderRadius: BorderRadius.circular(12),
               boxShadow: selected
                   ? [
                       BoxShadow(
-                        color: _taxiAccent.withValues(alpha: 0.24),
+                        color: taxiAccent.withValues(alpha: 0.24),
                         blurRadius: 10,
                         offset: const Offset(0, 3),
                       ),
@@ -1239,7 +1216,7 @@ class _CurrentSectionButton extends StatelessWidget {
                     decoration: BoxDecoration(
                       color: selected
                           ? const Color(0xFF30210A).withValues(alpha: 0.12)
-                          : _taxiAccent.withValues(alpha: 0.16),
+                          : taxiAccent.withValues(alpha: 0.16),
                       borderRadius: BorderRadius.circular(999),
                     ),
                     child: Text(
@@ -1280,7 +1257,7 @@ class _RecentChatTile extends StatelessWidget {
           label: Text(party.unreadCount > 99 ? '99+' : '${party.unreadCount}'),
           child: Icon(
             writable ? Icons.chat_bubble_outline : Icons.history_rounded,
-            color: _taxiAccent,
+            color: taxiAccent,
           ),
         ),
         title: Text(
@@ -1331,17 +1308,17 @@ class _TaxiPartyCard extends StatelessWidget {
     final statusBackground = isCancelled
         ? colors.errorContainer
         : isRecruiting
-        ? _taxiTint(context)
+        ? taxiTint(context)
         : colors.onSurface.withValues(alpha: 0.06);
     final statusForeground = isCancelled
         ? colors.onErrorContainer
         : isRecruiting
-        ? _taxiAccentText(context)
+        ? taxiAccentText(context)
         : colors.onSurfaceVariant;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
-      decoration: _taxiCardDecoration(context),
+      decoration: taxiCardDecoration(context),
       child: Material(
         color: Colors.transparent,
         borderRadius: BorderRadius.circular(24),
@@ -1413,7 +1390,7 @@ class _TaxiPartyCard extends StatelessWidget {
                     Icon(
                       Icons.route_rounded,
                       size: 20,
-                      color: _taxiAccentText(context),
+                      color: taxiAccentText(context),
                     ),
                     const SizedBox(width: 8),
                     Expanded(
@@ -1500,7 +1477,7 @@ class _LocationDropdown extends StatelessWidget {
 
   InputDecoration _decoration(BuildContext context) => InputDecoration(
     labelText: label,
-    floatingLabelStyle: TextStyle(color: _taxiAccentText(context)),
+    floatingLabelStyle: TextStyle(color: taxiAccentText(context)),
     filled: true,
     fillColor: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.04),
     contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
@@ -1514,7 +1491,7 @@ class _LocationDropdown extends StatelessWidget {
     ),
     focusedBorder: OutlineInputBorder(
       borderRadius: BorderRadius.circular(14),
-      borderSide: const BorderSide(color: _taxiAccent, width: 1.5),
+      borderSide: const BorderSide(color: taxiAccent, width: 1.5),
     ),
   );
 

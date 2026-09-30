@@ -1,9 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:hsro/features/taxi/utils/taxi_departure_time.dart';
-
-const _taxiAccent = Color(0xFFF5A623);
-const _taxiAccentForeground = Color(0xFF30210A);
+import 'package:hsro/features/taxi/widgets/taxi_theme.dart';
 
 Future<DateTime?> showTaxiDepartureTimePicker(
   BuildContext context, {
@@ -66,8 +64,8 @@ Future<DateTime?> showTaxiDepartureTimePicker(
                         onPressed: () =>
                             Navigator.of(sheetContext).pop(selected),
                         style: FilledButton.styleFrom(
-                          backgroundColor: _taxiAccent,
-                          foregroundColor: _taxiAccentForeground,
+                          backgroundColor: taxiAccent,
+                          foregroundColor: taxiAccentForeground,
                         ),
                         child: const Text('완료'),
                       ),

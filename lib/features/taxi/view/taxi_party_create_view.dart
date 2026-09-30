@@ -7,72 +7,10 @@ import 'package:hsro/features/taxi/repository/taxi_repository.dart';
 import 'package:hsro/features/taxi/utils/taxi_departure_time.dart';
 import 'package:hsro/features/taxi/utils/taxi_ids.dart';
 import 'package:hsro/features/taxi/widgets/taxi_app_bar_leading.dart';
+import 'package:hsro/features/taxi/widgets/taxi_theme.dart';
 import 'package:hsro/shared/widgets/ios_platform_fields.dart';
 import 'package:hsro/shared/widgets/scale_button.dart';
 import 'package:intl/intl.dart';
-
-const _taxiAccent = Color(0xFFF5A623);
-const _taxiAccentForeground = Color(0xFF30210A);
-
-Color _taxiTint(BuildContext context, [double? alpha]) =>
-    _taxiAccent.withValues(
-      alpha:
-          alpha ??
-          (Theme.of(context).brightness == Brightness.dark ? 0.16 : 0.12),
-    );
-
-Color _taxiAccentText(BuildContext context) =>
-    Theme.of(context).brightness == Brightness.dark
-    ? const Color(0xFFFFC766)
-    : const Color(0xFF855300);
-
-BoxDecoration _cardDecoration(BuildContext context) => BoxDecoration(
-  color: Theme.of(context).cardColor,
-  borderRadius: BorderRadius.circular(24),
-  boxShadow: [
-    BoxShadow(
-      color: Colors.black.withValues(alpha: 0.06),
-      blurRadius: 16,
-      offset: const Offset(0, 4),
-    ),
-  ],
-);
-
-InputDecoration _inputDecoration(
-  BuildContext context, {
-  required String label,
-  String? hint,
-}) {
-  final colors = Theme.of(context).colorScheme;
-  return InputDecoration(
-    labelText: label,
-    hintText: hint,
-    floatingLabelStyle: TextStyle(color: _taxiAccentText(context)),
-    filled: true,
-    fillColor: colors.onSurface.withValues(alpha: 0.04),
-    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-    border: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(14),
-      borderSide: BorderSide.none,
-    ),
-    enabledBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(14),
-      borderSide: BorderSide.none,
-    ),
-    focusedBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(14),
-      borderSide: const BorderSide(color: _taxiAccent, width: 1.5),
-    ),
-    errorBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(14),
-      borderSide: BorderSide(color: colors.error),
-    ),
-    focusedErrorBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(14),
-      borderSide: BorderSide(color: colors.error, width: 1.5),
-    ),
-  );
-}
 
 /// 5분 단위로 올림된 출발 시각이 지금부터 실제로 얼마 뒤인지 알려준다.
 String _relativeDepartureLabel(DateTime departureAt, DateTime now) {
@@ -439,7 +377,7 @@ class _StepProgress extends StatelessWidget {
                   ),
                   decoration: BoxDecoration(
                     color: index <= currentStep
-                        ? _taxiAccent
+                        ? taxiAccent
                         : theme.colorScheme.onSurface.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(99),
                   ),
@@ -453,7 +391,7 @@ class _StepProgress extends StatelessWidget {
               Text(
                 '${currentStep + 1}/${_titles.length}',
                 style: theme.textTheme.labelMedium?.copyWith(
-                  color: _taxiAccentText(context),
+                  color: taxiAccentText(context),
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -564,7 +502,7 @@ class _RouteStep extends StatelessWidget {
             ),
             const SizedBox(height: 28),
             Container(
-              decoration: _cardDecoration(context),
+              decoration: taxiCardDecoration(context),
               padding: const EdgeInsets.all(20),
               child: Column(
                 children: [
@@ -586,8 +524,8 @@ class _RouteStep extends StatelessWidget {
                             tooltip: '출발지와 도착지 바꾸기',
                             onPressed: onSwap,
                             style: IconButton.styleFrom(
-                              backgroundColor: _taxiTint(context),
-                              foregroundColor: _taxiAccentText(context),
+                              backgroundColor: taxiTint(context),
+                              foregroundColor: taxiAccentText(context),
                             ),
                             icon: const Icon(Icons.swap_vert_rounded),
                           ),
@@ -635,7 +573,7 @@ class _RouteStep extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             Container(
-              decoration: _cardDecoration(context),
+              decoration: taxiCardDecoration(context),
               padding: const EdgeInsets.all(20),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -658,7 +596,7 @@ class _RouteStep extends StatelessWidget {
                     controller: departureSummary,
                     maxLength: 80,
                     textInputAction: TextInputAction.next,
-                    decoration: _inputDecoration(
+                    decoration: taxiInputDecoration(
                       context,
                       label: '출발 장소',
                       hint: '예: 정문 택시승강장',
@@ -673,7 +611,7 @@ class _RouteStep extends StatelessWidget {
                     maxLength: 80,
                     textInputAction: TextInputAction.done,
                     onFieldSubmitted: (_) => onSubmitted(),
-                    decoration: _inputDecoration(
+                    decoration: taxiInputDecoration(
                       context,
                       label: '도착 장소 (선택)',
                       hint: '예: 3번 출구',
@@ -749,7 +687,7 @@ class _DepartureTimeCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: _taxiTint(context),
+        color: taxiTint(context),
         borderRadius: BorderRadius.circular(20),
       ),
       child: Column(
@@ -760,14 +698,14 @@ class _DepartureTimeCard extends StatelessWidget {
               Text(
                 '출발 시각',
                 style: theme.textTheme.labelMedium?.copyWith(
-                  color: _taxiAccentText(context),
+                  color: taxiAccentText(context),
                 ),
               ),
               const Spacer(),
               Text(
                 _relativeDepartureLabel(departureAt, now),
                 style: theme.textTheme.bodySmall?.copyWith(
-                  color: _taxiAccentText(context),
+                  color: taxiAccentText(context),
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -887,7 +825,7 @@ class _DepartureTimeCard extends StatelessWidget {
       style: SegmentedButton.styleFrom(
         backgroundColor: theme.cardColor.withValues(alpha: 0.6),
         selectedBackgroundColor: theme.cardColor,
-        selectedForegroundColor: _taxiAccentText(context),
+        selectedForegroundColor: taxiAccentText(context),
         foregroundColor: theme.colorScheme.onSurfaceVariant,
         side: BorderSide(
           color: theme.colorScheme.onSurface.withValues(alpha: 0.08),
@@ -929,24 +867,24 @@ class _MaterialTimeButton extends StatelessWidget {
         return Theme(
           data: theme.copyWith(
             colorScheme: theme.colorScheme.copyWith(
-              primary: _taxiAccent,
-              onPrimary: _taxiAccentForeground,
-              primaryContainer: _taxiTint(context, 0.35),
-              onPrimaryContainer: _taxiAccentText(context),
-              tertiaryContainer: _taxiTint(context, 0.35),
-              onTertiaryContainer: _taxiAccentText(context),
+              primary: taxiAccent,
+              onPrimary: taxiAccentForeground,
+              primaryContainer: taxiTint(context, 0.35),
+              onPrimaryContainer: taxiAccentText(context),
+              tertiaryContainer: taxiTint(context, 0.35),
+              onTertiaryContainer: taxiAccentText(context),
             ),
             timePickerTheme: TimePickerThemeData(
-              dialHandColor: _taxiAccent,
+              dialHandColor: taxiAccent,
               dialTextColor: WidgetStateColor.resolveWith(
                 (states) => states.contains(WidgetState.selected)
-                    ? _taxiAccentForeground
+                    ? taxiAccentForeground
                     : theme.colorScheme.onSurface,
               ),
             ),
             textButtonTheme: TextButtonThemeData(
               style: TextButton.styleFrom(
-                foregroundColor: _taxiAccentText(context),
+                foregroundColor: taxiAccentText(context),
               ),
             ),
           ),
@@ -1008,13 +946,13 @@ class _QuickTimeChip extends StatelessWidget {
     final theme = Theme.of(context);
     return Material(
       color: selected
-          ? _taxiTint(context, 0.18)
+          ? taxiTint(context, 0.18)
           : theme.colorScheme.onSurface.withValues(alpha: 0.04),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
         side: BorderSide(
           color: selected
-              ? _taxiAccent
+              ? taxiAccent
               : theme.colorScheme.onSurface.withValues(alpha: 0.08),
           width: selected ? 1.5 : 1,
         ),
@@ -1028,7 +966,7 @@ class _QuickTimeChip extends StatelessWidget {
             label,
             textAlign: TextAlign.center,
             style: theme.textTheme.labelLarge?.copyWith(
-              color: selected ? _taxiAccentText(context) : null,
+              color: selected ? taxiAccentText(context) : null,
               fontWeight: FontWeight.bold,
             ),
           ),
@@ -1063,7 +1001,7 @@ class _LocationDropdown extends StatelessWidget {
       icon: const Icon(Icons.expand_more_rounded),
       borderRadius: BorderRadius.circular(16),
       dropdownColor: Theme.of(context).cardColor,
-      decoration: _inputDecoration(context, label: label),
+      decoration: taxiInputDecoration(context, label: label),
       items: locations
           .map(
             (location) => DropdownMenuItem<int>(
@@ -1086,7 +1024,7 @@ class _LocationDropdown extends StatelessWidget {
     return Stack(
       children: [
         InputDecorator(
-          decoration: _inputDecoration(
+          decoration: taxiInputDecoration(
             context,
             label: label,
           ).copyWith(suffixIcon: const Icon(Icons.expand_more_rounded)),
@@ -1149,7 +1087,7 @@ class _PartyOptionsStep extends StatelessWidget {
           ),
           const SizedBox(height: 28),
           Container(
-            decoration: _cardDecoration(context),
+            decoration: taxiCardDecoration(context),
             padding: const EdgeInsets.all(20),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1189,7 +1127,7 @@ class _PartyOptionsStep extends StatelessWidget {
                   minLines: 3,
                   maxLines: 5,
                   decoration:
-                      _inputDecoration(
+                      taxiInputDecoration(
                         context,
                         label: '참여자 안내 (선택)',
                         hint: '예: 검은색 우산을 들고 있을게요.',
@@ -1238,13 +1176,13 @@ class _MemberCountButton extends StatelessWidget {
     final theme = Theme.of(context);
     return Material(
       color: selected
-          ? _taxiTint(context, 0.18)
+          ? taxiTint(context, 0.18)
           : theme.colorScheme.onSurface.withValues(alpha: 0.04),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(14),
         side: BorderSide(
           color: selected
-              ? _taxiAccent
+              ? taxiAccent
               : theme.colorScheme.onSurface.withValues(alpha: 0.08),
           width: selected ? 1.5 : 1,
         ),
@@ -1259,7 +1197,7 @@ class _MemberCountButton extends StatelessWidget {
               Text(
                 '$count명',
                 style: theme.textTheme.titleSmall?.copyWith(
-                  color: selected ? _taxiAccentText(context) : null,
+                  color: selected ? taxiAccentText(context) : null,
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -1300,9 +1238,9 @@ class _CreationSummary extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: _taxiTint(context),
+        color: taxiTint(context),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: _taxiAccent.withValues(alpha: 0.25)),
+        border: Border.all(color: taxiAccent.withValues(alpha: 0.25)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1313,7 +1251,7 @@ class _CreationSummary extends StatelessWidget {
                 child: Text(
                   '만들 방 미리보기',
                   style: theme.textTheme.titleSmall?.copyWith(
-                    color: _taxiAccentText(context),
+                    color: taxiAccentText(context),
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -1321,7 +1259,7 @@ class _CreationSummary extends StatelessWidget {
               TextButton(
                 onPressed: onEdit,
                 style: TextButton.styleFrom(
-                  foregroundColor: _taxiAccentText(context),
+                  foregroundColor: taxiAccentText(context),
                   visualDensity: VisualDensity.compact,
                   padding: const EdgeInsets.symmetric(horizontal: 8),
                 ),
@@ -1362,7 +1300,7 @@ class _SummaryLine extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Icon(icon, size: 18, color: _taxiAccentText(context)),
+        Icon(icon, size: 18, color: taxiAccentText(context)),
         const SizedBox(width: 9),
         Expanded(
           child: Text(
@@ -1436,9 +1374,9 @@ class _BottomActions extends StatelessWidget {
                       child: FilledButton(
                         onPressed: saving ? null : onNext,
                         style: FilledButton.styleFrom(
-                          backgroundColor: _taxiAccent,
-                          foregroundColor: _taxiAccentForeground,
-                          disabledBackgroundColor: _taxiAccent.withValues(
+                          backgroundColor: taxiAccent,
+                          foregroundColor: taxiAccentForeground,
+                          disabledBackgroundColor: taxiAccent.withValues(
                             alpha: 0.45,
                           ),
                           textStyle: theme.textTheme.labelLarge?.copyWith(
@@ -1454,7 +1392,7 @@ class _BottomActions extends StatelessWidget {
                                 dimension: 21,
                                 child: CircularProgressIndicator.adaptive(
                                   valueColor: AlwaysStoppedAnimation<Color>(
-                                    _taxiAccentForeground,
+                                    taxiAccentForeground,
                                   ),
                                   strokeWidth: 2.3,
                                 ),
