@@ -6,6 +6,7 @@ import 'package:hsro/features/taxi/models/taxi_models.dart';
 import 'package:hsro/features/taxi/repository/taxi_repository.dart';
 import 'package:hsro/features/taxi/utils/taxi_departure_time.dart';
 import 'package:hsro/features/taxi/utils/taxi_ids.dart';
+import 'package:hsro/features/taxi/widgets/taxi_app_bar_leading.dart';
 import 'package:hsro/shared/widgets/ios_platform_fields.dart';
 import 'package:hsro/shared/widgets/scale_button.dart';
 import 'package:intl/intl.dart';
@@ -335,22 +336,26 @@ class TaxiPartyCreateViewState extends State<TaxiPartyCreateView> {
             : AppBar(
                 centerTitle: true,
                 title: const Text('택시팟 만들기'),
-                leading: IconButton(
-                  tooltip: _currentStep == 0 ? '닫기' : '이전 단계',
-                  onPressed: _saving
-                      ? null
-                      : () {
-                          if (_currentStep == 0) {
-                            Navigator.of(context).pop();
-                          } else {
-                            _goToStep(_currentStep - 1);
-                          }
-                        },
-                  icon: Icon(
-                    _currentStep == 0
-                        ? Icons.close_rounded
-                        : Icons.arrow_back_ios_new_rounded,
-                    size: 21,
+                leadingWidth: TaxiAppBarLeading.width,
+                leading: TaxiAppBarLeading(
+                  enabled: !_saving,
+                  back: IconButton(
+                    tooltip: _currentStep == 0 ? '닫기' : '이전 단계',
+                    onPressed: _saving
+                        ? null
+                        : () {
+                            if (_currentStep == 0) {
+                              Navigator.of(context).pop();
+                            } else {
+                              _goToStep(_currentStep - 1);
+                            }
+                          },
+                    icon: Icon(
+                      _currentStep == 0
+                          ? Icons.close_rounded
+                          : Icons.arrow_back_ios_new_rounded,
+                      size: 21,
+                    ),
                   ),
                 ),
               ),

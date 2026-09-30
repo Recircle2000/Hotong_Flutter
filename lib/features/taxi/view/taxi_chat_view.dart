@@ -7,6 +7,7 @@ import 'package:hsro/features/taxi/models/taxi_models.dart';
 import 'package:hsro/features/taxi/repository/taxi_repository.dart';
 import 'package:hsro/features/taxi/services/taxi_realtime_service.dart';
 import 'package:hsro/features/taxi/viewmodel/taxi_chat_viewmodel.dart';
+import 'package:hsro/features/taxi/widgets/taxi_app_bar_leading.dart';
 import 'package:intl/intl.dart';
 
 const _taxiAccent = Color(0xFFF5A623);
@@ -173,6 +174,8 @@ class _TaxiChatViewState extends State<TaxiChatView> {
       appBar: AppBar(
         toolbarHeight: 72,
         titleSpacing: 4,
+        leadingWidth: TaxiAppBarLeading.width,
+        leading: const TaxiAppBarLeading(),
         title: Row(
           children: [
             Expanded(
@@ -254,7 +257,9 @@ class _TaxiChatViewState extends State<TaxiChatView> {
       }
       if (controller.isLoading.value && controller.messages.isEmpty) {
         return const Center(
-          child: CircularProgressIndicator.adaptive(valueColor: AlwaysStoppedAnimation<Color>(_taxiAccent)),
+          child: CircularProgressIndicator.adaptive(
+            valueColor: AlwaysStoppedAnimation<Color>(_taxiAccent),
+          ),
         );
       }
       if (controller.messages.isEmpty) {

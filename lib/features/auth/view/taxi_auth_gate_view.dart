@@ -6,6 +6,7 @@ import 'package:hsro/features/auth/repository/auth_repository.dart';
 import 'package:hsro/features/auth/view/school_email_auth_view.dart';
 import 'package:hsro/features/auth/viewmodel/auth_viewmodel.dart';
 import 'package:hsro/features/taxi/view/taxi_home_view.dart';
+import 'package:hsro/features/taxi/widgets/taxi_app_bar_leading.dart';
 
 class TaxiAuthGateView extends StatefulWidget {
   const TaxiAuthGateView({super.key});
@@ -51,10 +52,12 @@ class _TaxiAuthGateViewState extends State<TaxiAuthGateView> {
         return TaxiHomeView(onLogout: _controller.logout);
       }
       return Scaffold(
-        appBar: AppBar(title: const Text('택시팟')),
-        body: SafeArea(
-          child: _buildBody(context),
+        appBar: AppBar(
+          title: const Text('택시팟'),
+          leadingWidth: TaxiAppBarLeading.width,
+          leading: const TaxiAppBarLeading(),
         ),
+        body: SafeArea(child: _buildBody(context)),
       );
     });
   }

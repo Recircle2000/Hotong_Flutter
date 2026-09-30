@@ -6,6 +6,7 @@ import 'package:hsro/features/taxi/services/taxi_realtime_service.dart';
 import 'package:hsro/features/taxi/view/taxi_chat_view.dart';
 import 'package:hsro/features/taxi/view/taxi_party_edit_view.dart';
 import 'package:hsro/features/taxi/viewmodel/taxi_party_detail_viewmodel.dart';
+import 'package:hsro/features/taxi/widgets/taxi_app_bar_leading.dart';
 import 'package:hsro/features/taxi/widgets/taxi_confirm_dialog.dart';
 import 'package:hsro/shared/widgets/scale_button.dart';
 import 'package:intl/intl.dart';
@@ -253,14 +254,16 @@ class TaxiPartyDetailViewState extends State<TaxiPartyDetailView> {
     return Scaffold(
       appBar: widget.showAppBar
           ? AppBar(
-              automaticallyImplyLeading: !widget.embedded,
-              leading: widget.embedded
-                  ? IconButton(
-                      tooltip: '팟 검색',
-                      onPressed: widget.onBack,
-                      icon: const Icon(Icons.arrow_back_ios_new),
-                    )
-                  : null,
+              leadingWidth: TaxiAppBarLeading.width,
+              leading: TaxiAppBarLeading(
+                back: widget.embedded
+                    ? IconButton(
+                        tooltip: '팟 검색',
+                        onPressed: widget.onBack,
+                        icon: const Icon(Icons.arrow_back_ios_new),
+                      )
+                    : null,
+              ),
               title: Text(widget.embedded ? '현재팟' : '택시팟 상세'),
               actions: [
                 if (party != null && _canManage(party))

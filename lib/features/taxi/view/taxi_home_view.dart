@@ -13,6 +13,7 @@ import 'package:hsro/features/taxi/services/taxi_availability_service.dart';
 import 'package:hsro/features/taxi/services/taxi_realtime_service.dart';
 import 'package:hsro/features/taxi/view/taxi_party_create_view.dart';
 import 'package:hsro/features/taxi/view/taxi_party_detail_view.dart';
+import 'package:hsro/features/taxi/widgets/taxi_app_bar_leading.dart';
 import 'package:hsro/features/taxi/view/taxi_chat_view.dart';
 import 'package:hsro/features/taxi/utils/taxi_departure_time.dart';
 import 'package:hsro/features/taxi/viewmodel/taxi_home_viewmodel.dart';
@@ -610,21 +611,25 @@ class _TaxiHomeViewState extends State<TaxiHomeView> {
         appBar: AppBar(
           title: Text(TaxiTabBar.labels[_index]),
           centerTitle: true,
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back_ios_new),
-            onPressed: _busy
-                ? null
-                : () {
-                    if (_index == 1) {
-                      Navigator.of(context).pop();
-                    } else if (_index == 0 &&
-                        (_createKey.currentState?.canGoBack ?? false) &&
-                        controller.myParties.isEmpty) {
-                      _createKey.currentState!.previousStep();
-                    } else {
-                      _select(1);
-                    }
-                  },
+          leadingWidth: TaxiAppBarLeading.width,
+          leading: TaxiAppBarLeading(
+            enabled: !_busy,
+            back: IconButton(
+              icon: const Icon(Icons.arrow_back_ios_new),
+              onPressed: _busy
+                  ? null
+                  : () {
+                      if (_index == 1) {
+                        Navigator.of(context).pop();
+                      } else if (_index == 0 &&
+                          (_createKey.currentState?.canGoBack ?? false) &&
+                          controller.myParties.isEmpty) {
+                        _createKey.currentState!.previousStep();
+                      } else {
+                        _select(1);
+                      }
+                    },
+            ),
           ),
           actions: _headerActions(),
         ),
@@ -1059,7 +1064,12 @@ class _TaxiPartyHistoryView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('파티 이용 기록'), centerTitle: true),
+      appBar: AppBar(
+        title: const Text('파티 이용 기록'),
+        centerTitle: true,
+        leadingWidth: TaxiAppBarLeading.width,
+        leading: const TaxiAppBarLeading(),
+      ),
       body: Obx(
         () => RefreshIndicator(
           color: _taxiAccentText(context),

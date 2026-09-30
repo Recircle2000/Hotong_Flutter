@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:hsro/features/taxi/models/taxi_models.dart';
 import 'package:hsro/features/taxi/utils/taxi_departure_time.dart';
 import 'package:hsro/features/taxi/viewmodel/taxi_party_detail_viewmodel.dart';
+import 'package:hsro/features/taxi/widgets/taxi_app_bar_leading.dart';
 import 'package:hsro/features/taxi/widgets/taxi_departure_time_picker.dart';
 import 'package:hsro/shared/widgets/scale_button.dart';
 import 'package:intl/intl.dart';
@@ -226,6 +227,8 @@ class _TaxiPartyEditViewState extends State<TaxiPartyEditView> {
         appBar: AppBar(
           title: const Text('택시팟 정보 수정'),
           centerTitle: true,
+          leadingWidth: TaxiAppBarLeading.width,
+          leading: TaxiAppBarLeading(enabled: !_saving),
         ),
         body: Form(
           key: _formKey,
