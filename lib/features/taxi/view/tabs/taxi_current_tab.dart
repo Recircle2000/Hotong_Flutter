@@ -257,12 +257,12 @@ class _CurrentSectionSelector extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 12, 20, 10),
+      padding: const EdgeInsets.fromLTRB(20, 2, 20, 8),
       child: Container(
-        padding: const EdgeInsets.all(4),
+        padding: const EdgeInsets.all(3),
         decoration: BoxDecoration(
           color: colors.surfaceContainerHighest.withValues(alpha: 0.72),
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(13),
         ),
         child: Row(
           children: [
@@ -332,21 +332,21 @@ class _CurrentSectionButton extends StatelessWidget {
         color: Colors.transparent,
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(10),
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 180),
             curve: Curves.easeOutCubic,
-            height: 46,
+            height: 36,
             padding: const EdgeInsets.symmetric(horizontal: 10),
             decoration: BoxDecoration(
               color: selected ? taxiAccent : Colors.transparent,
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(10),
               boxShadow: selected
                   ? [
                       BoxShadow(
                         color: taxiAccent.withValues(alpha: 0.24),
-                        blurRadius: 10,
-                        offset: const Offset(0, 3),
+                        blurRadius: 6,
+                        offset: const Offset(0, 2),
                       ),
                     ]
                   : null,
@@ -354,8 +354,8 @@ class _CurrentSectionButton extends StatelessWidget {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(icon, size: 19, color: foreground),
-                const SizedBox(width: 7),
+                Icon(icon, size: 17, color: foreground),
+                const SizedBox(width: 6),
                 Flexible(
                   child: Text(
                     label,

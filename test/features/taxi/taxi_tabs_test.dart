@@ -6,6 +6,7 @@ import 'package:hsro/core/services/auth_service.dart';
 import 'package:hsro/features/taxi/models/taxi_models.dart';
 import 'package:hsro/features/taxi/services/taxi_realtime_service.dart';
 import 'package:hsro/features/taxi/view/taxi_home_view.dart';
+import 'package:hsro/features/taxi/view/taxi_party_detail_view.dart';
 import 'package:hsro/features/taxi/viewmodel/taxi_home_viewmodel.dart';
 import 'package:hsro/features/taxi/widgets/taxi_tab_bar.dart';
 import 'package:intl/date_symbol_data_local.dart';
@@ -444,8 +445,18 @@ void main() {
       final api = TaxiTestApi()..activeIds.add('existing');
       await launch(tester, api, platform: platform);
       await tab(tester, '현재팟');
-      final leave = find.text('택시팟 나가기');
-      await tester.ensureVisible(leave);
+      // 나가기 버튼은 스크롤 맨 아래에 있어 처음에는 화면 밖이다.
+      final leave = find.byKey(const ValueKey('leave-party'));
+      await tester.scrollUntilVisible(
+        leave,
+        200,
+        scrollable: find
+            .descendant(
+              of: find.byType(TaxiPartyDetailView),
+              matching: find.byType(Scrollable),
+            )
+            .first,
+      );
       await tester.tap(leave);
       await tester.pumpAndSettle();
       expect(

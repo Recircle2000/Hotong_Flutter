@@ -336,10 +336,37 @@ class TaxiPartyDetailViewState extends State<TaxiPartyDetailView> {
           ],
           const SizedBox(height: 16),
           const _SafetyNotice(),
+          // 채팅 버튼 옆에서 잘못 누르지 않도록 화면 맨 아래에 둔다.
+          if (_canLeave(party)) ...[
+            const SizedBox(height: 24),
+            SizedBox(
+              height: 48,
+              child: OutlinedButton.icon(
+                key: const ValueKey('leave-party'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Theme.of(context).colorScheme.error,
+                  side: BorderSide(color: Theme.of(context).colorScheme.error),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                ),
+                onPressed: controller.isLoading.value ? null : _leaveParty,
+                icon: const Icon(Icons.logout),
+                label: const Text('택시팟 나가기'),
+              ),
+            ),
+          ],
         ],
       ),
     );
   }
+
+  bool _canLeave(TaxiPartyDetail party) =>
+      party.isMember &&
+      !party.isOwner &&
+      party.departureAt.isAfter(DateTime.now()) &&
+      party.recruitmentStatus != 'cancelled' &&
+      party.recruitmentStatus != 'ended';
 
   bool _joining = false;
   Future<void> _join() async {
@@ -361,14 +388,6 @@ class TaxiPartyDetailViewState extends State<TaxiPartyDetailView> {
   }
 
   Widget? _buildActionDock(TaxiPartyDetail party) {
-    final ended =
-        party.recruitmentStatus == 'cancelled' ||
-        party.recruitmentStatus == 'ended';
-    final canLeave =
-        party.isMember &&
-        !party.isOwner &&
-        party.departureAt.isAfter(DateTime.now()) &&
-        !ended;
     final canJoin = !party.isMember && party.status == 'recruiting';
     if ((!party.isMember && !canJoin) || party.chatStatus == 'expired') {
       return null;
@@ -458,11 +477,6 @@ class TaxiPartyDetailViewState extends State<TaxiPartyDetailView> {
                   ),
                 ),
               ),
-              if (canLeave)
-                TextButton(
-                  onPressed: controller.isLoading.value ? null : _leaveParty,
-                  child: const Text('택시팟 나가기'),
-                ),
             ],
           ),
         ),
