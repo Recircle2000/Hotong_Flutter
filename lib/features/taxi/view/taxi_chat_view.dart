@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:hsro/features/taxi/models/taxi_models.dart';
 import 'package:hsro/features/taxi/repository/taxi_repository.dart';
+import 'package:hsro/features/taxi/services/taxi_push_service.dart';
 import 'package:hsro/features/taxi/services/taxi_realtime_service.dart';
 import 'package:hsro/features/taxi/viewmodel/taxi_chat_viewmodel.dart';
 import 'package:hsro/features/taxi/widgets/taxi_action_sheet.dart';
@@ -61,7 +62,12 @@ class _TaxiChatViewState extends State<TaxiChatView> {
     );
     _scrollController.addListener(_handleScroll);
     _messageWorker = ever(controller.messages, _handleMessagesChanged);
+    // 보고 있는 채팅방의 알림은 앱 안에서 다시 띄우지 않는다.
+    _push?.activeChatPartyId = widget.party.id;
   }
+
+  TaxiPushService? get _push =>
+      Get.isRegistered<TaxiPushService>() ? Get.find<TaxiPushService>() : null;
 
   bool get _isNearBottom {
     if (!_scrollController.hasClients) return true;
@@ -178,6 +184,10 @@ class _TaxiChatViewState extends State<TaxiChatView> {
 
   @override
   void dispose() {
+    final push = _push;
+    if (push?.activeChatPartyId == widget.party.id) {
+      push?.activeChatPartyId = null;
+    }
     _messageWorker?.dispose();
     _textController.removeListener(_handleTextChanged);
     _textController.dispose();

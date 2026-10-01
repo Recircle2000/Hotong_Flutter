@@ -1,12 +1,14 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:get/get.dart';
 import 'package:hsro/core/network/authenticated_api_client.dart';
 import 'package:hsro/core/services/auth_service.dart';
 import 'package:hsro/features/auth/repository/auth_repository.dart';
 import 'package:hsro/features/taxi/models/taxi_models.dart';
 import 'package:hsro/features/taxi/repository/taxi_repository.dart';
+import 'package:hsro/features/taxi/services/taxi_push_service.dart';
 import 'package:hsro/features/taxi/services/taxi_realtime_service.dart';
 import 'package:hsro/features/taxi/view/tabs/taxi_create_tab.dart';
 import 'package:hsro/features/taxi/view/tabs/taxi_current_tab.dart';
@@ -53,6 +55,8 @@ class _TaxiHomeViewState extends State<TaxiHomeView> {
   final Map<String, GlobalKey<TaxiPartyDetailViewState>> _detailKeys = {};
   Worker? _restrictionWorker;
   bool _showingNotice = false;
+  TaxiPushService? _push;
+  Worker? _pushWorker;
 
   @override
   void initState() {
@@ -72,10 +76,23 @@ class _TaxiHomeViewState extends State<TaxiHomeView> {
     controller.setSearchVisible(_index == 1);
     // 확인하지 않은 제재가 있으면 택시 화면에 들어올 때 한 번 안내한다.
     _restrictionWorker = ever(controller.restriction, (_) => _showNotice());
+    final push = Get.isRegistered<TaxiPushService>()
+        ? Get.find<TaxiPushService>()
+        : null;
+    if (push != null) {
+      _push = push;
+      push.attachHome();
+      unawaited(push.sync());
+      // 알림을 눌러 들어왔으면 그 팟의 채팅을 연다.
+      _pushWorker = ever(push.pendingPartyId, (_) => _openPendingChat());
+      WidgetsBinding.instance.addPostFrameCallback((_) => _openPendingChat());
+    }
   }
 
   @override
   void dispose() {
+    _pushWorker?.dispose();
+    _push?.detachHome();
     _restrictionWorker?.dispose();
     Get.delete<TaxiHomeViewModel>(tag: _tag);
     super.dispose();
@@ -182,6 +199,50 @@ class _TaxiHomeViewState extends State<TaxiHomeView> {
     });
     await _select(2);
     await controller.refreshAll();
+    await _askPush();
+  }
+
+  /// 처음 팟을 만들거나 참여했을 때 알림을 받을지 한 번만 묻는다.
+  Future<void> _askPush() async {
+    final push = _push;
+    if (push == null || !push.shouldAsk || !mounted) return;
+    push.markAsked();
+    final accepted = await showTaxiConfirm(
+      context,
+      title: '알림을 받을까요?',
+      message: '새 메시지가 오거나 팟이 취소·변경되면 알려드려요. 내정보에서 언제든 끌 수 있어요.',
+      action: '알림 받기',
+      cancelTitle: '나중에',
+    );
+    if (!accepted || !mounted) return;
+    await _setPush(true);
+  }
+
+  Future<void> _setPush(bool value) async {
+    final push = _push;
+    if (push == null) return;
+    if (!value) {
+      await push.disable();
+      return;
+    }
+    if (await push.enable() || !mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: const Text('기기 설정에서 알림을 허용해주세요.'),
+          action: SnackBarAction(
+            label: '설정 열기',
+            onPressed: () => unawaited(Geolocator.openAppSettings()),
+          ),
+        ),
+      );
+  }
+
+  Future<void> _openPendingChat() async {
+    final partyId = _push?.takePending();
+    if (partyId == null || !mounted) return;
+    await _openChat(partyId);
   }
 
   Future<void> _openParty(TaxiPartySummary party) async {
@@ -206,15 +267,18 @@ class _TaxiHomeViewState extends State<TaxiHomeView> {
           _currentSection = 0;
           Get.back();
           await _select(2);
+          await _askPush();
         },
       ),
     );
     await controller.refreshAll();
   }
 
-  Future<void> _openRecentChat(TaxiPartySummary party) async {
+  Future<void> _openRecentChat(TaxiPartySummary party) => _openChat(party.id);
+
+  Future<void> _openChat(String partyId) async {
     try {
-      final detail = await controller.repository.getParty(party.id);
+      final detail = await controller.repository.getParty(partyId);
       if (!mounted || detail.chatStatus == 'expired') {
         await controller.refreshAll();
         return;
@@ -259,8 +323,12 @@ class _TaxiHomeViewState extends State<TaxiHomeView> {
     final messenger = ScaffoldMessenger.of(context);
     final navigator = Navigator.of(context);
     setState(() => _busy = true);
+    var deleted = false;
     try {
+      // 로그인이 살아 있을 때 이 기기를 알림 대상에서 뺀다.
+      await _push?.unregister();
       await deleteAccount();
+      deleted = true;
       navigator.popUntil((route) => route.isFirst);
       messenger.showSnackBar(const SnackBar(content: Text('탈퇴가 완료됐어요.')));
     } on AppAuthApiException catch (error) {
@@ -268,6 +336,8 @@ class _TaxiHomeViewState extends State<TaxiHomeView> {
     } catch (_) {
       _message('탈퇴하지 못했습니다. 다시 시도해주세요.');
     } finally {
+      // 탈퇴가 거절되면 계정이 남아 있으므로 알림을 다시 등록한다.
+      if (!deleted) unawaited(_push?.sync());
       if (mounted) setState(() => _busy = false);
     }
   }
@@ -285,6 +355,8 @@ class _TaxiHomeViewState extends State<TaxiHomeView> {
     if (!confirmed || !mounted) return;
     setState(() => _busy = true);
     try {
+      // 로그인이 살아 있을 때 이 기기를 알림 대상에서 뺀다.
+      await _push?.unregister();
       await widget.onLogout();
     } catch (_) {
       _message('로그아웃하지 못했습니다. 다시 시도해주세요.');
@@ -383,6 +455,8 @@ class _TaxiHomeViewState extends State<TaxiHomeView> {
                           email: authService.currentUserEmail,
                           onHistory: _history,
                           onLogout: _busy ? null : _logout,
+                          push: _push,
+                          onPushChanged: _busy ? null : _setPush,
                           onDeleteAccount:
                               _busy || widget.onDeleteAccount == null
                               ? null

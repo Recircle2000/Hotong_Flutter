@@ -78,3 +78,52 @@ Future<bool> showTaxiDestructiveConfirm(
       ) ??
       false;
 }
+
+/// 되돌릴 수 있는 선택(알림 받기 등)을 묻는다. iOS에서는 Cupertino 알림을 쓴다.
+Future<bool> showTaxiConfirm(
+  BuildContext context, {
+  required String title,
+  required String message,
+  required String action,
+  String cancelTitle = '닫기',
+}) async {
+  if (Theme.of(context).platform == TargetPlatform.iOS) {
+    return await showCupertinoDialog<bool>(
+          context: context,
+          builder: (context) => CupertinoAlertDialog(
+            title: Text(title),
+            content: Text(message),
+            actions: [
+              CupertinoDialogAction(
+                onPressed: () => Navigator.pop(context, false),
+                child: Text(cancelTitle),
+              ),
+              CupertinoDialogAction(
+                isDefaultAction: true,
+                onPressed: () => Navigator.pop(context, true),
+                child: Text(action),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+  }
+  return await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Text(title),
+          content: Text(message),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: Text(cancelTitle),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: Text(action),
+            ),
+          ],
+        ),
+      ) ??
+      false;
+}

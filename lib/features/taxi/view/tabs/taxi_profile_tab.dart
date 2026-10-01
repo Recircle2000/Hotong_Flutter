@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
+import 'package:hsro/features/taxi/services/taxi_push_service.dart';
 import 'package:hsro/features/taxi/viewmodel/taxi_home_viewmodel.dart';
 import 'package:hsro/features/taxi/widgets/taxi_theme.dart';
 
@@ -16,6 +17,8 @@ class TaxiProfileTab extends StatelessWidget {
     required this.onLogout,
     required this.onAppeal,
     this.onDeleteAccount,
+    this.push,
+    this.onPushChanged,
   });
 
   final TaxiHomeViewModel controller;
@@ -28,6 +31,10 @@ class TaxiProfileTab extends StatelessWidget {
 
   /// null이면 회원 탈퇴 버튼을 숨기거나(미지원) 비활성화한다(처리 중).
   final VoidCallback? onDeleteAccount;
+
+  /// null이면 알림 스위치를 숨긴다(푸시를 쓸 수 없는 환경).
+  final TaxiPushService? push;
+  final ValueChanged<bool>? onPushChanged;
 
   @override
   Widget build(BuildContext context) => Obx(
@@ -100,6 +107,22 @@ class TaxiProfileTab extends StatelessWidget {
             onTap: onHistory,
           ),
         ),
+        if (push case final push?) ...[
+          const SizedBox(height: 12),
+          Card(
+            child: SwitchListTile(
+              key: const ValueKey('taxi-push-switch'),
+              secondary: const Icon(
+                Icons.notifications_outlined,
+                color: taxiAccent,
+              ),
+              title: const Text('택시팟 알림'),
+              subtitle: const Text('새 메시지와 팟 취소·변경을 알려드려요'),
+              value: push.enabled.value,
+              onChanged: onPushChanged,
+            ),
+          ),
+        ],
         const SizedBox(height: 12),
         Card(
           child: ListTile(

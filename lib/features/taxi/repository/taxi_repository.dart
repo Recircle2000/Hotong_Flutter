@@ -190,6 +190,17 @@ class TaxiRepository {
   Future<void> acknowledgeSanction(int id) =>
       _request('POST', '/api/taxi/me/sanctions/$id/ack');
 
+  /// 이 기기를 현재 계정의 알림 수신 기기로 등록한다.
+  Future<void> registerPushToken(String token, {required String platform}) =>
+      _request(
+        'PUT',
+        '/api/taxi/me/push-token',
+        body: {'token': token, 'platform': platform},
+      );
+
+  Future<void> removePushToken(String token) =>
+      _request('DELETE', '/api/taxi/me/push-token', body: {'token': token});
+
   Future<dynamic> _request(
     String method,
     String path, {
@@ -223,7 +234,11 @@ class TaxiRepository {
         );
         break;
       case 'DELETE':
-        response = await _client.delete(uri, headers: headers);
+        response = await _client.delete(
+          uri,
+          headers: headers,
+          body: body == null ? null : jsonEncode(body),
+        );
         break;
       default:
         response = await _client.get(uri, headers: headers);

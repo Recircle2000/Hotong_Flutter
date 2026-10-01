@@ -28,6 +28,9 @@ class TaxiTestApi {
   Map<String, Object?>? notice;
   final acknowledgedSanctions = <int>[];
   int restrictionReads = 0;
+  // 서버에 등록된 알림 기기 토큰과 요청 순서.
+  final pushTokens = <String, String>{};
+  final pushCalls = <String>[];
   // 설정하면 신고 요청이 이 오류로 실패한다.
   ({int status, String code, String message})? reportError;
   final departure = DateTime.now().add(const Duration(hours: 1));
@@ -120,6 +123,17 @@ class TaxiTestApi {
           'suspension': suspension,
           'notice': notice,
         };
+      } else if (path.endsWith('/me/push-token')) {
+        final body = jsonDecode(request.body) as Map;
+        final token = body['token'] as String;
+        if (request.method == 'DELETE') {
+          pushTokens.remove(token);
+          pushCalls.add('remove:$token');
+        } else {
+          pushTokens[token] = body['platform'] as String;
+          pushCalls.add('register:$token');
+        }
+        return http.Response('', 204);
       } else if (path.endsWith('/ack')) {
         acknowledgedSanctions.add(int.parse(path.split('/')[5]));
         notice = null;
