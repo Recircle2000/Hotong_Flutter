@@ -40,13 +40,16 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
-        <!-- 택시팟 푸시 알림의 기본 채널과 상태 표시줄 아이콘 -->
+        <!-- 택시팟 푸시 알림의 기본 채널, 상태 표시줄 아이콘(호통 로고), 강조색 -->
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_channel_id"
             android:value="taxi_party" />
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_icon"
-            android:resource="@drawable/ic_stat_taxi" />
+            android:resource="@drawable/ic_stat_hotong" />
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_color"
+            android:resource="@color/notification_accent" />
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data

@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 알림 아이콘 배경에 쓰는 호통 로고의 빨간색 -->
+    <color name="notification_accent">#E61221</color>
+</resources>
