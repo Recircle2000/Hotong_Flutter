@@ -158,6 +158,7 @@ class TaxiCurrentTab extends StatelessWidget {
               repository: controller.repository,
               realtime: controller.realtime,
               onMembershipChanged: controller.refreshAll,
+              onChatRead: () => controller.markPartyRead(selected.id),
             ),
           ),
         ),

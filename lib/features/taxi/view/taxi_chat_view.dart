@@ -22,7 +22,7 @@ class TaxiChatView extends StatefulWidget {
     required this.realtime,
   });
 
-  final TaxiPartyDetail party;
+  final TaxiPartySummary party;
   final TaxiRepository repository;
   final TaxiRealtimeService realtime;
 

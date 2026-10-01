@@ -52,6 +52,36 @@ class TaxiRepository {
         .toList();
   }
 
+  /// 화면 진입·복귀 때 필요한 목록과 이용 제한을 요청 하나로 받는다.
+  Future<TaxiHome> getHome({
+    required DateTime date,
+    int? departureLocationId,
+    int? destinationLocationId,
+    bool includeUnavailable = false,
+    bool includeLocations = false,
+    bool includeHistory = false,
+  }) async {
+    final include = [
+      if (includeLocations) 'locations',
+      if (includeHistory) 'history',
+    ];
+    final query = <String, String>{
+      'date': DateFormat('yyyy-MM-dd').format(date),
+      'include_unavailable': '$includeUnavailable',
+      if (include.isNotEmpty) 'include': include.join(','),
+    };
+    if (departureLocationId != null) {
+      query['departure_location_id'] = '$departureLocationId';
+    }
+    if (destinationLocationId != null) {
+      query['destination_location_id'] = '$destinationLocationId';
+    }
+    return TaxiHome.fromJson(
+      await _request('GET', '/api/taxi/home', query: query)
+          as Map<String, dynamic>,
+    );
+  }
+
   Future<List<TaxiPartySummary>> getMyParties({String scope = 'active'}) async {
     final data =
         await _request('GET', '/api/taxi/my-parties', query: {'scope': scope})

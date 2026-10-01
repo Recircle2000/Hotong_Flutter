@@ -107,6 +107,24 @@ class TaxiPartySummary {
     unreadCount: unreadCount ?? this.unreadCount,
   );
 
+  /// 안 읽음 수를 빼고 화면에 보이는 상태가 같은지. 같으면 상세를 다시 받을 필요가 없다.
+  bool sameStateAs(TaxiPartySummary other) =>
+      currentMembers == other.currentMembers &&
+      maxMembers == other.maxMembers &&
+      status == other.status &&
+      recruitmentStatus == other.recruitmentStatus &&
+      chatStatus == other.chatStatus &&
+      departureAt == other.departureAt &&
+      chatWritableUntil == other.chatWritableUntil &&
+      chatVisibleUntil == other.chatVisibleUntil &&
+      departureLocation.id == other.departureLocation.id &&
+      destinationLocation.id == other.destinationLocation.id &&
+      departureSummary == other.departureSummary &&
+      destinationSummary == other.destinationSummary &&
+      meetingCode == other.meetingCode &&
+      isMember == other.isMember &&
+      isOwner == other.isOwner;
+
   factory TaxiPartySummary.fromJson(Map<String, dynamic> json) {
     final departureAt = DateTime.parse(
       json['departure_at'] as String,
@@ -297,9 +315,13 @@ class TaxiRealtimeEvent {
         message: json['message'] is Map<String, dynamic>
             ? TaxiMessage.fromJson(json['message'] as Map<String, dynamic>)
             : null,
-        party: json['party'] is Map<String, dynamic>
-            ? TaxiPartySummary.fromJson(json['party'] as Map<String, dynamic>)
-            : null,
+        // 팟 변경 알림에는 참여자 목록까지 담긴 상세가 온다.
+        party: switch (json['party']) {
+          final Map<String, dynamic> party when party['members'] is List =>
+            TaxiPartyDetail.fromJson(party),
+          final Map<String, dynamic> party => TaxiPartySummary.fromJson(party),
+          _ => null,
+        },
         code: json['code'] as String?,
         errorMessage: json['message'] is String
             ? json['message'] as String
@@ -390,4 +412,50 @@ class TaxiRestriction {
             ? TaxiSanction.fromJson(json['notice'] as Map<String, dynamic>)
             : null,
       );
+}
+
+/// 택시 화면에 들어오거나 돌아올 때 한 번에 받는 데이터.
+class TaxiHome {
+  const TaxiHome({
+    required this.parties,
+    required this.myParties,
+    required this.recentChats,
+    required this.restriction,
+    this.locations,
+    this.history,
+  });
+
+  /// 요청했을 때만 온다.
+  final List<TaxiLocation>? locations;
+  final List<TaxiPartySummary> parties;
+
+  /// 출발 전인 내 팟. 참여자 목록까지 담겨 현재팟 화면이 바로 그릴 수 있다.
+  final List<TaxiPartyDetail> myParties;
+  final List<TaxiPartySummary> recentChats;
+
+  /// 요청했을 때만 온다.
+  final List<TaxiPartySummary>? history;
+  final TaxiRestriction restriction;
+
+  factory TaxiHome.fromJson(Map<String, dynamic> json) {
+    List<T> list<T>(Object? raw, T Function(Map<String, dynamic>) parse) =>
+        (raw as List<dynamic>)
+            .map((item) => parse(item as Map<String, dynamic>))
+            .toList();
+    final parties = json['parties'] as Map<String, dynamic>;
+    return TaxiHome(
+      locations: json['locations'] == null
+          ? null
+          : list(json['locations'], TaxiLocation.fromJson),
+      parties: list(parties['items'], TaxiPartySummary.fromJson),
+      myParties: list(json['my_parties'], TaxiPartyDetail.fromJson),
+      recentChats: list(json['recent_chats'], TaxiPartySummary.fromJson),
+      history: json['history'] == null
+          ? null
+          : list(json['history'], TaxiPartySummary.fromJson),
+      restriction: TaxiRestriction.fromJson(
+        json['restriction'] as Map<String, dynamic>,
+      ),
+    );
+  }
 }

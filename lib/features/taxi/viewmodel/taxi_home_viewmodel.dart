@@ -26,6 +26,8 @@ class TaxiHomeViewModel extends GetxController with WidgetsBindingObserver {
   final destinationLocationId = RxnInt();
   final includeUnavailable = false.obs;
   final isLoading = false.obs;
+  // 필터를 바꿔 검색 목록만 다시 받는 중.
+  final isSearching = false.obs;
   final errorMessage = ''.obs;
   StreamSubscription<TaxiRealtimeEvent>? _events;
   final Map<String, Timer> _partyRefreshDebounces = {};
@@ -33,7 +35,7 @@ class TaxiHomeViewModel extends GetxController with WidgetsBindingObserver {
   Completer<void>? _refreshCompletion;
   Timer? _expiryTimer;
   final hasLoaded = false.obs;
-  // 관리자 제재 상태. 필터를 바꿀 때마다 받지 않고 진입·복귀·생성/참여 직전에만 확인한다.
+  // 관리자 제재 상태. 전체 새로고침(진입·복귀·생성/참여 직전) 때 함께 받는다.
   final restriction = Rxn<TaxiRestriction>();
   // 검색 탭이 보이는 동안에만 실시간 목록 변경 알림으로 다시 조회한다.
   bool _searchVisible = false;
@@ -55,16 +57,6 @@ class TaxiHomeViewModel extends GetxController with WidgetsBindingObserver {
   TaxiSanction? get suspension => restriction.value?.suspension;
 
   String? get userKey => restriction.value?.userKey;
-
-  Future<void> refreshRestriction() async {
-    if (isClosed) return;
-    try {
-      final result = await _repository.getRestriction();
-      if (!isClosed) restriction.value = result;
-    } catch (_) {
-      // 확인하지 못하면 이전 상태를 유지한다. 실제 제한은 서버가 생성·참여 때 다시 확인한다.
-    }
-  }
 
   /// 안내를 확인한 제재는 다시 띄우지 않는다.
   Future<void> acknowledgeNotice(TaxiSanction notice) async {
@@ -128,7 +120,6 @@ class TaxiHomeViewModel extends GetxController with WidgetsBindingObserver {
     _events = _realtime.events.listen(handleRealtimeEvent);
     unawaited(_realtime.connect());
     unawaited(refreshAll());
-    unawaited(refreshRestriction());
   }
 
   /// 내정보 탭이나 이용 기록 화면에 들어갈 때 호출한다. 이후 새로고침부터는 함께 갱신한다.
@@ -165,6 +156,40 @@ class TaxiHomeViewModel extends GetxController with WidgetsBindingObserver {
       parties.assignAll(result);
     } catch (_) {
       // 목록 보정 실패는 다음 알림이나 탭 진입 때 다시 맞춘다.
+    }
+  }
+
+  /// 필터·날짜를 바꿨을 때. 내 팟 목록은 그대로이므로 검색 목록만 다시 받는다.
+  Future<void> _search() async {
+    // 첫 로드 전이거나 직전 전체 조회가 실패했으면 전부 다시 받아 복구한다.
+    if (!hasLoaded.value || errorMessage.isNotEmpty || isLoading.value) {
+      return refreshAll();
+    }
+    if (isClosed) return;
+    _searchRefreshDebounce?.cancel();
+    final requestId = ++_searchRequestId;
+    isSearching.value = true;
+    try {
+      final result = await _repository.getParties(
+        date: selectedDate.value,
+        departureLocationId: departureLocationId.value,
+        destinationLocationId: destinationLocationId.value,
+        includeUnavailable: includeUnavailable.value,
+      );
+      if (isClosed || requestId != _searchRequestId) return;
+      parties.assignAll(result);
+    } on TaxiApiException catch (error) {
+      if (!isClosed && requestId == _searchRequestId) {
+        errorMessage.value = error.message;
+      }
+    } catch (_) {
+      if (!isClosed && requestId == _searchRequestId) {
+        errorMessage.value = '택시팟 정보를 불러오지 못했습니다.';
+      }
+    } finally {
+      if (!isClosed && requestId == _searchRequestId) {
+        isSearching.value = false;
+      }
     }
   }
 
@@ -207,7 +232,16 @@ class TaxiHomeViewModel extends GetxController with WidgetsBindingObserver {
     );
   }
 
-  void _applyRealtimeParty(TaxiPartySummary party) {
+  void _applyRealtimeParty(TaxiPartySummary incoming) {
+    // 메시지 알림의 요약에는 참여자 목록이 없다. 상태가 같으면 이미 가진 상세를
+    // 그대로 두고 안 읽음 수만 맞춰, 현재팟 화면이 다시 조회하지 않게 한다.
+    final known = knownParty(incoming.id);
+    final party =
+        incoming is! TaxiPartyDetail &&
+            known is TaxiPartyDetail &&
+            known.sameStateAs(incoming)
+        ? known.copyWith(unreadCount: incoming.unreadCount)
+        : incoming;
     _replaceKnownParty(parties, party);
     myParties.removeWhere((item) => item.id == party.id);
     recentChats.removeWhere((item) => item.id == party.id);
@@ -242,6 +276,20 @@ class TaxiHomeViewModel extends GetxController with WidgetsBindingObserver {
     if (index >= 0) target[index] = party;
   }
 
+  /// 이미 받아 둔 내 팟(현재·최근 채팅) 요약. 없으면 null.
+  TaxiPartySummary? knownParty(String partyId) =>
+      [...myParties, ...recentChats].firstWhereOrNull((p) => p.id == partyId);
+
+  /// 채팅을 읽고 나왔을 때 서버에 다시 묻지 않고 배지만 지운다.
+  void markPartyRead(String partyId) {
+    for (final target in [myParties, recentChats]) {
+      final index = target.indexWhere((party) => party.id == partyId);
+      if (index >= 0 && target[index].unreadCount != 0) {
+        target[index] = target[index].copyWith(unreadCount: 0);
+      }
+    }
+  }
+
   void _incrementKnownUnread(String partyId) {
     for (final target in [myParties, recentChats]) {
       final index = target.indexWhere((party) => party.id == partyId);
@@ -272,6 +320,7 @@ class TaxiHomeViewModel extends GetxController with WidgetsBindingObserver {
     // 전체 갱신이 목록도 새로 받으므로, 이전 필터로 보낸 목록 전용 요청 결과는 버린다.
     _searchRefreshDebounce?.cancel();
     _searchRequestId++;
+    isSearching.value = false;
     isLoading.value = true;
     try {
       do {
@@ -283,29 +332,24 @@ class TaxiHomeViewModel extends GetxController with WidgetsBindingObserver {
               locations.isNotEmpty &&
               fetchedAt != null &&
               DateTime.now().difference(fetchedAt) < _locationsMaxAge;
-          final results = await Future.wait([
-            reuseLocations
-                ? Future.value(locations.toList())
-                : _repository.getLocations(),
-            _repository.getParties(
-              date: selectedDate.value,
-              departureLocationId: departureLocationId.value,
-              destinationLocationId: destinationLocationId.value,
-              includeUnavailable: includeUnavailable.value,
-            ),
-            _repository.getMyParties(),
-            _repository.getMyParties(scope: 'recent_chats'),
-            if (_historyNeeded) _repository.getMyParties(scope: 'history'),
-          ]);
+          final home = await _repository.getHome(
+            date: selectedDate.value,
+            departureLocationId: departureLocationId.value,
+            destinationLocationId: destinationLocationId.value,
+            includeUnavailable: includeUnavailable.value,
+            includeLocations: !reuseLocations,
+            includeHistory: _historyNeeded,
+          );
           if (isClosed) return;
-          if (!reuseLocations) _locationsFetchedAt = DateTime.now();
-          locations.assignAll(results[0] as List<TaxiLocation>);
-          parties.assignAll(results[1] as List<TaxiPartySummary>);
-          myParties.assignAll(results[2] as List<TaxiPartySummary>);
-          recentChats.assignAll(results[3] as List<TaxiPartySummary>);
-          if (results.length > 4) {
-            history.assignAll(results[4] as List<TaxiPartySummary>);
+          if (home.locations case final fetched?) {
+            _locationsFetchedAt = DateTime.now();
+            locations.assignAll(fetched);
           }
+          parties.assignAll(home.parties);
+          myParties.assignAll(home.myParties);
+          recentChats.assignAll(home.recentChats);
+          if (home.history case final fetched?) history.assignAll(fetched);
+          restriction.value = home.restriction;
           hasLoaded.value = true;
           _scheduleExpiry();
         } on TaxiApiException catch (error) {
@@ -326,7 +370,7 @@ class TaxiHomeViewModel extends GetxController with WidgetsBindingObserver {
     if (id != null && destinationLocationId.value == id) {
       destinationLocationId.value = null;
     }
-    unawaited(refreshAll());
+    unawaited(_search());
   }
 
   void setDestination(int? id) {
@@ -334,14 +378,14 @@ class TaxiHomeViewModel extends GetxController with WidgetsBindingObserver {
     if (id != null && departureLocationId.value == id) {
       departureLocationId.value = null;
     }
-    unawaited(refreshAll());
+    unawaited(_search());
   }
 
   void swapLocations() {
     final departure = departureLocationId.value;
     departureLocationId.value = destinationLocationId.value;
     destinationLocationId.value = departure;
-    unawaited(refreshAll());
+    unawaited(_search());
   }
 
   void changeDate(int days) {
@@ -355,12 +399,12 @@ class TaxiHomeViewModel extends GetxController with WidgetsBindingObserver {
     final last = taxiLastSelectableDay(now: today);
     if (next.isBefore(first) || next.isAfter(last)) return;
     selectedDate.value = next;
-    unawaited(refreshAll());
+    unawaited(_search());
   }
 
   void toggleUnavailable(bool value) {
     includeUnavailable.value = value;
-    unawaited(refreshAll());
+    unawaited(_search());
   }
 
   @override
@@ -368,7 +412,6 @@ class TaxiHomeViewModel extends GetxController with WidgetsBindingObserver {
     if (state == AppLifecycleState.resumed) {
       unawaited(_realtime.connect());
       unawaited(refreshAll());
-      unawaited(refreshRestriction());
     }
   }
 

@@ -281,7 +281,8 @@ class _TaxiFindPartiesTabState extends State<TaxiFindPartiesTab> {
               ],
             ),
             const SizedBox(height: 8),
-            if (controller.isLoading.value && controller.parties.isEmpty)
+            if ((controller.isLoading.value || controller.isSearching.value) &&
+                controller.parties.isEmpty)
               const Padding(
                 padding: EdgeInsets.all(48),
                 child: Center(

@@ -51,7 +51,13 @@ class TaxiChatViewModel extends GetxController {
               messages.add(message);
               messages.sort((a, b) => a.id.compareTo(b.id));
             }
-            _scheduleMarkRead();
+            if (message.isMine) {
+              // 서버가 보낸 사람을 그 메시지까지 읽은 것으로 처리한다.
+              _readDebounce?.cancel();
+              if (message.id > (_lastMarkedId ?? 0)) _lastMarkedId = message.id;
+            } else {
+              _scheduleMarkRead();
+            }
           }
           if (event.type == 'party.updated') {
             unawaited(refreshStatus());

@@ -1,7 +1,27 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'package:hsro/core/services/auth_service.dart';
+import 'package:hsro/features/taxi/models/taxi_models.dart';
 import 'package:hsro/features/taxi/repository/taxi_repository.dart';
+import 'package:hsro/features/taxi/services/taxi_realtime_service.dart';
+
+/// 실제 WebSocket 대신 테스트에서 이벤트를 직접 흘려보낸다.
+class FakeTaxiRealtime extends TaxiRealtimeService {
+  FakeTaxiRealtime() : super(AuthService.unavailable());
+
+  final controller = StreamController<TaxiRealtimeEvent>.broadcast();
+
+  @override
+  Stream<TaxiRealtimeEvent> get events => controller.stream;
+
+  @override
+  Future<void> connect() async {}
+
+  @override
+  Future<void> dispose() async => controller.close();
+}
 
 class TaxiTestApi {
   final activeIds = <String>[];
@@ -9,6 +29,8 @@ class TaxiTestApi {
   bool fail = false;
   // 검색 결과 개수. 스크롤이 필요한 화면을 시험할 때 늘린다.
   int searchPartyCount = 1;
+  // 팟의 현재 인원. 놓친 변경을 흉내낼 때 바꾼다.
+  int currentMembers = 2;
   int creates = 0;
   int joins = 0;
   int locationsReads = 0;
@@ -28,12 +50,16 @@ class TaxiTestApi {
   Map<String, Object?>? notice;
   final acknowledgedSanctions = <int>[];
   int restrictionReads = 0;
+  // 서버로 나간 모든 요청. "GET /api/taxi/parties" 형태로 쌓인다.
+  final requests = <String>[];
   // 서버에 등록된 알림 기기 토큰과 요청 순서.
   final pushTokens = <String, String>{};
   final pushCalls = <String>[];
   // 설정하면 신고 요청이 이 오류로 실패한다.
   ({int status, String code, String message})? reportError;
   final departure = DateTime.now().add(const Duration(hours: 1));
+  // 이미 출발한 팟의 출발 시각. 서버처럼 조회할 때마다 같은 값을 준다.
+  final recentDeparture = DateTime.now().subtract(const Duration(hours: 1));
   final locations = [
     {
       'id': 1,
@@ -51,13 +77,10 @@ class TaxiTestApi {
     },
   ];
 
-  int get totalReads =>
-      locationsReads +
-      partyListReads +
-      activeReads +
-      recentChatReads +
-      historyReads +
-      detailReads;
+  int homeReads = 0;
+
+  /// 조회(GET) 요청 수.
+  int get totalReads => requests.where((r) => r.startsWith('GET ')).length;
 
   void resetReads() {
     locationsReads = 0;
@@ -66,13 +89,13 @@ class TaxiTestApi {
     recentChatReads = 0;
     historyReads = 0;
     detailReads = 0;
+    homeReads = 0;
+    requests.clear();
   }
 
   Map<String, Object?> party(String id, {bool owner = false}) {
     final isRecent = recentChatIds.contains(id);
-    final partyDeparture = isRecent
-        ? DateTime.now().subtract(const Duration(hours: 1))
-        : departure;
+    final partyDeparture = isRecent ? recentDeparture : departure;
     return {
       'id': id,
       'meeting_code': 'H7KP',
@@ -82,8 +105,8 @@ class TaxiTestApi {
       'destination_summary': null,
       'departure_at': partyDeparture.toUtc().toIso8601String(),
       'max_members': 4,
-      'current_members': 2,
-      'remaining_seats': 2,
+      'current_members': currentMembers,
+      'remaining_seats': 4 - currentMembers,
       'status': isRecent ? 'in_progress' : 'recruiting',
       'recruitment_status': isRecent ? 'ended' : 'recruiting',
       'chat_status': 'writable',
@@ -115,8 +138,42 @@ class TaxiTestApi {
         );
       }
       final path = request.url.path;
+      final scope = request.url.queryParameters['scope'];
+      requests.add(
+        '${request.method} $path${scope == null ? '' : '?scope=$scope'}',
+      );
       Object? result;
-      if (path.endsWith('/me/restriction')) {
+      if (path.endsWith('/home')) {
+        // 묶음 조회. 거점과 이용 기록은 요청했을 때만 넣는다.
+        homeReads++;
+        final include = (request.url.queryParameters['include'] ?? '').split(
+          ',',
+        );
+        if (include.contains('locations')) locationsReads++;
+        if (include.contains('history')) historyReads++;
+        result = {
+          'locations': include.contains('locations') ? locations : null,
+          'parties': {
+            'items': [
+              party('search-party'),
+              for (var i = 1; i < searchPartyCount; i++)
+                party('search-party-$i'),
+            ],
+            'next_cursor': null,
+          },
+          'my_parties': activeIds
+              .where((id) => !recentChatIds.contains(id))
+              .map((id) => party(id))
+              .toList(),
+          'recent_chats': recentChatIds.map((id) => party(id)).toList(),
+          'history': include.contains('history') ? [] : null,
+          'restriction': {
+            'user_key': 'a1b2c3',
+            'suspension': suspension,
+            'notice': notice,
+          },
+        };
+      } else if (path.endsWith('/me/restriction')) {
         restrictionReads++;
         result = {
           'user_key': 'a1b2c3',

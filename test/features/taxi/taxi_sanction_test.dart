@@ -81,7 +81,7 @@ void main() {
     expect(api.acknowledgedSanctions, [7]);
 
     // 다시 확인해도 이미 확인한 안내는 띄우지 않는다.
-    await viewModel.refreshRestriction();
+    await viewModel.refreshAll();
     await tester.pumpAndSettle();
     expect(find.text('택시팟 이용이 제한됐어요'), findsNothing);
 

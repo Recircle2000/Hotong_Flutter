@@ -169,10 +169,8 @@ class _TaxiHomeViewState extends State<TaxiHomeView> {
   }
 
   Future<bool> _canSubmit() async {
-    await Future.wait([
-      controller.refreshAll(),
-      controller.refreshRestriction(),
-    ]);
+    // 내 팟과 이용 제한을 한 번에 다시 확인한다.
+    await controller.refreshAll();
     if (!mounted) return false;
     final allowed = controller.canCreateOrJoin;
     if (!allowed) {
@@ -257,6 +255,7 @@ class _TaxiHomeViewState extends State<TaxiHomeView> {
         joinBlockedLabel: () =>
             controller.suspension == null ? null : '이용 제한 중이라 참여할 수 없어요',
         onMembershipChanged: controller.refreshAll,
+        onChatRead: () => controller.markPartyRead(party.id),
         onShowCurrent: () {
           Get.back();
           _showCurrentParty();
@@ -271,26 +270,29 @@ class _TaxiHomeViewState extends State<TaxiHomeView> {
         },
       ),
     );
-    await controller.refreshAll();
+    // 참여·나가기는 위 콜백이 이미 반영했고, 목록 변화는 실시간 알림으로 갱신된다.
   }
 
   Future<void> _openRecentChat(TaxiPartySummary party) => _openChat(party.id);
 
   Future<void> _openChat(String partyId) async {
     try {
-      final detail = await controller.repository.getParty(partyId);
-      if (!mounted || detail.chatStatus == 'expired') {
+      // 목록에 이미 있는 팟은 다시 조회하지 않는다. 알림으로 들어온 낯선 팟만 받는다.
+      final party =
+          controller.knownParty(partyId) ??
+          await controller.repository.getParty(partyId);
+      if (!mounted || party.chatStatus == 'expired') {
         await controller.refreshAll();
         return;
       }
       await Get.to(
         () => TaxiChatView(
-          party: detail,
+          party: party,
           repository: controller.repository,
           realtime: controller.realtime,
         ),
       );
-      await controller.refreshAll();
+      controller.markPartyRead(partyId);
     } on TaxiApiException catch (error) {
       _message(error.message);
       await controller.refreshAll();

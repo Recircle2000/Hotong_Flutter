@@ -156,7 +156,7 @@ void main() {
       tester.widget<NavigationBar>(find.byType(NavigationBar)).selectedIndex,
       2,
     );
-    expect(find.text('택시팟 채팅하기'), findsOneWidget);
+    expect(find.text('채팅하기'), findsOneWidget);
     expect(
       find.descendant(
         of: find.byType(AppBar),
@@ -202,7 +202,7 @@ void main() {
       tester.widget<NavigationBar>(find.byType(NavigationBar)).selectedIndex,
       2,
     );
-    expect(find.text('택시팟 채팅하기'), findsOneWidget);
+    expect(find.text('채팅하기'), findsOneWidget);
     await tester.pumpWidget(const SizedBox());
   });
 
@@ -397,7 +397,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(api.locationsReads, 0);
     expect(api.historyReads, 0);
-    expect(api.totalReads, 3);
+    expect(api.totalReads, 1);
 
     await tab(tester, '내정보');
     expect(api.historyReads, 1);
@@ -436,7 +436,7 @@ void main() {
       findsOneWidget,
     );
     await tab(tester, '현재팟');
-    expect(find.text('택시팟 채팅하기'), findsOneWidget);
+    expect(find.text('채팅하기'), findsOneWidget);
     await tester.pumpWidget(const SizedBox());
   });
 

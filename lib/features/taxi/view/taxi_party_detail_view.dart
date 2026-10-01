@@ -26,6 +26,7 @@ class TaxiPartyDetailView extends StatefulWidget {
     this.canJoin,
     this.onJoined,
     this.onMembershipChanged,
+    this.onChatRead,
     this.onShowCurrent,
     this.joinAllowed,
     this.joinBlockedLabel,
@@ -42,6 +43,9 @@ class TaxiPartyDetailView extends StatefulWidget {
   final Future<bool> Function()? canJoin;
   final Future<void> Function(TaxiPartyDetail)? onJoined;
   final Future<void> Function()? onMembershipChanged;
+
+  /// 채팅을 보고 돌아왔을 때 호출된다. 홈 화면의 안 읽음 배지를 지우는 데 쓴다.
+  final VoidCallback? onChatRead;
   final VoidCallback? onShowCurrent;
   final bool Function()? joinAllowed;
 
@@ -130,6 +134,10 @@ class TaxiPartyDetailViewState extends State<TaxiPartyDetailView> {
         partyId: widget.partyId,
         repository: widget.repository,
         realtime: widget.realtime,
+        initial: switch (widget.summary) {
+          final TaxiPartyDetail detail => detail,
+          _ => null,
+        },
       ),
       tag: _tag,
     );
@@ -145,8 +153,9 @@ class TaxiPartyDetailViewState extends State<TaxiPartyDetailView> {
   void didUpdateWidget(covariant TaxiPartyDetailView oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (!identical(oldWidget.summary, widget.summary)) {
+      // 메시지가 올 때마다 요약이 새로 오지만, 대부분 안 읽음 수만 바뀐다.
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) controller.load();
+        if (mounted) controller.syncSummary(widget.summary);
       });
     }
   }
@@ -236,8 +245,9 @@ class TaxiPartyDetailViewState extends State<TaxiPartyDetailView> {
         realtime: widget.realtime,
       ),
     );
-    await controller.load();
-    await widget.onMembershipChanged?.call();
+    // 채팅 화면이 읽음 처리를 보냈으므로 다시 조회하지 않고 배지만 지운다.
+    controller.markRead();
+    widget.onChatRead?.call();
   }
 
   Future<void> _showMemberActions(
@@ -461,7 +471,7 @@ class TaxiPartyDetailViewState extends State<TaxiPartyDetailView> {
                                           : '현재팟 확인 후 참여할 수 있어요')
                                 : party.chatStatus == 'read_only'
                                 ? '채팅 기록 보기'
-                                : '택시팟 채팅하기',
+                                : '채팅하기',
                           ),
                           if (!canJoin && party.unreadCount > 0) ...[
                             const SizedBox(width: 8),
