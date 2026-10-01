@@ -7,6 +7,7 @@ import 'package:hsro/core/services/auth_service.dart';
 import 'package:hsro/features/auth/repository/auth_repository.dart';
 import 'package:hsro/features/taxi/models/taxi_models.dart';
 import 'package:hsro/features/taxi/repository/taxi_repository.dart';
+import 'package:hsro/features/taxi/services/taxi_push_service.dart';
 import 'package:hsro/features/taxi/services/taxi_realtime_service.dart';
 import 'package:hsro/features/taxi/view/tabs/taxi_create_tab.dart';
 import 'package:hsro/features/taxi/view/tabs/taxi_current_tab.dart';
@@ -53,6 +54,8 @@ class _TaxiHomeViewState extends State<TaxiHomeView> {
   final Map<String, GlobalKey<TaxiPartyDetailViewState>> _detailKeys = {};
   Worker? _restrictionWorker;
   bool _showingNotice = false;
+  TaxiPushService? _push;
+  Worker? _pushWorker;
 
   @override
   void initState() {
@@ -72,10 +75,30 @@ class _TaxiHomeViewState extends State<TaxiHomeView> {
     controller.setSearchVisible(_index == 1);
     // 확인하지 않은 제재가 있으면 택시 화면에 들어올 때 한 번 안내한다.
     _restrictionWorker = ever(controller.restriction, (_) => _showNotice());
+    _attachPush();
+  }
+
+  void _attachPush() {
+    if (!Get.isRegistered<TaxiPushService>()) return;
+    final push = Get.find<TaxiPushService>();
+    _push = push..attachTaxiHome();
+    // 채팅 알림을 받으려면 권한이 필요하다. 택시 화면에 처음 들어올 때 한 번 묻는다.
+    unawaited(push.requestPermissionAndRegister());
+    _pushWorker = ever(push.pendingChatPartyId, (_) => _openPushedChat());
+    // 알림을 눌러 이 화면이 새로 열렸다면 첫 프레임 뒤 바로 채팅으로 간다.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _openPushedChat());
+  }
+
+  void _openPushedChat() {
+    if (!mounted) return;
+    final partyId = _push?.takePendingChatPartyId();
+    if (partyId != null) unawaited(_openChat(partyId));
   }
 
   @override
   void dispose() {
+    _pushWorker?.dispose();
+    _push?.detachTaxiHome();
     _restrictionWorker?.dispose();
     Get.delete<TaxiHomeViewModel>(tag: _tag);
     super.dispose();
@@ -212,9 +235,11 @@ class _TaxiHomeViewState extends State<TaxiHomeView> {
     await controller.refreshAll();
   }
 
-  Future<void> _openRecentChat(TaxiPartySummary party) async {
+  Future<void> _openRecentChat(TaxiPartySummary party) => _openChat(party.id);
+
+  Future<void> _openChat(String partyId) async {
     try {
-      final detail = await controller.repository.getParty(party.id);
+      final detail = await controller.repository.getParty(partyId);
       if (!mounted || detail.chatStatus == 'expired') {
         await controller.refreshAll();
         return;

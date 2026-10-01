@@ -1,3 +1,6 @@
+import 'dart:io';
+
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class EnvConfig {
@@ -23,4 +26,29 @@ class EnvConfig {
   static bool get hasSupabaseAuthConfiguration =>
       supabaseProjectUrl.startsWith('https://') &&
       supabasePublishableKey.isNotEmpty;
+
+  /// 택시 채팅 푸시(FCM)용 Firebase 설정. 값이 하나라도 비어 있으면 null이고,
+  /// 그때는 푸시 없이 앱의 나머지 기능만 동작한다.
+  static FirebaseOptions? get firebaseOptions {
+    String read(String key) => dotenv.env[key]?.trim() ?? '';
+    final platform = Platform.isIOS ? 'IOS' : 'ANDROID';
+    final apiKey = read('FIREBASE_${platform}_API_KEY');
+    final appId = read('FIREBASE_${platform}_APP_ID');
+    final senderId = read('FIREBASE_MESSAGING_SENDER_ID');
+    final projectId = read('FIREBASE_PROJECT_ID');
+    if (apiKey.isEmpty ||
+        appId.isEmpty ||
+        senderId.isEmpty ||
+        projectId.isEmpty) {
+      return null;
+    }
+    final bundleId = read('FIREBASE_IOS_BUNDLE_ID');
+    return FirebaseOptions(
+      apiKey: apiKey,
+      appId: appId,
+      messagingSenderId: senderId,
+      projectId: projectId,
+      iosBundleId: Platform.isIOS && bundleId.isNotEmpty ? bundleId : null,
+    );
+  }
 }

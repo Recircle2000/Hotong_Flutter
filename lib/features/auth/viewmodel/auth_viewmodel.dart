@@ -4,6 +4,7 @@ import 'package:get/get.dart';
 import 'package:hsro/core/network/authenticated_api_client.dart';
 import 'package:hsro/core/services/auth_service.dart';
 import 'package:hsro/features/auth/repository/auth_repository.dart';
+import 'package:hsro/features/taxi/services/taxi_push_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 enum TaxiAuthStep {
@@ -175,6 +176,10 @@ class AuthViewModel extends GetxController {
     errorMessage.value = '';
     String? logoutWarning;
     try {
+      // 세션이 남아 있을 때 지워야 서버가 이 기기의 푸시 토큰을 찾는다.
+      if (Get.isRegistered<TaxiPushService>()) {
+        await Get.find<TaxiPushService>().unregister();
+      }
       await _authService.signOutCurrentDevice();
     } catch (_) {
       logoutWarning = '이 기기에서는 로그아웃되었습니다. 서버 연결은 확인하지 못했습니다.';

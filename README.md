@@ -98,6 +98,22 @@ PLAY_STORE_ID=YOUR_PLAY_STORE_ID
 - `APPLE_APP_ID`: 앱스토어 업데이트 체크용 앱 ID
 - `PLAY_STORE_ID`: 플레이스토어 업데이트 체크용 패키지 ID
 
+택시팟 채팅 푸시 알림(FCM)을 쓰려면 Firebase 콘솔 > 프로젝트 설정의 각 앱 정보에서 아래 값을 추가합니다. 비어 있으면 푸시만 꺼지고 나머지 기능은 그대로 동작합니다.
+
+```dotenv
+FIREBASE_PROJECT_ID=your-project-id
+FIREBASE_MESSAGING_SENDER_ID=123456789012
+FIREBASE_ANDROID_API_KEY=AIza...
+FIREBASE_ANDROID_APP_ID=1:123456789012:android:...
+FIREBASE_IOS_API_KEY=AIza...
+FIREBASE_IOS_APP_ID=1:123456789012:ios:...
+FIREBASE_IOS_BUNDLE_ID=com.jw.hoseotransport
+```
+
+- 값은 `google-services.json`(`api_key.current_key`, `client_info.mobilesdk_app_id`)과 `GoogleService-Info.plist`(`API_KEY`, `GOOGLE_APP_ID`)에 있습니다. 두 파일 자체는 앱에 넣지 않아도 됩니다.
+- iOS는 Apple Developer에서 만든 APNs 인증 키(.p8)를 Firebase 콘솔 > 클라우드 메시징에 올려야 알림이 옵니다.
+- Xcode Cloud 빌드는 `ios/ci_scripts/ci_post_clone.sh`가 같은 이름의 환경 변수로 `.env`를 만듭니다.
+
 ### 4) 실행
 ```bash
 flutter run

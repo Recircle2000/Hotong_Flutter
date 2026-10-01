@@ -12,8 +12,10 @@ import 'package:hsro/core/services/secure_auth_storage.dart';
 import 'package:hsro/core/utils/bus_static_data_loader.dart';
 import 'package:hsro/core/utils/bus_times_loader.dart';
 import 'package:hsro/core/utils/env_config.dart';
+import 'package:hsro/features/auth/view/taxi_auth_gate_view.dart';
 import 'package:hsro/features/settings/viewmodel/settings_viewmodel.dart';
 import 'package:hsro/features/taxi/services/taxi_availability_service.dart';
+import 'package:hsro/features/taxi/services/taxi_push_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 void main() async {
@@ -53,6 +55,14 @@ void main() async {
     await TaxiAvailabilityService(authService: authService).init(),
     permanent: true,
   );
+  // 택시팟 채팅 푸시. Firebase 설정이 없으면 아무 일도 하지 않는다.
+  final taxiPush = Get.put(
+    await TaxiPushService(
+      authService: authService,
+      openTaxiHome: () => Get.to(() => const TaxiAuthGateView()),
+    ).init(),
+    permanent: true,
+  );
   await FlutterNaverMap().init(
       clientId: EnvConfig.naverMapClientId,
       onAuthFailed: (ex) => switch (ex) {
@@ -82,5 +92,9 @@ void main() async {
   await BusTimesLoader.updateBusTimesIfNeeded();
 
   runApp(const MyApp());
+  // 알림을 눌러 앱이 실행됐다면 첫 화면이 뜬 뒤 그 채팅으로 이동한다.
+  WidgetsBinding.instance.addPostFrameCallback(
+    (_) => unawaited(taxiPush.handleInitialNotification()),
+  );
   unawaited(BusStaticDataLoader.updateIfNeeded());
 }
