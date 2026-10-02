@@ -40,6 +40,8 @@ final class IOSRoutePopupButtonView: NSObject, FlutterPlatformView {
   private let channel: FlutterMethodChannel
   private var routes: [RouteOption] = []
   private var selectedRouteId: Int?
+  // Flutter가 선택값을 직접 그리는 경우 버튼은 투명한 터치 영역으로만 쓴다.
+  private var hidesTitle = false
 
   init(
     frame: CGRect,
@@ -96,6 +98,8 @@ final class IOSRoutePopupButtonView: NSObject, FlutterPlatformView {
     if let routeId = args?["selectedRouteId"] as? Int, routeId >= 0 {
       selectedRouteId = routeId
     }
+
+    hidesTitle = args?["hidesTitle"] as? Bool ?? false
   }
 
   private func rebuildMenu() {
@@ -119,6 +123,16 @@ final class IOSRoutePopupButtonView: NSObject, FlutterPlatformView {
   }
 
   private func updateButtonAppearance() {
+    if hidesTitle {
+      if #available(iOS 15.0, *) {
+        button.configuration = UIButton.Configuration.plain()
+      } else {
+        button.setTitle(nil, for: .normal)
+        button.setImage(nil, for: .normal)
+      }
+      return
+    }
+
     let selectedRoute = routes.first { $0.id == selectedRouteId }
     let title = selectedRoute?.title ?? "노선을 선택하세요"
     let foregroundColor = selectedRoute == nil ? UIColor.secondaryLabel : UIColor.label

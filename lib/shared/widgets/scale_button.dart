@@ -3,7 +3,8 @@ import 'package:flutter/services.dart';
 
 class ScaleButton extends StatefulWidget {
   final Widget child;
-  final VoidCallback onTap;
+  /// null이면 비활성 상태로 보고 누름 효과와 햅틱을 주지 않는다.
+  final VoidCallback? onTap;
   final Duration duration;
   final double scale;
   final bool enableFeedback;
@@ -67,7 +68,7 @@ class _ScaleButtonState extends State<ScaleButton>
         _controller.reverse();
       }
     });
-    widget.onTap();
+    widget.onTap?.call();
   }
 
   void _onTapCancel() {
@@ -76,6 +77,9 @@ class _ScaleButtonState extends State<ScaleButton>
 
   @override
   Widget build(BuildContext context) {
+    if (widget.onTap == null) {
+      return widget.child;
+    }
     return GestureDetector(
       onTapDown: _onTapDown,
       onTapUp: _onTapUp,

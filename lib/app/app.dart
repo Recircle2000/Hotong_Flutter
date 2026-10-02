@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:native_liquid_glass/native_liquid_glass.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:get/get.dart';
 import 'package:hsro/app/theme/app_theme.dart';
+import 'package:hsro/app/theme/app_scroll_behavior.dart';
 import 'package:hsro/features/home/view/home_view.dart';
 
 class MyApp extends StatelessWidget {
@@ -17,13 +19,15 @@ class MyApp extends StatelessWidget {
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
-      supportedLocales: const [
-        Locale('ko', ''),
-        Locale('en', ''),
-      ],
+      supportedLocales: const [Locale('ko', ''), Locale('en', '')],
       debugShowCheckedModeBanner: false,
       title: 'University Transport App',
-      navigatorObservers: [routeObserver],
+      scrollBehavior: const AppScrollBehavior(),
+      navigatorObservers: [
+        routeObserver,
+        if (NativeLiquidGlassUtils.supportsLiquidGlass)
+          LiquidGlassNavigatorObserver(),
+      ],
       theme: AppTheme.light(),
       darkTheme: AppTheme.dark(),
       themeMode: ThemeMode.system,
