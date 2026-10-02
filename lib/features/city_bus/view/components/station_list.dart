@@ -48,6 +48,8 @@ class StationList extends StatelessWidget {
         primary: false,
         controller: scrollController,
         physics: const AlwaysScrollableScrollPhysics(),
+        // 고정 높이로 두어 가까운 정류장 스크롤 위치를 정확히 계산
+        itemExtent: StationItem.itemExtent,
         itemCount: controller.stationNames.length,
         itemBuilder: (context, index) {
           final isBusHere = currentPositions.contains(index);
