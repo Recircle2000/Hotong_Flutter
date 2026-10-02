@@ -4,12 +4,17 @@ import 'package:get/get.dart';
 import 'package:hsro/features/settings/viewmodel/settings_viewmodel.dart';
 
 class HomeCampusToggle extends StatelessWidget {
-  const HomeCampusToggle({
-    super.key,
-    required this.settingsViewModel,
-  });
+  const HomeCampusToggle({super.key, required this.settingsViewModel});
 
   final SettingsViewModel settingsViewModel;
+
+  void _select(String campus) {
+    if (settingsViewModel.selectedCampus.value == campus) {
+      return;
+    }
+    HapticFeedback.lightImpact();
+    settingsViewModel.setCampus(campus);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -21,19 +26,14 @@ class HomeCampusToggle extends StatelessWidget {
       return Padding(
         padding: const EdgeInsets.only(right: 20),
         child: Center(
+          // 알약 모양 트랙 위에 선택된 캠퍼스만 흰 버튼으로 표시
           child: Container(
             padding: const EdgeInsets.all(3),
             decoration: BoxDecoration(
               color: isDark
-                  ? Colors.white.withOpacity(0.05)
-                  : Colors.black.withOpacity(0.05),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(
-                color: isDark
-                    ? Colors.white.withOpacity(0.1)
-                    : Colors.black.withOpacity(0.1),
-                width: 1,
-              ),
+                  ? Colors.white.withValues(alpha: 0.1)
+                  : const Color(0xFFE6E8EC),
+              borderRadius: BorderRadius.circular(999),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
@@ -41,18 +41,12 @@ class HomeCampusToggle extends StatelessWidget {
                 _CampusToggleButton(
                   text: '아캠',
                   isSelected: isAsan,
-                  onTap: () {
-                    HapticFeedback.lightImpact();
-                    settingsViewModel.setCampus('아산');
-                  },
+                  onTap: () => _select('아산'),
                 ),
                 _CampusToggleButton(
                   text: '천캠',
                   isSelected: !isAsan,
-                  onTap: () {
-                    HapticFeedback.lightImpact();
-                    settingsViewModel.setCampus('천안');
-                  },
+                  onTap: () => _select('천안'),
                 ),
               ],
             ),
@@ -76,29 +70,35 @@ class _CampusToggleButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-    final colorScheme = theme.colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final selectedColor = isDark ? Colors.grey[700]! : Colors.white;
+    final selectedTextColor = isDark ? Colors.white : const Color(0xFF16181D);
+    final unselectedTextColor = isDark
+        ? Colors.grey[400]!
+        : const Color(0xFF5B616E);
 
     return GestureDetector(
+      behavior: HitTestBehavior.opaque,
       onTap: onTap,
       child: AnimatedContainer(
         // 선택 상태 전환을 부드럽게 표시
         duration: const Duration(milliseconds: 200),
         curve: Curves.easeInOut,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+        height: 38,
+        alignment: Alignment.center,
+        padding: const EdgeInsets.symmetric(horizontal: 14),
         decoration: BoxDecoration(
-          color: isSelected ? colorScheme.primary : Colors.transparent,
-          borderRadius: BorderRadius.circular(16),
+          color: isSelected
+              ? selectedColor
+              : selectedColor.withValues(alpha: 0),
+          borderRadius: BorderRadius.circular(999),
         ),
         child: Text(
           text,
           style: TextStyle(
-            fontSize: 13,
-            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-            color: isSelected
-                ? colorScheme.onPrimary
-                : (isDark ? Colors.grey[400] : Colors.grey[600]),
+            fontSize: 14,
+            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+            color: isSelected ? selectedTextColor : unselectedTextColor,
           ),
         ),
       ),

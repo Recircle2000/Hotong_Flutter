@@ -87,13 +87,6 @@ class ShuttleGuideView extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: shuttleThemeColor,
                     borderRadius: BorderRadius.circular(25),
-                    boxShadow: [
-                      BoxShadow(
-                        color: shuttleThemeColor.withOpacity(0.4),
-                        blurRadius: 4,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
                   ),
                   child: const Row(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -125,13 +118,6 @@ class ShuttleGuideView extends StatelessWidget {
       decoration: BoxDecoration(
         color: Theme.of(Get.context!).cardColor,
         borderRadius: BorderRadius.circular(25),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 10,
-            offset: const Offset(0, 0),
-          ),
-        ],
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -191,13 +177,6 @@ class ShuttleGuideView extends StatelessWidget {
       decoration: BoxDecoration(
         color: Theme.of(Get.context!).cardColor,
         borderRadius: BorderRadius.circular(25),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 10,
-            offset: const Offset(0, 0),
-          ),
-        ],
       ),
       child: Row(
         children: [
@@ -273,13 +252,6 @@ class ShuttleGuideView extends StatelessWidget {
           decoration: BoxDecoration(
             color: Theme.of(Get.context!).cardColor,
             borderRadius: BorderRadius.circular(25),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.1),
-                blurRadius: 10,
-                offset: const Offset(0, 0),
-              ),
-            ],
           ),
           child: Column(
             children: [
@@ -469,13 +441,6 @@ class ShuttleGuideView extends StatelessWidget {
       decoration: BoxDecoration(
         color: Theme.of(Get.context!).cardColor,
         borderRadius: BorderRadius.circular(25),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 10,
-            offset: const Offset(0, 0),
-          ),
-        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -545,13 +510,6 @@ class ShuttleGuideView extends StatelessWidget {
       decoration: BoxDecoration(
         color: const Color(0xFFB83227),
         borderRadius: BorderRadius.circular(25),
-        boxShadow: [
-          BoxShadow(
-            color: primaryColor.withOpacity(0.3),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,

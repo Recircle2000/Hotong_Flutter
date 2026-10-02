@@ -2,8 +2,10 @@ import 'dart:async';
 import 'dart:io' show Platform;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:hsro/features/shuttle/models/shuttle_models.dart';
+import 'package:hsro/features/shuttle/view/naver_map_station_detail_view.dart';
 import 'package:hsro/features/shuttle/viewmodel/shuttle_viewmodel.dart';
 import 'package:hsro/shared/widgets/ios_platform_fields.dart';
 import 'package:intl/intl.dart';
@@ -14,10 +16,7 @@ import 'package:hsro/shared/widgets/link_share_button.dart';
 class ShuttleJourneyResultView extends StatefulWidget {
   final ShuttleJourneySearchResult initialResult;
 
-  const ShuttleJourneyResultView({
-    super.key,
-    required this.initialResult,
-  });
+  const ShuttleJourneyResultView({super.key, required this.initialResult});
 
   @override
   State<ShuttleJourneyResultView> createState() =>
@@ -82,7 +81,8 @@ class _ShuttleJourneyResultViewState extends State<ShuttleJourneyResultView> {
           LinkShareButton(
             enabled: _pendingReloads == 0,
             content: () => LinkShareContent(
-              title: '${_result.originStationName} → '
+              title:
+                  '${_result.originStationName} → '
                   '${_result.destinationStationName} 셔틀 시간표',
               uri: TransportShareLinks.shuttleJourney(
                 originStationId: _result.originStationId,
@@ -93,8 +93,9 @@ class _ShuttleJourneyResultViewState extends State<ShuttleJourneyResultView> {
           ),
           Obx(
             () => IconButton(
-              tooltip:
-                  _viewModel.isSelectedJourneyFavorite ? '즐겨찾기 해제' : '즐겨찾기 저장',
+              tooltip: _viewModel.isSelectedJourneyFavorite
+                  ? '즐겨찾기 해제'
+                  : '즐겨찾기 저장',
               onPressed: _viewModel.toggleSelectedJourneyFavorite,
               icon: Icon(
                 _viewModel.isSelectedJourneyFavorite
@@ -137,8 +138,8 @@ class _ShuttleJourneyResultViewState extends State<ShuttleJourneyResultView> {
                             final bottomPadding = allJourneysCompleted
                                 ? 16.0
                                 : constraints.maxHeight > _journeyCardExtent
-                                    ? constraints.maxHeight - _journeyCardExtent
-                                    : 16.0;
+                                ? constraints.maxHeight - _journeyCardExtent
+                                : 16.0;
                             return RefreshIndicator(
                               onRefresh: _reload,
                               color: _shuttleColor,
@@ -151,7 +152,8 @@ class _ShuttleJourneyResultViewState extends State<ShuttleJourneyResultView> {
                                   16,
                                   bottomPadding,
                                 ),
-                                itemCount: _result.journeys.length +
+                                itemCount:
+                                    _result.journeys.length +
                                     (allJourneysCompleted ? 1 : 0),
                                 itemBuilder: (context, index) {
                                   if (index == _result.journeys.length) {
@@ -170,8 +172,9 @@ class _ShuttleJourneyResultViewState extends State<ShuttleJourneyResultView> {
                     top: 0,
                     left: 0,
                     right: 0,
-                    child:
-                        IgnorePointer(child: _buildHeaderTransition(context)),
+                    child: IgnorePointer(
+                      child: _buildHeaderTransition(context),
+                    ),
                   ),
                 ],
               ),
@@ -206,9 +209,7 @@ class _ShuttleJourneyResultViewState extends State<ShuttleJourneyResultView> {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
-      ),
+      decoration: BoxDecoration(color: Theme.of(context).cardColor),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -309,10 +310,7 @@ class _ShuttleJourneyResultViewState extends State<ShuttleJourneyResultView> {
     );
   }
 
-  Widget _buildJourneyCard(
-    BuildContext context,
-    ShuttleJourney journey,
-  ) {
+  Widget _buildJourneyCard(BuildContext context, ShuttleJourney journey) {
     final nextScheduleId = _nextJourney()?.scheduleId;
     final departed = _hasDeparted(journey);
     final isNext = journey.scheduleId == nextScheduleId;
@@ -344,12 +342,6 @@ class _ShuttleJourneyResultViewState extends State<ShuttleJourneyResultView> {
                 border: isNext
                     ? Border.all(color: _shuttleColor.withOpacity(0.35))
                     : null,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.08),
-                    blurRadius: 8,
-                  ),
-                ],
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -361,8 +353,9 @@ class _ShuttleJourneyResultViewState extends State<ShuttleJourneyResultView> {
                           children: [
                             Flexible(
                               child: Container(
-                                constraints:
-                                    const BoxConstraints(maxWidth: 180),
+                                constraints: const BoxConstraints(
+                                  maxWidth: 180,
+                                ),
                                 padding: const EdgeInsets.symmetric(
                                   horizontal: 7,
                                   vertical: 3,
@@ -497,31 +490,20 @@ class _ShuttleJourneyResultViewState extends State<ShuttleJourneyResultView> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            formattedTime,
-            maxLines: 1,
-            softWrap: false,
-            style: timeStyle,
-          ),
+          Text(formattedTime, maxLines: 1, softWrap: false, style: timeStyle),
           const SizedBox(height: 1),
           Text(
             stationName,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              color: Theme.of(context).hintColor,
-              fontSize: 10,
-            ),
+            style: TextStyle(color: Theme.of(context).hintColor, fontSize: 10),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildExpandedSchedule(
-    BuildContext context,
-    ShuttleJourney journey,
-  ) {
+  Widget _buildExpandedSchedule(BuildContext context, ShuttleJourney journey) {
     final isLoading = _loadingScheduleIds.contains(journey.scheduleId);
     final stops = _scheduleStopsCache[journey.scheduleId];
     final hasNoStops = _noScheduleStopIds.contains(journey.scheduleId);
@@ -561,41 +543,66 @@ class _ShuttleJourneyResultViewState extends State<ShuttleJourneyResultView> {
   }
 
   Widget _buildScheduleStopRow(BuildContext context, ScheduleStop stop) {
-    final isOrigin = stop.stationId == _result.originStationId ||
+    final isOrigin =
+        stop.stationId == _result.originStationId ||
         _viewModel.logicalStationName(stop.stationName) ==
             _result.originStationName;
-    final isDestination = stop.stationId == _result.destinationStationId ||
+    final isDestination =
+        stop.stationId == _result.destinationStationId ||
         _viewModel.logicalStationName(stop.stationName) ==
             _result.destinationStationName;
     final isJourneyStop = isOrigin || isDestination;
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 5),
-      child: Row(
-        children: [
-          Icon(
-            isJourneyStop ? Icons.circle : Icons.circle_outlined,
-            size: isJourneyStop ? 10 : 8,
-            color: isJourneyStop ? _shuttleColor : Theme.of(context).hintColor,
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              stop.stationName,
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: isJourneyStop ? FontWeight.bold : FontWeight.normal,
+    final stationId = stop.stationId;
+    // 정류장을 누르면 정류장 정보(지도·사진) 화면으로 이동
+    return InkWell(
+      borderRadius: BorderRadius.circular(8),
+      onTap: stationId == null
+          ? null
+          : () {
+              HapticFeedback.lightImpact();
+              Get.to(() => NaverMapStationDetailView(stationId: stationId));
+            },
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 7),
+        child: Row(
+          children: [
+            Icon(
+              isJourneyStop ? Icons.circle : Icons.circle_outlined,
+              size: isJourneyStop ? 10 : 8,
+              color: isJourneyStop
+                  ? _shuttleColor
+                  : Theme.of(context).hintColor,
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                stop.stationName,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: isJourneyStop
+                      ? FontWeight.bold
+                      : FontWeight.normal,
+                ),
               ),
             ),
-          ),
-          Text(
-            _shortTime(stop.arrivalTime),
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: isJourneyStop ? FontWeight.bold : FontWeight.w600,
-              color: isJourneyStop ? _shuttleColor : null,
+            Text(
+              _shortTime(stop.arrivalTime),
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: isJourneyStop ? FontWeight.bold : FontWeight.w600,
+                color: isJourneyStop ? _shuttleColor : null,
+              ),
             ),
-          ),
-        ],
+            if (stationId != null) ...[
+              const SizedBox(width: 2),
+              Icon(
+                Icons.chevron_right,
+                size: 18,
+                color: Theme.of(context).hintColor,
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }
@@ -653,8 +660,11 @@ class _ShuttleJourneyResultViewState extends State<ShuttleJourneyResultView> {
       ),
       child: Text(
         label,
-        style:
-            TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.bold),
+        style: TextStyle(
+          color: color,
+          fontSize: 11,
+          fontWeight: FontWeight.bold,
+        ),
       ),
     );
   }
@@ -670,10 +680,7 @@ class _ShuttleJourneyResultViewState extends State<ShuttleJourneyResultView> {
         children: [
           Icon(Icons.event_busy, size: 44, color: Theme.of(context).hintColor),
           const SizedBox(height: 12),
-          const Text(
-            '선택한 날짜에 운행하는 셔틀이 없습니다.',
-            textAlign: TextAlign.center,
-          ),
+          const Text('선택한 날짜에 운행하는 셔틀이 없습니다.', textAlign: TextAlign.center),
           const SizedBox(height: 12),
           if (Platform.isIOS)
             Text(
@@ -684,10 +691,7 @@ class _ShuttleJourneyResultViewState extends State<ShuttleJourneyResultView> {
               ),
             )
           else
-            TextButton(
-              onPressed: _selectDate,
-              child: const Text('다른 날짜 선택'),
-            ),
+            TextButton(onPressed: _selectDate, child: const Text('다른 날짜 선택')),
         ],
       ),
     );
@@ -704,10 +708,7 @@ class _ShuttleJourneyResultViewState extends State<ShuttleJourneyResultView> {
             style: TextStyle(color: Theme.of(context).hintColor),
           ),
           const SizedBox(height: 4),
-          TextButton(
-            onPressed: _searchNextDate,
-            child: const Text('조회하기'),
-          ),
+          TextButton(onPressed: _searchNextDate, child: const Text('조회하기')),
         ],
       ),
     );
@@ -728,8 +729,9 @@ class _ShuttleJourneyResultViewState extends State<ShuttleJourneyResultView> {
 
   int _nextJourneyIndex() {
     if (!_isToday(_result.date)) return 0;
-    final index =
-        _result.journeys.indexWhere((journey) => !_hasDeparted(journey));
+    final index = _result.journeys.indexWhere(
+      (journey) => !_hasDeparted(journey),
+    );
     return index < 0 ? 0 : index;
   }
 
@@ -740,13 +742,14 @@ class _ShuttleJourneyResultViewState extends State<ShuttleJourneyResultView> {
   void _scrollToNextJourney() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || !_journeyScrollController.hasClients) return;
-      final target = (_areAllJourneysCompletedToday
-              ? _journeyScrollController.position.maxScrollExtent
-              : _initialJourneyScrollOffset())
-          .clamp(
-        _journeyScrollController.position.minScrollExtent,
-        _journeyScrollController.position.maxScrollExtent,
-      );
+      final target =
+          (_areAllJourneysCompletedToday
+                  ? _journeyScrollController.position.maxScrollExtent
+                  : _initialJourneyScrollOffset())
+              .clamp(
+                _journeyScrollController.position.minScrollExtent,
+                _journeyScrollController.position.maxScrollExtent,
+              );
       _journeyScrollController.jumpTo(target);
     });
   }

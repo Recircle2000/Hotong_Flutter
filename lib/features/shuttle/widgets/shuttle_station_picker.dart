@@ -168,12 +168,6 @@ class _ShuttleStationPickerState extends State<_ShuttleStationPicker> {
                   decoration: BoxDecoration(
                     color: Theme.of(context).scaffoldBackgroundColor,
                     borderRadius: BorderRadius.circular(25),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.08),
-                        blurRadius: 8,
-                      ),
-                    ],
                   ),
                   child: TextField(
                     controller: _searchController,

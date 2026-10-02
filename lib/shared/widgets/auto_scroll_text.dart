@@ -10,6 +10,7 @@ class AutoScrollText extends StatefulWidget {
   final Duration scrollDuration;
 
   AutoScrollText({
+    super.key,
     required this.text,
     required this.style,
     this.height = 20,

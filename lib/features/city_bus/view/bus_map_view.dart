@@ -6,12 +6,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:hsro/features/city_bus/view/components/route_info_view.dart';
+import 'package:hsro/features/city_bus/view/components/station_item.dart'
+    show cityBusAccent;
 import 'package:hsro/features/city_bus/view/components/station_list.dart';
 import 'package:hsro/features/city_bus/view/components/timetable_view.dart';
 import 'package:hsro/features/city_bus/view/helpers/location_helper.dart';
 import 'package:hsro/features/city_bus/view/helpers/timetable_helper.dart';
 import 'package:hsro/features/city_bus/view/naver_bus_map_detail_view.dart';
 import 'package:hsro/features/city_bus/viewmodel/busmap_viewmodel.dart';
+import 'package:hsro/shared/widgets/scale_button.dart';
+import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 
 // BusMapViewModel 확장 - 강조 표시용 변수 추가
 extension BusMapViewModelExtension on BusMapViewModel {
@@ -126,20 +130,17 @@ class _BusMapViewState extends State<BusMapView> {
 
   @override
   Widget build(BuildContext context) {
+    // 앱 공통 배경색 사용
+    final surfaceColor = Theme.of(context).scaffoldBackgroundColor;
+
     return Scaffold(
+      backgroundColor: surfaceColor,
       appBar: AppBar(
+        backgroundColor: surfaceColor,
+        surfaceTintColor: Colors.transparent,
         title: Obx(() {
           final controller = Get.find<BusMapViewModel>();
-          return Text(
-            controller.selectedRoute.value.isEmpty
-                ? '시내버스 위치'
-                : routeDisplayNames[controller.selectedRoute.value] ??
-                    controller.selectedRoute.value,
-            style: const TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-            ),
-          );
+          return _buildRouteTitle(context, controller.selectedRoute.value);
         }),
         centerTitle: true,
         actions: [
@@ -182,7 +183,6 @@ class _BusMapViewState extends State<BusMapView> {
                     ? Container(
                         key: const ValueKey('no-running-bus-banner'),
                         width: double.infinity,
-                        margin: const EdgeInsets.only(bottom: 8),
                         padding: const EdgeInsets.symmetric(
                           horizontal: 16,
                           vertical: 12,
@@ -228,110 +228,53 @@ class _BusMapViewState extends State<BusMapView> {
             // 지도, 주변 정류장, 시간표 액션 영역
             Container(
               decoration: BoxDecoration(
-                color: Theme.of(context).scaffoldBackgroundColor,
-                borderRadius:
-                    const BorderRadius.vertical(top: Radius.circular(25)),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
-                    blurRadius: 10,
-                    offset: const Offset(0, -2),
-                  ),
-                ],
+                color: surfaceColor,
+                border: Border(top: BorderSide(color: _hairlineColor(context))),
               ),
               child: SafeArea(
                 top: false,
                 child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+                  child: Row(
                     children: [
-                      // 노선 선택 드롭다운
-                      // RoutePicker(
-                      //   routeDisplayNames: routeDisplayNames,
-                      //   onRouteSelected: (route) {
-                      //     controller.currentPositions.clear();
-                      //     controller.markers.clear();
-                      //     controller.stationMarkers.clear();
-                      //     controller.stationNames.clear();
-                      //     controller.selectedRoute.value = route;
-                      //     controller.fetchRouteData();
-                      //     controller.fetchStationData();
-                      //     controller.resetConnection();
-                      //   },
-                      // ),
-
-                      // const SizedBox(height: 12),
-
-                      // 주요 액션 버튼들
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                        children: [
-                          // 실시간 지도 화면으로 이동
-                          Expanded(
-                            child: ElevatedButton.icon(
-                              onPressed: () {
-                                HapticFeedback.lightImpact();
-                                Get.to(() => NaverBusMapDetailView(
-                                    routeName: routeDisplayNames[
-                                            controller.selectedRoute.value] ??
-                                        controller.selectedRoute.value));
-                              },
-                              icon: const Icon(Icons.map, size: 20),
-                              label: const Text('운행 지도'),
-                              style: ElevatedButton.styleFrom(
-                                padding:
-                                    const EdgeInsets.symmetric(vertical: 12),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                              ),
-                            ),
-                          ),
-
-                          const SizedBox(width: 12),
-
-                          // 현재 위치 기준 가장 가까운 정류장 찾기
-                          Expanded(
-                            child: ElevatedButton.icon(
-                              onPressed: () {
-                                HapticFeedback.lightImpact();
-                                LocationHelper.findNearestStationAndScroll(
-                                    context, stationScrollController);
-                              },
-                              icon: const Icon(Icons.near_me, size: 20),
-                              label: const Text('주변 정류장'),
-                              style: ElevatedButton.styleFrom(
-                                padding:
-                                    const EdgeInsets.symmetric(vertical: 12),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                              ),
-                            ),
-                          ),
-
-                          const SizedBox(width: 12),
-
-                          // 시간표/노선 정보 바텀시트 열기
-                          Expanded(
-                            child: ElevatedButton.icon(
-                              onPressed: () {
-                                HapticFeedback.lightImpact();
-                                _showRouteInfo(context, controller);
-                              },
-                              icon: const Icon(Icons.access_time, size: 20),
-                              label: const Text('시간표'),
-                              style: ElevatedButton.styleFrom(
-                                padding:
-                                    const EdgeInsets.symmetric(vertical: 12),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
+                      // 실시간 지도 화면으로 이동
+                      Expanded(
+                        child: _buildActionButton(
+                          context,
+                          icon: PhosphorIconsRegular.mapTrifold,
+                          label: '운행 지도',
+                          onTap: () {
+                            Get.to(() => NaverBusMapDetailView(
+                                routeName: routeDisplayNames[
+                                        controller.selectedRoute.value] ??
+                                    controller.selectedRoute.value));
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      // 현재 위치 기준 가장 가까운 정류장 찾기
+                      Expanded(
+                        child: _buildActionButton(
+                          context,
+                          icon: PhosphorIconsRegular.navigationArrow,
+                          // 화살표가 오른쪽 위를 가리키도록 좌우 반전
+                          flipIcon: true,
+                          label: '주변 정류장',
+                          onTap: () {
+                            LocationHelper.findNearestStationAndScroll(
+                                context, stationScrollController);
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      // 시간표/노선 정보 바텀시트 열기
+                      Expanded(
+                        child: _buildActionButton(
+                          context,
+                          icon: PhosphorIconsRegular.clock,
+                          label: '시간표',
+                          onTap: () => _showRouteInfo(context, controller),
+                        ),
                       ),
                     ],
                   ),
@@ -361,39 +304,137 @@ class _BusMapViewState extends State<BusMapView> {
       final String interval = TimetableHelper.calculateInterval(times);
 
       // 현재 선택 노선의 첫차, 막차, 대표 배차간격 요약 표시
+      final labelStyle = TextStyle(
+        fontSize: 13,
+        color: Theme.of(context).hintColor,
+      );
+      final valueStyle = TextStyle(
+        fontSize: 13,
+        fontWeight: FontWeight.w700,
+        color: Theme.of(context).colorScheme.onSurface,
+      );
+
       return Container(
         width: double.infinity,
-        padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+        padding: const EdgeInsets.fromLTRB(16, 6, 16, 14),
+        decoration: BoxDecoration(
+          border: Border(bottom: BorderSide(color: _hairlineColor(context))),
+        ),
         child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text(
-              '운행시간: $firstBus~$lastBus',
-              style: TextStyle(
-                fontSize: 12,
-                color: Colors.grey[600],
-                fontWeight: FontWeight.w500,
-              ),
+            Text('운행 ', style: labelStyle),
+            Text('$firstBus–$lastBus', style: valueStyle),
+            Container(
+              width: 1,
+              height: 12,
+              margin: const EdgeInsets.symmetric(horizontal: 12),
+              color: _hairlineColor(context),
             ),
-            Text(
-              '•',
-              style: TextStyle(
-                fontSize: 12,
-                color: Colors.grey[400],
-              ),
-            ),
-            Text(
-              '배차간격: $interval',
-              style: TextStyle(
-                fontSize: 12,
-                color: Colors.grey[600],
-                fontWeight: FontWeight.w500,
-              ),
-            ),
+            Text('배차 ', style: labelStyle),
+            Text(interval, style: valueStyle),
           ],
         ),
       );
     });
+  }
+
+  // 구분선 색상
+  Color _hairlineColor(BuildContext context) =>
+      Theme.of(context).brightness == Brightness.dark
+          ? Colors.white.withValues(alpha: 0.1)
+          : const Color(0xFFDFE2E7);
+
+  // 앱바 제목: 노선 번호 배지 + 기점 → 종점
+  Widget _buildRouteTitle(BuildContext context, String routeKey) {
+    const titleStyle = TextStyle(fontSize: 16, fontWeight: FontWeight.w700);
+    if (routeKey.isEmpty) {
+      return const Text('시내버스 위치', style: titleStyle);
+    }
+
+    final displayName = routeDisplayNames[routeKey] ?? routeKey;
+    // "순환5 (천안아산역 → 호서대학교)" 형식에서 번호와 구간 분리
+    final match = RegExp(r'^(.+?)\s*\((.+)\)$').firstMatch(displayName);
+    if (match == null) {
+      return Text(displayName, style: titleStyle);
+    }
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+          decoration: BoxDecoration(
+            color: cityBusAccent,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Text(
+            match.group(1)!,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Flexible(
+          child: Text(
+            match.group(2)!,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: titleStyle,
+          ),
+        ),
+      ],
+    );
+  }
+
+  // 하단 액션 버튼 (누를 때 햅틱은 ScaleButton이 처리)
+  Widget _buildActionButton(
+    BuildContext context, {
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+    bool flipIcon = false,
+  }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final foreground = Theme.of(context).colorScheme.onSurface;
+
+    return ScaleButton(
+      onTap: onTap,
+      child: Container(
+        height: 52,
+        decoration: BoxDecoration(
+          color: isDark
+              ? Colors.white.withValues(alpha: 0.08)
+              : Theme.of(context).cardColor,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Transform.flip(
+              flipX: flipIcon,
+              child: Icon(icon, size: 19, color: foreground),
+            ),
+            const SizedBox(width: 6),
+            Flexible(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color: foreground,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   void _showRouteInfo(BuildContext context, BusMapViewModel controller) {

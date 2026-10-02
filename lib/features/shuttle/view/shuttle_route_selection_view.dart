@@ -205,13 +205,6 @@ class _ShuttleRouteSelectionViewState extends State<ShuttleRouteSelectionView> {
                             decoration: BoxDecoration(
                               color: shuttleColor,
                               borderRadius: BorderRadius.circular(20),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(0.2),
-                                  blurRadius: 5,
-                                  offset: Offset(0, 3),
-                                ),
-                              ],
                             ),
                             child: Text(
                               '시간표 조회',
@@ -333,15 +326,6 @@ class _ShuttleRouteSelectionViewState extends State<ShuttleRouteSelectionView> {
                           ? shuttleColor
                           : colorScheme.onSurface.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(18),
-                      boxShadow: canSearch
-                          ? [
-                              BoxShadow(
-                                color: shuttleColor.withValues(alpha: 0.22),
-                                blurRadius: 8,
-                                offset: const Offset(0, 3),
-                              ),
-                            ]
-                          : null,
                     ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -507,13 +491,6 @@ class _ShuttleRouteSelectionViewState extends State<ShuttleRouteSelectionView> {
               decoration: BoxDecoration(
                 color: Theme.of(context).cardColor,
                 borderRadius: BorderRadius.circular(25),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.1),
-                    blurRadius: 10,
-                    offset: const Offset(0, 0),
-                  ),
-                ],
               ),
               child: Column(
                 children: [
@@ -565,13 +542,6 @@ class _ShuttleRouteSelectionViewState extends State<ShuttleRouteSelectionView> {
                     decoration: BoxDecoration(
                       color: shuttleColor,
                       shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: shuttleColor.withValues(alpha: 0.25),
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
                     ),
                     child: const Icon(
                       Icons.swap_vert_rounded,
@@ -809,13 +779,6 @@ class _ShuttleRouteSelectionViewState extends State<ShuttleRouteSelectionView> {
                             decoration: BoxDecoration(
                               color: Theme.of(context).cardColor,
                               borderRadius: BorderRadius.circular(25),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withValues(alpha: 0.1),
-                                  blurRadius: 10,
-                                  offset: const Offset(0, 0),
-                                ),
-                              ],
                             ),
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
@@ -1430,13 +1393,6 @@ class _ShuttleRouteSelectionViewState extends State<ShuttleRouteSelectionView> {
         decoration: BoxDecoration(
           color: Theme.of(context).cardColor,
           borderRadius: BorderRadius.circular(25),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.1),
-              blurRadius: 10,
-              offset: const Offset(0, 0),
-            ),
-          ],
         ),
         padding: const EdgeInsets.symmetric(horizontal: 16),
         child: IOSRoutePopupButtonField(
@@ -1457,13 +1413,6 @@ class _ShuttleRouteSelectionViewState extends State<ShuttleRouteSelectionView> {
         // border: Border.all(color: Theme.of(Get.context!).dividerColor),
         color: Theme.of(Get.context!).cardColor,
         borderRadius: BorderRadius.circular(25),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 10,
-            offset: const Offset(0, 0),
-          ),
-        ],
       ),
       padding: EdgeInsets.symmetric(horizontal: 16),
       child: Obx(() {
@@ -1503,13 +1452,6 @@ class _ShuttleRouteSelectionViewState extends State<ShuttleRouteSelectionView> {
         decoration: BoxDecoration(
           color: Theme.of(context).cardColor,
           shape: BoxShape.circle,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.1),
-              blurRadius: 10,
-              offset: const Offset(0, 0),
-            ),
-          ],
         ),
         child: Icon(
           Icons.map_outlined,
@@ -1560,13 +1502,6 @@ class _ShuttleRouteSelectionViewState extends State<ShuttleRouteSelectionView> {
                   decoration: BoxDecoration(
                     color: Theme.of(context).cardColor,
                     borderRadius: BorderRadius.circular(25),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.1),
-                        blurRadius: 10,
-                        offset: const Offset(0, 0),
-                      ),
-                    ],
                   ),
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   child: LayoutBuilder(
@@ -1731,13 +1666,6 @@ class _ShuttleRouteSelectionViewState extends State<ShuttleRouteSelectionView> {
                 decoration: BoxDecoration(
                   color: Theme.of(context).cardColor,
                   borderRadius: BorderRadius.circular(25),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.1),
-                      blurRadius: 10,
-                      offset: const Offset(0, 0),
-                    ),
-                  ],
                 ),
                 padding: EdgeInsets.symmetric(horizontal: 16),
                 child: Row(
@@ -1792,13 +1720,6 @@ class _ShuttleRouteSelectionViewState extends State<ShuttleRouteSelectionView> {
             decoration: BoxDecoration(
               color: Theme.of(context).cardColor,
               shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.1),
-                  blurRadius: 10,
-                  offset: const Offset(0, 0),
-                ),
-              ],
             ),
             child: Icon(
               icon,

@@ -180,13 +180,6 @@ class _CityBusGuideViewState extends State<CityBusGuideView> {
                   decoration: BoxDecoration(
                     color: primaryColor,
                     borderRadius: BorderRadius.circular(25),
-                    boxShadow: [
-                      BoxShadow(
-                        color: primaryColor.withOpacity(0.4),
-                        blurRadius: 8,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
                   ),
                   child: const Row(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -271,15 +264,6 @@ class _CityBusGuideViewState extends State<CityBusGuideView> {
               ? (isDarkMode ? Colors.grey[700] : Colors.white)
               : Colors.transparent,
           borderRadius: BorderRadius.circular(20),
-          boxShadow: isSelected
-              ? [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
-                    blurRadius: 10,
-                    offset: const Offset(0, 0),
-                  ),
-                ]
-              : null,
         ),
         child: Text(
           title,
@@ -382,13 +366,6 @@ class _CityBusGuideViewState extends State<CityBusGuideView> {
         color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: primaryColor.withOpacity(0.2)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.08),
-            blurRadius: 10,
-            offset: const Offset(0, 0),
-          ),
-        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -494,13 +471,6 @@ class _CityBusGuideViewState extends State<CityBusGuideView> {
       decoration: BoxDecoration(
         color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(25),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 10,
-            offset: const Offset(0, 0),
-          ),
-        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -581,13 +551,6 @@ class _CityBusGuideViewState extends State<CityBusGuideView> {
       decoration: BoxDecoration(
         color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(25),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 10,
-            offset: const Offset(0, 0),
-          ),
-        ],
       ),
       child: Column(
         children: [
@@ -672,13 +635,6 @@ class _CityBusGuideViewState extends State<CityBusGuideView> {
           height: 300,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(25),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.1),
-                blurRadius: 10,
-                offset: const Offset(0, 0),
-              ),
-            ],
           ),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(25),
@@ -731,13 +687,6 @@ class _CityBusGuideViewState extends State<CityBusGuideView> {
                         decoration: BoxDecoration(
                           color: Theme.of(context).cardColor.withOpacity(1),
                           borderRadius: BorderRadius.circular(3),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.2),
-                              blurRadius: 4,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
                         ),
                         child: ScaleButton(
                           child: Padding(
@@ -761,13 +710,6 @@ class _CityBusGuideViewState extends State<CityBusGuideView> {
                         decoration: BoxDecoration(
                           color: Theme.of(context).cardColor.withOpacity(1),
                           borderRadius: BorderRadius.circular(3),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.2),
-                              blurRadius: 4,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
                         ),
                         child: ScaleButton(
                           child: Padding(
@@ -808,13 +750,6 @@ class _CityBusGuideViewState extends State<CityBusGuideView> {
             Color.lerp(primaryColor, Colors.black, 0.2)!,
           ],
         ),
-        boxShadow: [
-          BoxShadow(
-            color: primaryColor.withOpacity(0.3),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,

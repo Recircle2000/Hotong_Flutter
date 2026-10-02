@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:hsro/core/constants/app_links.dart';
 import 'package:hsro/core/utils/bus_static_data_loader.dart';
 import 'package:hsro/core/utils/bus_times_loader.dart';
 import 'package:hsro/features/guide/view/guide_selection_view.dart';
@@ -127,13 +128,6 @@ class SettingsView extends StatelessWidget {
     return BoxDecoration(
       color: cardColor,
       borderRadius: BorderRadius.circular(24),
-      boxShadow: [
-        BoxShadow(
-          color: Colors.black.withValues(alpha: 0.08),
-          blurRadius: 16,
-          offset: const Offset(0, 6),
-        ),
-      ],
     );
   }
 
@@ -214,15 +208,6 @@ class SettingsView extends StatelessWidget {
             decoration: BoxDecoration(
               color: isSelected ? colorScheme.surface : Colors.transparent,
               borderRadius: BorderRadius.circular(8),
-              boxShadow: isSelected
-                  ? [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.08),
-                        blurRadius: 4,
-                        offset: const Offset(0, 1),
-                      ),
-                    ]
-                  : null,
             ),
             child: AnimatedDefaultTextStyle(
               duration: const Duration(milliseconds: 160),
@@ -466,7 +451,7 @@ class SettingsView extends StatelessWidget {
                 '피드백/지원',
                 () async {
                   // 피드백 접수 폼 열기
-                  final Uri url = Uri.parse('https://naver.me/FaehTRet');
+                  final Uri url = Uri.parse(feedbackFormUrl);
                   if (await canLaunchUrl(url)) {
                     await launchUrl(url, mode: LaunchMode.externalApplication);
                   }

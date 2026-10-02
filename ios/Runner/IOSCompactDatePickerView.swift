@@ -35,6 +35,8 @@ final class IOSCompactDatePickerView: NSObject, FlutterPlatformView {
   // picker 기본 문자열 대신 원하는 형식으로 보이게 할 라벨이다.
   private let titleLabel = UILabel()
   private let channel: FlutterMethodChannel
+  // 표시 라벨 형식. 시간 모드에서는 "HH:mm"처럼 Flutter가 지정한다.
+  private var displayFormat = "yyyy년M월d일"
 
   init(
     frame: CGRect,
@@ -55,7 +57,10 @@ final class IOSCompactDatePickerView: NSObject, FlutterPlatformView {
     container.backgroundColor = .clear
 
     titleLabel.translatesAutoresizingMaskIntoConstraints = false
-    titleLabel.font = UIFont.systemFont(ofSize: 16, weight: .regular)
+    titleLabel.font = UIFont.systemFont(
+      ofSize: CGFloat((args?["fontSize"] as? NSNumber)?.doubleValue ?? 16),
+      weight: (args?["bold"] as? Bool ?? false) ? .bold : .regular
+    )
     titleLabel.textColor = .label
     titleLabel.textAlignment = .center
     titleLabel.adjustsFontSizeToFitWidth = true
@@ -91,10 +96,21 @@ final class IOSCompactDatePickerView: NSObject, FlutterPlatformView {
   }
 
   private func configurePicker(with args: [String: Any]?) {
-    picker.datePickerMode = .date
+    let isTimeMode = args?["mode"] as? String == "time"
+    picker.datePickerMode = isTimeMode ? .time : .date
 
-    // 한국식 양력 기준으로 표시를 맞춘다.
-    let locale = Locale(identifier: "ko_KR@calendar=gregorian")
+    if let format = args?["displayFormat"] as? String {
+      displayFormat = format
+    }
+
+    if let interval = args?["minuteInterval"] as? Int, interval > 0 {
+      picker.minuteInterval = interval
+    }
+
+    // 날짜는 한국식 양력 기준으로, 시간은 오전/오후 없이 24시간 휠로 보여준다.
+    let locale = Locale(
+      identifier: isTimeMode ? "en_GB" : "ko_KR@calendar=gregorian"
+    )
     var calendar = Calendar(identifier: .gregorian)
     calendar.locale = locale
     picker.locale = locale
@@ -155,7 +171,7 @@ final class IOSCompactDatePickerView: NSObject, FlutterPlatformView {
     formatter.locale = picker.locale
     formatter.calendar = picker.calendar
     formatter.timeZone = picker.timeZone
-    formatter.dateFormat = "yyyy년M월d일"
+    formatter.dateFormat = displayFormat
     titleLabel.text = formatter.string(from: picker.date)
   }
 }

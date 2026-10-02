@@ -219,12 +219,6 @@ class _HomeViewState extends State<HomeView>
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    const Icon(
-                      Icons.info_outline,
-                      size: 14,
-                      color: Colors.grey,
-                    ),
-                    const SizedBox(width: 8),
                     Expanded(
                       child: Text(
                         PlatformUtils.shortDisclaimer,
@@ -252,7 +246,9 @@ class _HomeViewState extends State<HomeView>
                         '자세히 보기',
                         style: TextStyle(
                           fontSize: 11,
-                          color: Colors.blue.shade700,
+                          // 기본 글자색 + 밑줄로 눌러볼 수 있음을 표시
+                          color: Theme.of(context).colorScheme.onSurface,
+                          decoration: TextDecoration.underline,
                         ),
                       ),
                     ),
