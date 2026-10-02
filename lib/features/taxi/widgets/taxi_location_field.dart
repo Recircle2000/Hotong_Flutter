@@ -29,7 +29,11 @@ class TaxiLocationField extends StatelessWidget {
       icon: const Icon(Icons.expand_more_rounded),
       borderRadius: BorderRadius.circular(16),
       dropdownColor: Theme.of(context).cardColor,
-      decoration: taxiInputDecoration(context, label: label),
+      // 선택 전에는 라벨을 자리 표시 문구처럼 보여주고, 선택하면 숨긴다.
+      decoration: taxiInputDecoration(
+        context,
+        label: label,
+      ).copyWith(floatingLabelBehavior: FloatingLabelBehavior.never),
       items: locations
           .map(
             (location) => DropdownMenuItem<int>(
@@ -52,10 +56,10 @@ class TaxiLocationField extends StatelessWidget {
     return Stack(
       children: [
         InputDecorator(
-          decoration: taxiInputDecoration(
-            context,
-            label: label,
-          ).copyWith(suffixIcon: const Icon(Icons.expand_more_rounded)),
+          decoration: taxiInputDecoration(context, label: label).copyWith(
+            suffixIcon: const Icon(Icons.expand_more_rounded),
+            floatingLabelBehavior: FloatingLabelBehavior.never,
+          ),
           isEmpty: selected == null,
           child: Text(
             selected?.name ?? '',

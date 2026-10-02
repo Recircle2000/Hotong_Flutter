@@ -1,4 +1,3 @@
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:hsro/features/taxi/utils/taxi_departure_time.dart';
 import 'package:hsro/features/taxi/widgets/taxi_theme.dart';
@@ -17,7 +16,7 @@ String _relativeDepartureLabel(DateTime departureAt, DateTime now) {
       : rest == 0
       ? '$hours시간'
       : '$hours시간 $rest분';
-  return '지금부터 $text 후 출발';
+  return '$text 후 출발';
 }
 
 /// 팟 생성 화면의 출발 시각 카드. 오늘/내일과 5분 단위 시각을 카드 안에서 고른다.
@@ -28,12 +27,16 @@ class TaxiDepartureTimeCard extends StatelessWidget {
     required this.now,
     required this.onDayChanged,
     required this.onTimeChanged,
+    this.footer,
   });
 
   final DateTime departureAt;
   final DateTime now;
   final ValueChanged<int> onDayChanged;
   final ValueChanged<DateTime> onTimeChanged;
+
+  /// 날짜·시각 선택 아래에 붙는 영역 (빠른 선택 칩, 안내 문구).
+  final Widget? footer;
 
   /// 시트 없이 카드 안에서 오늘/내일과 시각을 바로 고른다.
   /// iOS는 네이티브 compact 시간 선택기, Android는 머티리얼 시계 선택기를 쓴다.
@@ -70,16 +73,11 @@ class TaxiDepartureTimeCard extends StatelessWidget {
       onDayChanged(value);
     }
 
-    // Android 세그먼트 버튼은 폭이 좁아 요일을 빼고 날짜만 보여준다.
-    String dayLabel(String label, DateTime day) =>
-        '$label ${DateFormat(isIOS ? 'M/d (E)' : 'M/d', 'ko').format(day)}';
+    String dayLabel(DateTime day) => DateFormat('M/d E', 'ko').format(day);
 
     return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: taxiTint(context),
-        borderRadius: BorderRadius.circular(20),
-      ),
+      padding: const EdgeInsets.all(20),
+      decoration: taxiCardDecoration(context),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -87,49 +85,62 @@ class TaxiDepartureTimeCard extends StatelessWidget {
             children: [
               Text(
                 '출발 시각',
-                style: theme.textTheme.labelMedium?.copyWith(
-                  color: taxiAccentText(context),
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
                 ),
               ),
               const Spacer(),
               Text(
                 _relativeDepartureLabel(departureAt, now),
-                style: theme.textTheme.bodySmall?.copyWith(
+                style: theme.textTheme.bodyMedium?.copyWith(
                   color: taxiAccentText(context),
-                  fontWeight: FontWeight.w600,
+                  fontWeight: FontWeight.bold,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 14),
           Row(
             children: [
               Expanded(
-                child: isIOS
-                    ? _buildCupertinoDays(
-                        theme,
-                        dayOffset: dayOffset,
-                        canPickToday: canPickToday,
-                        todayLabel: dayLabel('오늘', today),
-                        tomorrowLabel: dayLabel('내일', tomorrow),
-                        onSelected: selectDay,
-                      )
-                    : _buildMaterialDays(
-                        context,
-                        dayOffset: dayOffset,
-                        canPickToday: canPickToday,
-                        todayLabel: dayLabel('오늘', today),
-                        tomorrowLabel: dayLabel('내일', tomorrow),
-                        onSelected: selectDay,
+                child: Container(
+                  height: 60,
+                  padding: const EdgeInsets.all(3),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.06),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: _DaySegment(
+                          label: '오늘',
+                          date: dayLabel(today),
+                          selected: dayOffset == 0,
+                          enabled: canPickToday,
+                          onTap: () => selectDay(0),
+                        ),
                       ),
+                      Expanded(
+                        child: _DaySegment(
+                          label: '내일',
+                          date: dayLabel(tomorrow),
+                          selected: dayOffset == 1,
+                          onTap: () => selectDay(1),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 10),
               Container(
-                width: 92,
-                height: 44,
+                width: 116,
+                height: 60,
                 decoration: BoxDecoration(
                   color: theme.cardColor,
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: taxiAccent, width: 1.5),
                 ),
                 child: isIOS
                     ? IOSCompactTimePickerField(
@@ -154,77 +165,66 @@ class TaxiDepartureTimeCard extends StatelessWidget {
               ),
             ],
           ),
+          if (footer != null) ...[const SizedBox(height: 12), footer!],
         ],
       ),
     );
   }
+}
 
-  Widget _buildCupertinoDays(
-    ThemeData theme, {
-    required int dayOffset,
-    required bool canPickToday,
-    required String todayLabel,
-    required String tomorrowLabel,
-    required ValueChanged<int?> onSelected,
-  }) {
-    Widget segment(String label, {bool enabled = true}) => Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Text(
-        label,
-        style: theme.textTheme.labelLarge?.copyWith(
-          fontWeight: FontWeight.w600,
-          color: enabled
-              ? null
-              : theme.colorScheme.onSurface.withValues(alpha: 0.3),
-        ),
-      ),
-    );
-    return CupertinoSlidingSegmentedControl<int>(
-      groupValue: dayOffset,
-      backgroundColor: theme.colorScheme.onSurface.withValues(alpha: 0.06),
-      thumbColor: theme.cardColor,
-      children: {
-        0: segment(todayLabel, enabled: canPickToday),
-        1: segment(tomorrowLabel),
-      },
-      onValueChanged: onSelected,
-    );
-  }
+/// 오늘/내일 선택 칸. 위에는 오늘·내일, 아래에는 날짜와 요일을 보여준다.
+class _DaySegment extends StatelessWidget {
+  const _DaySegment({
+    required this.label,
+    required this.date,
+    required this.selected,
+    required this.onTap,
+    this.enabled = true,
+  });
 
-  Widget _buildMaterialDays(
-    BuildContext context, {
-    required int dayOffset,
-    required bool canPickToday,
-    required String todayLabel,
-    required String tomorrowLabel,
-    required ValueChanged<int?> onSelected,
-  }) {
+  final String label;
+  final String date;
+  final bool selected;
+  final bool enabled;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return SegmentedButton<int>(
-      segments: [
-        ButtonSegment(
-          value: 0,
-          label: Text(todayLabel, maxLines: 1),
-          enabled: canPickToday,
+    final onSurface = theme.colorScheme.onSurface;
+    final color = !enabled
+        ? onSurface.withValues(alpha: 0.3)
+        : selected
+        ? onSurface
+        : theme.colorScheme.onSurfaceVariant;
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: enabled ? onTap : null,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: selected
+              ? theme.cardColor
+              : theme.cardColor.withValues(alpha: 0),
+          borderRadius: BorderRadius.circular(13),
         ),
-        ButtonSegment(value: 1, label: Text(tomorrowLabel, maxLines: 1)),
-      ],
-      selected: {dayOffset},
-      showSelectedIcon: false,
-      onSelectionChanged: (values) => onSelected(values.first),
-      style: SegmentedButton.styleFrom(
-        backgroundColor: theme.cardColor.withValues(alpha: 0.6),
-        selectedBackgroundColor: theme.cardColor,
-        selectedForegroundColor: taxiAccentText(context),
-        foregroundColor: theme.colorScheme.onSurfaceVariant,
-        side: BorderSide(
-          color: theme.colorScheme.onSurface.withValues(alpha: 0.08),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(label, style: TextStyle(fontSize: 12, color: color)),
+            const SizedBox(height: 1),
+            Text(
+              date,
+              maxLines: 1,
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: selected ? FontWeight.bold : FontWeight.w600,
+                color: color,
+              ),
+            ),
+          ],
         ),
-        textStyle: theme.textTheme.labelLarge?.copyWith(
-          fontWeight: FontWeight.w600,
-        ),
-        padding: const EdgeInsets.symmetric(horizontal: 6),
-        visualDensity: VisualDensity.compact,
       ),
     );
   }
@@ -305,7 +305,7 @@ class _MaterialTimeButton extends StatelessWidget {
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
         onTap: () => _pick(context),
         child: Center(
           child: Text(
@@ -337,26 +337,25 @@ class TaxiQuickTimeChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Material(
-      color: selected
-          ? taxiTint(context, 0.18)
-          : theme.colorScheme.onSurface.withValues(alpha: 0.04),
+      color: selected ? taxiTint(context, 0.18) : theme.cardColor,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         side: BorderSide(
           color: selected
               ? taxiAccent
-              : theme.colorScheme.onSurface.withValues(alpha: 0.08),
+              : theme.colorScheme.onSurface.withValues(alpha: 0.12),
           width: selected ? 1.5 : 1,
         ),
       ),
       child: InkWell(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 10),
+          padding: const EdgeInsets.symmetric(vertical: 11),
           child: Text(
             label,
             textAlign: TextAlign.center,
+            maxLines: 1,
             style: theme.textTheme.labelLarge?.copyWith(
               color: selected ? taxiAccentText(context) : null,
               fontWeight: FontWeight.bold,

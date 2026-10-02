@@ -341,7 +341,7 @@ class _StepProgress extends StatelessWidget {
   const _StepProgress({required this.currentStep});
 
   final int currentStep;
-  static const _titles = ['경로 · 출발 정보', '모집 설정'];
+  static const _titles = ['경로와 출발 정보', '모집 설정'];
 
   @override
   Widget build(BuildContext context) {
@@ -358,7 +358,7 @@ class _StepProgress extends StatelessWidget {
                   duration: const Duration(milliseconds: 220),
                   height: 4,
                   margin: EdgeInsets.only(
-                    right: index == _titles.length - 1 ? 0 : 6,
+                    right: index == _titles.length - 1 ? 0 : 8,
                   ),
                   decoration: BoxDecoration(
                     color: index <= currentStep
@@ -374,7 +374,7 @@ class _StepProgress extends StatelessWidget {
           Row(
             children: [
               Text(
-                '${currentStep + 1}/${_titles.length}',
+                '${currentStep + 1} / ${_titles.length}',
                 style: theme.textTheme.labelMedium?.copyWith(
                   color: taxiAccentText(context),
                   fontWeight: FontWeight.bold,
@@ -412,11 +412,11 @@ class _StepIntro extends StatelessWidget {
           Text(
             title,
             style: theme.textTheme.headlineSmall?.copyWith(
-              fontWeight: FontWeight.bold,
-              fontSize: 22,
+              fontWeight: FontWeight.w800,
+              fontSize: 26,
             ),
           ),
-          const SizedBox(height: 5),
+          const SizedBox(height: 8),
           Text(
             description,
             style: theme.textTheme.bodyMedium?.copyWith(
@@ -449,7 +449,7 @@ class _RouteStep extends StatelessWidget {
   });
 
   static const _quickOffsets = [
-    (label: '지금 출발', offset: Duration.zero),
+    (label: '지금', offset: Duration.zero),
     (label: '20분 후', offset: Duration(minutes: 20)),
     (label: '30분 후', offset: Duration(minutes: 30)),
     (label: '1시간 후', offset: Duration(hours: 1)),
@@ -483,80 +483,107 @@ class _RouteStep extends StatelessWidget {
           children: [
             const _StepIntro(
               title: '어디로, 언제 출발하나요?',
-              description: '경로와 만날 장소를 알려주면 같은 방향 사람들이 쉽게 찾을 수 있어요.',
+              description: '같은 방향 사람들이 쉽게 찾을 수 있어요.',
             ),
-            const SizedBox(height: 28),
+            const SizedBox(height: 24),
             Container(
               decoration: taxiCardDecoration(context),
               padding: const EdgeInsets.all(20),
               child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  TaxiLocationField(
-                    key: ValueKey('departure-$departureId'),
-                    label: '출발 거점',
-                    value: departureId,
-                    locations: locations,
-                    onChanged: onDepartureChanged,
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    child: Row(
-                      children: [
-                        const Expanded(child: Divider()),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 10),
-                          child: IconButton.filledTonal(
-                            tooltip: '출발지와 도착지 바꾸기',
-                            onPressed: onSwap,
-                            style: IconButton.styleFrom(
-                              backgroundColor: taxiTint(context),
-                              foregroundColor: taxiAccentText(context),
-                            ),
-                            icon: const Icon(Icons.swap_vert_rounded),
-                          ),
-                        ),
-                        const Expanded(child: Divider()),
-                      ],
+                  Text(
+                    '경로',
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
-                  TaxiLocationField(
-                    key: ValueKey('destination-$destinationId'),
-                    label: '도착 거점',
-                    value: destinationId,
-                    locations: locations,
-                    onChanged: onDestinationChanged,
+                  const SizedBox(height: 14),
+                  Row(
+                    children: [
+                      // 출발(빈 원) → 도착(채운 원) 표시
+                      const _RouteMarker(),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          children: [
+                            TaxiLocationField(
+                              key: ValueKey('departure-$departureId'),
+                              label: '출발 거점',
+                              value: departureId,
+                              locations: locations,
+                              onChanged: onDepartureChanged,
+                            ),
+                            const SizedBox(height: 8),
+                            TaxiLocationField(
+                              key: ValueKey('destination-$destinationId'),
+                              label: '도착 거점',
+                              value: destinationId,
+                              locations: locations,
+                              onChanged: onDestinationChanged,
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      IconButton.outlined(
+                        tooltip: '출발지와 도착지 바꾸기',
+                        onPressed: onSwap,
+                        style: IconButton.styleFrom(
+                          fixedSize: const Size(46, 46),
+                          foregroundColor: taxiAccentText(context),
+                          side: BorderSide(
+                            color: theme.colorScheme.onSurface.withValues(
+                              alpha: 0.12,
+                            ),
+                          ),
+                        ),
+                        icon: const Icon(Icons.swap_vert_rounded),
+                      ),
+                    ],
                   ),
                 ],
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 14),
             TaxiDepartureTimeCard(
               departureAt: departureAt,
               now: now,
               onDayChanged: onDepartureDayChanged,
               onTimeChanged: onDepartureTimeChanged,
-            ),
-            const SizedBox(height: 10),
-            Row(
-              children: [
-                for (final (index, quick) in _quickOffsets.indexed) ...[
-                  if (index > 0) const SizedBox(width: 8),
-                  Expanded(
-                    child: TaxiQuickTimeChip(
-                      label: quick.label,
-                      selected:
-                          departureAt ==
-                          normalizeTaxiDepartureInitial(
-                            now.add(quick.offset),
-                            now: now,
+              footer: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      for (final (index, quick) in _quickOffsets.indexed) ...[
+                        if (index > 0) const SizedBox(width: 8),
+                        Expanded(
+                          child: TaxiQuickTimeChip(
+                            label: quick.label,
+                            selected:
+                                departureAt ==
+                                normalizeTaxiDepartureInitial(
+                                  now.add(quick.offset),
+                                  now: now,
+                                ),
+                            onTap: () => onQuickDeparture(quick.offset),
                           ),
-                      onTap: () => onQuickDeparture(quick.offset),
+                        ),
+                      ],
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    '오늘과 내일, 5분 단위로 고를 수 있어요.',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
                     ),
                   ),
                 ],
-              ],
+              ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 14),
             Container(
               decoration: taxiCardDecoration(context),
               padding: const EdgeInsets.all(20),
@@ -576,16 +603,12 @@ class _RouteStep extends StatelessWidget {
                       color: theme.colorScheme.onSurfaceVariant,
                     ),
                   ),
-                  const SizedBox(height: 18),
+                  const SizedBox(height: 14),
                   TextFormField(
                     controller: departureSummary,
                     maxLength: 80,
                     textInputAction: TextInputAction.next,
-                    decoration: taxiInputDecoration(
-                      context,
-                      label: '출발 장소',
-                      hint: '예: 정문 택시승강장',
-                    ),
+                    decoration: _placeholderDecoration(context, '출발 장소'),
                     validator: (value) => value == null || value.trim().isEmpty
                         ? '출발 장소를 입력해주세요.'
                         : null,
@@ -596,22 +619,58 @@ class _RouteStep extends StatelessWidget {
                     maxLength: 80,
                     textInputAction: TextInputAction.done,
                     onFieldSubmitted: (_) => onSubmitted(),
-                    decoration: taxiInputDecoration(
-                      context,
-                      label: '도착 장소 (선택)',
-                      hint: '예: 3번 출구',
-                    ),
+                    decoration: _placeholderDecoration(context, '도착 장소 (선택)'),
                   ),
                 ],
               ),
             ),
-            const SizedBox(height: 18),
-            const _InfoNotice(
-              icon: Icons.schedule_outlined,
-              text: '출발 시각은 오늘 또는 내일, 5분 단위로 선택할 수 있어요.',
-            ),
           ],
         ),
+      ),
+    );
+  }
+
+  /// 라벨을 자리 표시 문구처럼 쓰고 글자 수 카운터는 숨긴 입력창 스타일.
+  InputDecoration _placeholderDecoration(BuildContext context, String label) =>
+      taxiInputDecoration(context, label: label).copyWith(
+        floatingLabelBehavior: FloatingLabelBehavior.never,
+        counterText: '',
+      );
+}
+
+/// 경로 카드 왼쪽의 출발(빈 원) → 도착(채운 원) 표시.
+class _RouteMarker extends StatelessWidget {
+  const _RouteMarker();
+
+  @override
+  Widget build(BuildContext context) {
+    final color = taxiAccentText(context);
+    return SizedBox(
+      width: 12,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 10,
+            height: 10,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(color: color, width: 2.5),
+            ),
+          ),
+          for (var i = 0; i < 7; i++)
+            Container(
+              width: 2,
+              height: 3,
+              margin: const EdgeInsets.symmetric(vertical: 2),
+              color: color.withValues(alpha: 0.45),
+            ),
+          Container(
+            width: 10,
+            height: 10,
+            decoration: BoxDecoration(shape: BoxShape.circle, color: color),
+          ),
+        ],
       ),
     );
   }
