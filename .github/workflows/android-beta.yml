@@ -1,0 +1,110 @@
+name: Android Beta
+
+on:
+  push:
+    branches: [develop]
+  workflow_dispatch:
+
+# 업로드가 겹치면 versionCode 순서가 꼬이므로 한 번에 하나만 돌린다.
+concurrency:
+  group: android-beta
+  cancel-in-progress: false
+
+env:
+  PACKAGE_NAME: com.jw.hoseotransport
+  # Play Console의 테스트 트랙: internal(내부) / alpha(비공개) / beta(공개)
+  PLAY_TRACK: internal
+  # versionCode = BUILD_NUMBER_OFFSET + 워크플로 실행 번호.
+  # Play에 이미 올라간 가장 큰 versionCode보다 커야 한다.
+  BUILD_NUMBER_OFFSET: 100
+  AAB_PATH: build/app/outputs/bundle/release/app-release.aab
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check required secrets
+        env:
+          ENV_FILE: ${{ secrets.ENV_FILE }}
+          GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+        run: |
+          missing=0
+          for name in ENV_FILE GOOGLE_SERVICES_JSON ANDROID_KEYSTORE_BASE64 \
+            ANDROID_KEYSTORE_PASSWORD ANDROID_KEY_ALIAS ANDROID_KEY_PASSWORD \
+            PLAY_SERVICE_ACCOUNT_JSON; do
+            if [ -z "${!name}" ]; then
+              echo "::error::Secret $name is not set"
+              missing=1
+            fi
+          done
+          exit $missing
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Create assets/.env
+        env:
+          ENV_FILE: ${{ secrets.ENV_FILE }}
+        run: printf '%s\n' "$ENV_FILE" > assets/.env
+
+      - name: Create google-services.json
+        env:
+          GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
+        run: printf '%s\n' "$GOOGLE_SERVICES_JSON" > android/app/google-services.json
+
+      - name: Set up release signing
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 -d > android/app/upload-keystore.jks
+          {
+            printf 'storePassword=%s\n' "$ANDROID_KEYSTORE_PASSWORD"
+            printf 'keyPassword=%s\n' "$ANDROID_KEY_PASSWORD"
+            printf 'keyAlias=%s\n' "$ANDROID_KEY_ALIAS"
+            printf 'storeFile=upload-keystore.jks\n'
+          } > android/key.properties
+
+      - run: flutter pub get
+
+      - name: Build app bundle
+        run: |
+          build_number=$((BUILD_NUMBER_OFFSET + GITHUB_RUN_NUMBER))
+          echo "versionCode: $build_number"
+          flutter build appbundle --release --build-number="$build_number"
+
+      # build.gradle은 서명 정보가 없으면 조용히 미서명 번들을 만든다.
+      - name: Verify bundle is signed
+        run: jarsigner -verify "$AAB_PATH" | grep -q "jar verified"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: app-release-aab
+          path: ${{ env.AAB_PATH }}
+          retention-days: 14
+
+      - name: Upload to Google Play
+        uses: r0adkll/upload-google-play@v1
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+          packageName: ${{ env.PACKAGE_NAME }}
+          releaseFiles: ${{ env.AAB_PATH }}
+          track: ${{ env.PLAY_TRACK }}
+          status: completed

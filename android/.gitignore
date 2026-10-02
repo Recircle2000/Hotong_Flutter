@@ -5,6 +5,12 @@ gradle-wrapper.jar
 /gradlew.bat
 /local.properties
 GeneratedPluginRegistrant.java
+/.kotlin/
+/app/.cxx/
+hs_err_pid*.log
+
+# CI에서는 GitHub Secrets로 주입한다.
+/app/google-services.json
 
 # Remember to never publicly share your keystore.
 # See https://flutter.dev/to/reference-keystore
