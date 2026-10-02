@@ -349,8 +349,6 @@ class _UpcomingDeparturesWidgetState extends State<UpcomingDeparturesWidget>
                                           (shuttle) => _buildCompactShuttleItem(
                                                 context,
                                                 shuttle,
-                                                Colors.deepOrange,
-                                                Icons.airport_shuttle,
                                               ))
                                       .toList(),
                                 ),
@@ -381,21 +379,11 @@ class _UpcomingDeparturesWidgetState extends State<UpcomingDeparturesWidget>
                                 return _buildEmptyMessage(context, '버스');
                               }
                               return Column(
-                                children: combinedBuses.take(3).map((bus) {
-                                  // 특정 하행 노선은 실시간 버스로 표시
-                                  final isRealtime =
-                                      bus.destination == '호서대천캠' &&
-                                          (bus.routeKey == '24_DOWN' ||
-                                              bus.routeKey == '81_DOWN');
-                                  return _buildCompactBusItem(
-                                    context,
-                                    bus,
-                                    isRealtime ? Colors.blue : Colors.blue,
-                                    isRealtime
-                                        ? Icons.location_on
-                                        : Icons.directions_bus,
-                                  );
-                                }).toList(),
+                                children: combinedBuses
+                                    .take(3)
+                                    .map((bus) =>
+                                        _buildCompactBusItem(context, bus))
+                                    .toList(),
                               );
                             }),
                           // 아산은 시간표 기반 버스만 표시
@@ -408,8 +396,6 @@ class _UpcomingDeparturesWidgetState extends State<UpcomingDeparturesWidget>
                                         .map((cityBus) => _buildCompactBusItem(
                                               context,
                                               cityBus,
-                                              Colors.blue,
-                                              Icons.directions_bus,
                                             ))
                                         .toList(),
                                   )),
@@ -493,8 +479,6 @@ class _UpcomingDeparturesWidgetState extends State<UpcomingDeparturesWidget>
   Widget _buildCompactShuttleItem(
     BuildContext context,
     BusDeparture departure,
-    Color color,
-    IconData icon,
   ) {
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
 
@@ -544,19 +528,6 @@ class _UpcomingDeparturesWidgetState extends State<UpcomingDeparturesWidget>
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                Container(
-                  padding: const EdgeInsets.all(4),
-                  decoration: BoxDecoration(
-                    color: color.withOpacity(0.1),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    icon,
-                    color: color,
-                    size: 12,
-                  ),
-                ),
-                const SizedBox(width: 6),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -626,8 +597,6 @@ class _UpcomingDeparturesWidgetState extends State<UpcomingDeparturesWidget>
   Widget _buildCompactBusItem(
     BuildContext context,
     BusDeparture departure,
-    Color color,
-    IconData icon,
   ) {
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
 
@@ -668,19 +637,6 @@ class _UpcomingDeparturesWidgetState extends State<UpcomingDeparturesWidget>
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                Container(
-                  padding: const EdgeInsets.all(4),
-                  decoration: BoxDecoration(
-                    color: color.withOpacity(0.1),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    icon,
-                    color: color,
-                    size: 12,
-                  ),
-                ),
-                const SizedBox(width: 6),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,

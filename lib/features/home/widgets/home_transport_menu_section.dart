@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 import 'package:hsro/features/city_bus/view/grouped_bus_view.dart';
 import 'package:hsro/features/auth/view/taxi_auth_gate_view.dart';
 import 'package:hsro/features/settings/viewmodel/settings_viewmodel.dart';
@@ -24,7 +25,7 @@ class HomeTransportMenuSection extends StatelessWidget {
     final subway = Expanded(
       child: _TransportMenuCard(
         title: '지하철',
-        icon: Icons.subway_outlined,
+        icon: PhosphorIconsRegular.trainSimple,
         color: const Color(0xFF0052A4),
         onTap: () => Get.to(
           () => SubwayView(
@@ -55,7 +56,7 @@ class HomeTransportMenuSection extends StatelessWidget {
   Widget _taxiCard([TaxiAvailabilityService? availability]) => Expanded(
     child: _TransportMenuCard(
       title: '택시',
-      icon: Icons.local_taxi_outlined,
+      icon: PhosphorIconsRegular.taxi,
       color: const Color(0xFFF5A623),
       onTap: () async {
         await Get.to(() => const TaxiAuthGateView());
@@ -81,7 +82,7 @@ class HomeTransportMenuSection extends StatelessWidget {
                 Expanded(
                   child: _TransportMenuCard(
                     title: '셔틀버스',
-                    icon: Icons.airport_shuttle,
+                    icon: PhosphorIconsRegular.van,
                     color: const Color(0xFFB83227),
                     onTap: () =>
                         Get.to(() => const ShuttleRouteSelectionView()),
@@ -91,7 +92,7 @@ class HomeTransportMenuSection extends StatelessWidget {
                 Expanded(
                   child: _TransportMenuCard(
                     title: '시내버스',
-                    icon: Icons.directions_bus,
+                    icon: PhosphorIconsRegular.bus,
                     color: Colors.blue,
                     onTap: () => Get.to(() => const CityBusGroupedView()),
                   ),
@@ -151,18 +152,10 @@ class _TransportMenuCard extends StatelessWidget {
         ),
         padding: const EdgeInsets.all(16),
         child: isCompact
-            // 작은 가로형 카드 레이아웃
+            // 작은 가로형 카드: 왼쪽 아이콘 + 옆에 텍스트
             ? Row(
-                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: color.withValues(alpha: 0.1),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(icon, size: 28, color: color),
-                  ),
+                  Icon(icon, size: 28, color: color),
                   const SizedBox(width: 10),
                   Text(
                     title,
@@ -174,19 +167,12 @@ class _TransportMenuCard extends StatelessWidget {
                   ),
                 ],
               )
-            // 세로형 카드 레이아웃
+            // 세로형 카드: 왼쪽 위 아이콘, 아래 왼쪽 정렬 텍스트
             : Column(
-                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Container(
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      color: color.withValues(alpha: 0.1),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(icon, size: 48, color: color),
-                  ),
-                  const SizedBox(height: 24),
+                  Icon(icon, size: 48, color: color),
                   Text(
                     title,
                     style: TextStyle(
