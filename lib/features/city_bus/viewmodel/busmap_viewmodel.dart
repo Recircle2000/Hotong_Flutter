@@ -183,6 +183,15 @@ class BusMapViewModel extends GetxController with WidgetsBindingObserver {
   }
 
   /// 웹소켓 연결 함수
+  // 노선별로 버스를 마지막으로 확인한 시각. 외부 API가 잠깐 비어도 바로 지우지 않는다.
+  final Map<String, DateTime> _lastBusSeenAt = {};
+  static const _busHoldDuration = Duration(seconds: 20);
+
+  bool _isHoldingBuses(String routeKey, DateTime now) {
+    final seenAt = _lastBusSeenAt[routeKey];
+    return seenAt != null && now.difference(seenAt) < _busHoldDuration;
+  }
+
   void _connectWebSocket() {
     _disconnectWebSocket(); // 기존 연결 초기화
     try {
@@ -206,6 +215,7 @@ class BusMapViewModel extends GetxController with WidgetsBindingObserver {
         hasReceivedWebSocketData.value = true;
 
         // 모든 노선의 데이터를 저장 (grouped_bus_view용)
+        final now = DateTime.now();
         for (final entry in data.entries) {
           final routeKey = entry.key;
           final busDataList = entry.value as List;
@@ -213,20 +223,23 @@ class BusMapViewModel extends GetxController with WidgetsBindingObserver {
           if (busDataList.isNotEmpty) {
             final busList = busDataList.map((e) => Bus.fromJson(e)).toList();
             allRoutesBusData[routeKey] = busList;
-          } else {
+            _lastBusSeenAt[routeKey] = now;
+          } else if (!_isHoldingBuses(routeKey, now)) {
             allRoutesBusData[routeKey] = [];
           }
         }
 
-        // 선택된 루트가 json 데이터에 포함되어 있는 경우에만 마커 업데이트
-        if (data.containsKey(selectedRoute.value) &&
-            data[selectedRoute.value] is List &&
-            (data[selectedRoute.value] as List).isNotEmpty) {
-          print(
-              'Found ${(data[selectedRoute.value] as List).length} buses for route ${selectedRoute.value}');
-          final busList = (data[selectedRoute.value] as List)
-              .map((e) => Bus.fromJson(e))
-              .toList();
+        // 선택된 노선에 버스가 있으면 마커 업데이트.
+        // 방금 응답이 비었더라도 유예 시간 안이면 마지막 위치를 유지해 깜빡임을 막는다.
+        final selected = selectedRoute.value;
+        final incoming = data[selected];
+        final List<Bus> busList = incoming is List && incoming.isNotEmpty
+            ? incoming.map((e) => Bus.fromJson(e)).toList()
+            : (_isHoldingBuses(selected, now)
+                ? (allRoutesBusData[selected] ?? const <Bus>[])
+                : const <Bus>[]);
+        if (busList.isNotEmpty) {
+          print('Found ${busList.length} buses for route $selected');
           updateBusMarkers(busList);
           _updateCurrentPosition(busList);
           update(); // UI 새로 고침
