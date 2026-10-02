@@ -410,7 +410,8 @@ class TaxiHomeViewModel extends GetxController with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      unawaited(_realtime.connect());
+      // 백그라운드에서 끊긴 소켓이 남아 있을 수 있어 새로 연결한다.
+      unawaited(_realtime.reconnect());
       unawaited(refreshAll());
     }
   }

@@ -33,6 +33,7 @@ class TaxiChatViewModel extends GetxController {
   final isLoading = false.obs;
   final errorMessage = ''.obs;
   StreamSubscription<TaxiRealtimeEvent>? _events;
+  StreamSubscription<void>? _reconnects;
   Timer? _readOnlyTimer;
   Timer? _expiryTimer;
   // 메시지가 연달아 올 때마다 읽음 처리(DB 쓰기)를 보내지 않도록 잠시 모은다.
@@ -63,8 +64,28 @@ class TaxiChatViewModel extends GetxController {
             unawaited(refreshStatus());
           }
         });
+    // 재연결되면 끊긴 동안 놓친 메시지를 다시 불러온다.
+    _reconnects = _realtime.onConnected.listen((_) => unawaited(_resync()));
     _scheduleLifecycleTimers();
     unawaited(load());
+  }
+
+  /// 화면을 비우지 않고 서버의 메시지를 받아 빠진 것만 채운다.
+  Future<void> _resync() async {
+    if (isExpired.value || isLoading.value) return;
+    try {
+      final latest = await _repository.getMessages(partyId);
+      if (isExpired.value) return;
+      final known = {for (final item in messages) item.id};
+      final missing = latest.where((item) => !known.contains(item.id)).toList();
+      if (missing.isNotEmpty) {
+        messages.addAll(missing);
+        messages.sort((a, b) => a.id.compareTo(b.id));
+      }
+      errorMessage.value = '';
+      await markLatestRead();
+      unawaited(refreshStatus());
+    } catch (_) {}
   }
 
   void _scheduleLifecycleTimers() {
@@ -114,6 +135,8 @@ class TaxiChatViewModel extends GetxController {
         clientMessageId: newTaxiUuid(),
         content: content,
       );
+      // 연결 안내가 떠 있었다면 전송에 성공했으니 지운다.
+      errorMessage.value = '';
       return true;
     } catch (_) {
       errorMessage.value = '채팅 서버에 연결하는 중입니다. 잠시 후 다시 시도해주세요.';
@@ -165,6 +188,7 @@ class TaxiChatViewModel extends GetxController {
     if (_readDebounce?.isActive ?? false) unawaited(markLatestRead());
     _readDebounce?.cancel();
     _events?.cancel();
+    _reconnects?.cancel();
     _readOnlyTimer?.cancel();
     _expiryTimer?.cancel();
     super.onClose();

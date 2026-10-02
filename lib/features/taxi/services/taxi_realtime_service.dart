@@ -13,6 +13,7 @@ class TaxiRealtimeService {
 
   final AuthService _authService;
   final _events = StreamController<TaxiRealtimeEvent>.broadcast();
+  final _connected = StreamController<void>.broadcast();
   WebSocketChannel? _channel;
   StreamSubscription<dynamic>? _subscription;
   Timer? _reconnectTimer;
@@ -22,6 +23,25 @@ class TaxiRealtimeService {
 
   Stream<TaxiRealtimeEvent> get events => _events.stream;
 
+  /// 연결(재연결 포함)이 맺어질 때마다 알린다. 끊긴 동안 놓친 내용을 다시 불러오는 데 쓴다.
+  Stream<void> get onConnected => _connected.stream;
+
+  /// 앱이 백그라운드에 있던 동안 소켓이 죽었는지 알 수 없으므로,
+  /// 기존 연결을 버리고 새로 연결한다.
+  Future<void> reconnect() async {
+    _shouldRun = true;
+    _reconnectTimer?.cancel();
+    _retry = 0;
+    final subscription = _subscription;
+    final channel = _channel;
+    _subscription = null;
+    _channel = null;
+    unawaited(subscription?.cancel());
+    // 죽은 소켓은 닫기가 끝나지 않을 수 있어 기다리지 않는다.
+    unawaited(channel?.sink.close().then((_) {}, onError: (_) {}));
+    await connect();
+  }
+
   Future<void> connect() async {
     _shouldRun = true;
     _reconnectTimer?.cancel();
@@ -30,7 +50,11 @@ class TaxiRealtimeService {
     WebSocketChannel? pendingChannel;
     try {
       final token = await _authService.getValidAccessToken();
-      if (token == null) return;
+      if (token == null) {
+        // 잠금 해제 직후처럼 토큰을 잠시 못 받는 경우에도 재시도를 이어간다.
+        _scheduleReconnect();
+        return;
+      }
       final base = Uri.parse(EnvConfig.baseUrl);
       final uri = base.replace(
         scheme: base.scheme == 'https' ? 'wss' : 'ws',
@@ -57,6 +81,7 @@ class TaxiRealtimeService {
         onDone: _scheduleReconnect,
         cancelOnError: true,
       );
+      if (!_connected.isClosed) _connected.add(null);
     } catch (_) {
       await pendingChannel?.sink.close();
       _channel = null;
@@ -82,6 +107,8 @@ class TaxiRealtimeService {
   }) {
     final channel = _channel;
     if (channel == null) {
+      // 끊긴 상태에서 보내려 하면 바로 재연결을 시도한다.
+      if (_shouldRun) unawaited(connect());
       throw StateError('채팅 서버에 연결되어 있지 않습니다.');
     }
     channel.sink.add(jsonEncode({
@@ -114,5 +141,6 @@ class TaxiRealtimeService {
   Future<void> dispose() async {
     await disconnect();
     await _events.close();
+    await _connected.close();
   }
 }
