@@ -854,7 +854,7 @@ class _MembersCard extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           Text(
-            '출발 10분 전까지 미정원 시 참여자 합의 후 출발합니다.',
+            '출발 전까지 미정원 시 참여자 합의 후 출발합니다.',
             style: theme.textTheme.bodySmall?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
             ),
