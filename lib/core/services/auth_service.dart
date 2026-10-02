@@ -31,8 +31,8 @@ class AuthService extends GetxService {
   final SupabaseClient? _client;
   final Set<String> allowedTestEmails;
 
-  /// 앱 심사용 계정. 메일함을 열 수 없는 심사자를 위해 인증번호 메일을 보내지 않고,
-  /// 인증번호 칸에 입력한 값을 Supabase에 지정해 둔 비밀번호로 확인한다.
+  /// 앱 심사용 계정. 메일함을 열 수 없는 심사자를 위해 인증번호 메일을 보내지 않는다.
+  /// 심사자가 입력한 고정 코드는 서버가 진짜 일회용 인증번호로 바꿔 준다.
   final Set<String> reviewEmails;
   final String unavailableMessage;
   final sessionState = AppAuthSessionState.unavailable.obs;
@@ -42,6 +42,7 @@ class AuthService extends GetxService {
   Future<AuthResponse>? _refreshInFlight;
 
   bool get isAvailable => _client != null;
+  bool isReviewEmail(String email) => reviewEmails.contains(email);
   String? get currentUserId => currentSession.value?.user.id;
   String? get currentUserEmail => currentSession.value?.user.email;
 
@@ -102,16 +103,11 @@ class AuthService extends GetxService {
       throw InvalidOtpException();
     }
 
-    final response = reviewEmails.contains(normalizedEmail)
-        ? await client.auth.signInWithPassword(
-            email: normalizedEmail,
-            password: normalizedOtp,
-          )
-        : await client.auth.verifyOTP(
-            email: normalizedEmail,
-            token: normalizedOtp,
-            type: OtpType.email,
-          );
+    final response = await client.auth.verifyOTP(
+      email: normalizedEmail,
+      token: normalizedOtp,
+      type: OtpType.email,
+    );
     final session = response.session;
     if (session == null || response.user == null) {
       throw const AuthException('인증 세션이 생성되지 않았습니다.');

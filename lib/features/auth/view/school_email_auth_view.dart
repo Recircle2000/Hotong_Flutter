@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:get/get.dart';
 import 'package:hsro/features/auth/viewmodel/auth_viewmodel.dart';
 
 class SchoolEmailAuthView extends StatelessWidget {
@@ -14,8 +15,12 @@ class SchoolEmailAuthView extends StatelessWidget {
   final TextEditingController emailController;
   final TextEditingController otpController;
 
+  // 오류 문구·로딩·재전송 타이머가 바뀔 때 화면이 따라 바뀌도록 여기서 직접 구독한다.
+  // (부모의 Obx는 이 위젯 안에서 읽는 값까지 추적하지 못한다.)
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => Obx(() => _buildContent(context));
+
+  Widget _buildContent(BuildContext context) {
     final theme = Theme.of(context);
     final isOtpStep = controller.step.value == TaxiAuthStep.otp;
 

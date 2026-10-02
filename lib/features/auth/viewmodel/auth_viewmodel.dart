@@ -108,11 +108,26 @@ class AuthViewModel extends GetxController {
     isLoading.value = true;
     errorMessage.value = '';
     try {
-      await _authService.verifyOtp(email: email, otp: otp);
+      var code = otp;
+      if (_authService.isReviewEmail(email)) {
+        // 심사용 계정은 입력한 고정 코드를 서버에서 일회용 인증번호로 바꿔 인증한다.
+        code = await _repository.exchangeReviewCode(
+          email: email,
+          code: otp.trim(),
+        );
+        if (generation != _operationGeneration) return;
+      }
+      await _authService.verifyOtp(email: email, otp: code);
       if (generation != _operationGeneration) return;
       await _verifyServerSession(generation);
     } on InvalidOtpException {
       errorMessage.value = '6자리 인증번호를 입력해주세요.';
+    } on AppAuthApiException catch (error) {
+      errorMessage.value = switch (error.statusCode) {
+        403 => '인증번호가 올바르지 않거나 만료되었습니다.',
+        429 => '요청이 너무 많습니다. 잠시 후 다시 시도해주세요.',
+        _ => '인증을 완료하지 못했습니다. 잠시 후 다시 시도해주세요.',
+      };
     } on AuthException catch (error) {
       errorMessage.value = _authErrorMessage(error);
     } catch (_) {

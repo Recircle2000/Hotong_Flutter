@@ -15,7 +15,7 @@ class EnvConfig {
   static Set<String> get authTestEmails =>
       _emailSet('APP_AUTH_TEST_EMAILS');
 
-  /// 앱 심사용 계정. 인증번호 메일 대신 Supabase에 지정한 비밀번호로 로그인한다.
+  /// 앱 심사용 계정. 인증번호 메일 대신 서버가 고정 코드를 인증번호로 바꿔 준다.
   static Set<String> get authReviewEmails =>
       _emailSet('APP_AUTH_REVIEW_EMAILS');
 
