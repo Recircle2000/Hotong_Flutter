@@ -6,6 +6,8 @@ gradle-wrapper.jar
 /local.properties
 GeneratedPluginRegistrant.java
 /.kotlin/
+# Gradle이 android/ 바로 아래에 만드는 빌드 산출물(리포트 등)
+/build/
 /app/.cxx/
 hs_err_pid*.log
 

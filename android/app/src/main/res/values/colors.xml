@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!-- 적응형 앱 아이콘(mipmap-anydpi-v26/ic_launcher.xml)의 배경색. pubspec의 adaptive_icon_background와 같다. -->
+    <color name="ic_launcher_background">#000000</color>
     <!-- 알림 아이콘 배경에 쓰는 호통 로고의 빨간색 -->
     <color name="notification_accent">#E61221</color>
 </resources>
