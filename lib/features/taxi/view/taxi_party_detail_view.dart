@@ -1026,9 +1026,24 @@ class _HotongCard extends StatelessWidget {
 class _SafetyNotice extends StatelessWidget {
   const _SafetyNotice();
 
+  // 신고 사유(노쇼, 정산 문제, 욕설·비매너)와 짝을 맞춘 이용 수칙
+  static const _rules = [
+    (title: '시간 지키기', body: '약속 시간까지 약속한 출발 장소에 도착해 주세요.'),
+    (title: '못 가면 미리 알리기', body: '참여가 어려워지면 채팅으로 알리고 팟에서 나가 주세요.'),
+    (
+      title: '요금은 똑같이 나누기',
+      body: '택시비는 탑승 인원이 똑같이 나눠 내고, 내린 뒤 바로 정산해 주세요.',
+    ),
+    (
+      title: '서로 존중하기',
+      body: '욕설이나 불쾌한 언행, 노쇼, 정산 거부는 신고 대상이며 이용이 제한될 수 있어요.',
+    ),
+  ];
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final bodyStyle = theme.textTheme.bodySmall?.copyWith(height: 1.5);
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -1043,18 +1058,46 @@ class _SafetyNotice extends StatelessWidget {
               const Icon(Icons.info_outline, size: 18),
               const SizedBox(width: 7),
               Text(
-                '안전하고 매너 있는 택시팟 이용수칙',
+                '택시팟 이용 수칙',
                 style: theme.textTheme.labelLarge?.copyWith(
                   fontWeight: FontWeight.bold,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 10),
+          for (final rule in _rules)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 6),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('• ', style: bodyStyle),
+                  Expanded(
+                    child: Text.rich(
+                      TextSpan(
+                        children: [
+                          TextSpan(
+                            text: '${rule.title}  ',
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                          TextSpan(text: rule.body),
+                        ],
+                      ),
+                      style: bodyStyle,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          const SizedBox(height: 4),
           Text(
-            '• 약속 시간 5분 전까지 지정된 출발 장소에 모여주세요.\n'
-            '• 결제 및 정산은 참여자 간 자율적으로 진행됩니다.',
-            style: theme.textTheme.bodySmall?.copyWith(height: 1.6),
+            '호통은 팟을 연결만 하며, 탑승·결제·정산은 참여자끼리 직접 진행합니다.',
+            style: theme.textTheme.bodySmall?.copyWith(
+              fontSize: 11,
+              height: 1.5,
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
           ),
         ],
       ),
