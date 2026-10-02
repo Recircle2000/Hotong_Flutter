@@ -72,6 +72,7 @@ dependencies:
   firebase_core: ^4.15.0
   firebase_messaging: ^16.7.0
   phosphoricons_flutter: ^1.0.0
+  firebase_analytics: ^12.6.0
 flutter_launcher_icons:
   android: true # 안드로이드 플랫폼에 런처 아이콘 적용 여부
   ios: true # iOS 플랫폼에 런처 아이콘 적용 여부
