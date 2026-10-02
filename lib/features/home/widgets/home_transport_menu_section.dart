@@ -32,12 +32,12 @@ class HomeTransportMenuSection extends StatelessWidget {
             stationName: settingsViewModel.selectedSubwayStation.value,
           ),
         ),
-        height: 80,
+        height: 60,
         isCompact: true,
       ),
     );
     if (!Get.isRegistered<TaxiAvailabilityService>()) {
-      return Row(children: [subway, const SizedBox(width: 16), _taxiCard()]);
+      return Row(children: [subway, const SizedBox(width: 10), _taxiCard()]);
     }
     final availability = Get.find<TaxiAvailabilityService>();
     return Obx(
@@ -45,7 +45,7 @@ class HomeTransportMenuSection extends StatelessWidget {
         children: [
           subway,
           if (availability.showTaxiMenu) ...[
-            const SizedBox(width: 16),
+            const SizedBox(width: 10),
             _taxiCard(availability),
           ],
         ],
@@ -63,7 +63,7 @@ class HomeTransportMenuSection extends StatelessWidget {
         // 택시 화면에서 팟을 나가거나 끝냈다면 메뉴 노출 여부를 다시 확인한다.
         unawaited(availability?.refresh());
       },
-      height: 80,
+      height: 60,
       isCompact: true,
     ),
   );
@@ -88,7 +88,7 @@ class HomeTransportMenuSection extends StatelessWidget {
                         Get.to(() => const ShuttleRouteSelectionView()),
                   ),
                 ),
-                const SizedBox(width: 16),
+                const SizedBox(width: 10),
                 Expanded(
                   child: _TransportMenuCard(
                     title: '시내버스',
@@ -100,7 +100,7 @@ class HomeTransportMenuSection extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
           // 지하철/택시 카드. 택시 서비스가 꺼지면 지하철이 한 줄을 채운다.
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -138,30 +138,25 @@ class _TransportMenuCard extends StatelessWidget {
     return ScaleButton(
       onTap: onTap,
       child: Container(
-        height: height ?? 180,
+        height: height ?? 128,
         decoration: BoxDecoration(
           color: cardColor,
-          borderRadius: BorderRadius.circular(25),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.1),
-              blurRadius: 10,
-              offset: const Offset(0, 0),
-            ),
-          ],
+          borderRadius: BorderRadius.circular(isCompact ? 18 : 22),
         ),
-        padding: const EdgeInsets.all(16),
+        padding: isCompact
+            ? const EdgeInsets.symmetric(horizontal: 18)
+            : const EdgeInsets.all(18),
         child: isCompact
             // 작은 가로형 카드: 왼쪽 아이콘 + 옆에 텍스트
             ? Row(
                 children: [
-                  Icon(icon, size: 28, color: color),
+                  Icon(icon, size: 22, color: color),
                   const SizedBox(width: 10),
                   Text(
                     title,
                     style: TextStyle(
                       fontSize: 16,
-                      fontWeight: FontWeight.bold,
+                      fontWeight: FontWeight.w700,
                       color: textColor,
                     ),
                   ),
@@ -172,12 +167,12 @@ class _TransportMenuCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Icon(icon, size: 48, color: color),
+                  Icon(icon, size: 30, color: color),
                   Text(
                     title,
                     style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
+                      fontSize: 19,
+                      fontWeight: FontWeight.w800,
                       color: textColor,
                     ),
                   ),

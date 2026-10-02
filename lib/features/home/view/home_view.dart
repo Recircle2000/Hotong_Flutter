@@ -131,7 +131,10 @@ class _HomeViewState extends State<HomeView>
 
   @override
   Widget build(BuildContext context) {
-    final backgroundColor = Theme.of(context).scaffoldBackgroundColor;
+    // 그림자 없는 흰 카드가 구분되도록 라이트 모드 홈 배경만 한 단계 어둡게
+    final backgroundColor = Theme.of(context).brightness == Brightness.dark
+        ? Theme.of(context).scaffoldBackgroundColor
+        : const Color(0xFFF1F2F5);
 
     return WillPopScope(
       onWillPop: () async {
@@ -219,12 +222,6 @@ class _HomeViewState extends State<HomeView>
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    const Icon(
-                      Icons.info_outline,
-                      size: 14,
-                      color: Colors.grey,
-                    ),
-                    const SizedBox(width: 8),
                     Expanded(
                       child: Text(
                         PlatformUtils.shortDisclaimer,
@@ -252,7 +249,9 @@ class _HomeViewState extends State<HomeView>
                         '자세히 보기',
                         style: TextStyle(
                           fontSize: 11,
-                          color: Colors.blue.shade700,
+                          // 기본 글자색 + 밑줄로 눌러볼 수 있음을 표시
+                          color: Theme.of(context).colorScheme.onSurface,
+                          decoration: TextDecoration.underline,
                         ),
                       ),
                     ),
