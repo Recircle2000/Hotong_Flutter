@@ -9,6 +9,7 @@ import 'package:hsro/features/notice/models/emergency_notice_model.dart';
 import 'package:hsro/features/notice/widgets/emergency_notice_banner.dart';
 import 'package:hsro/features/settings/viewmodel/settings_viewmodel.dart';
 import 'package:hsro/shared/widgets/auto_scroll_text.dart';
+import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 
 class CityBusGroupedView extends StatefulWidget {
   final String? forcedCampus;
@@ -430,16 +431,9 @@ class _CityBusGroupedViewState extends State<CityBusGroupedView> {
               padding: const EdgeInsets.only(left: 4, bottom: 8),
               child: Row(
                 children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: Colors.blue.withOpacity(0.1),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(Icons.directions_bus,
-                        color: Colors.blue, size: 20),
-                  ),
-                  const SizedBox(width: 12),
+                  const Icon(PhosphorIconsFill.bus,
+                      color: Colors.blue, size: 26),
+                  const SizedBox(width: 10),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,

@@ -11,6 +11,7 @@ import 'package:hsro/features/taxi/widgets/taxi_party_card.dart';
 import 'package:hsro/features/taxi/widgets/taxi_theme.dart';
 import 'package:hsro/shared/widgets/ios_platform_fields.dart';
 import 'package:intl/intl.dart';
+import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 
 /// 택시팟 홈의 팟 검색 탭. 검색 카드가 가려지면 상단에 조건 요약 바를 띄운다.
 class TaxiFindPartiesTab extends StatefulWidget {
@@ -199,7 +200,7 @@ class _TaxiFindPartiesTabState extends State<TaxiFindPartiesTab> {
                           shape: BoxShape.circle,
                         ),
                         child: const Icon(
-                          Icons.local_taxi_outlined,
+                          PhosphorIconsFill.taxi,
                           color: taxiAccent,
                           size: 26,
                         ),
@@ -375,7 +376,7 @@ class _EmptyParties extends StatelessWidget {
               shape: BoxShape.circle,
             ),
             child: const Icon(
-              Icons.local_taxi_outlined,
+              PhosphorIconsFill.taxi,
               size: 32,
               color: taxiAccent,
             ),

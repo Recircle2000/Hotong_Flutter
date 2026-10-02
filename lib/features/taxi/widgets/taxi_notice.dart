@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:hsro/features/taxi/widgets/taxi_theme.dart';
+import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 
 /// 탭 본문을 대신해 보여주는 안내 문구와 다음 행동 버튼.
 class TaxiNotice extends StatelessWidget {
@@ -31,7 +32,7 @@ class TaxiNotice extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.local_taxi_outlined, size: 48, color: taxiAccent),
+          const Icon(PhosphorIconsFill.taxi, size: 48, color: taxiAccent),
           const SizedBox(height: 16),
           Text(message, textAlign: TextAlign.center),
           const SizedBox(height: 16),

@@ -6,6 +6,7 @@ import 'package:hsro/features/taxi/viewmodel/taxi_home_viewmodel.dart';
 import 'package:hsro/features/taxi/widgets/taxi_notice.dart';
 import 'package:hsro/features/taxi/widgets/taxi_theme.dart';
 import 'package:intl/intl.dart';
+import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 
 /// 참여 중인 팟 가운데 [selectedId]인 팟. 없으면 첫 번째 팟을 고른다.
 TaxiPartySummary? selectTaxiCurrentParty(
@@ -98,7 +99,7 @@ class TaxiCurrentTab extends StatelessWidget {
           physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.fromLTRB(20, 28, 20, 28),
           children: [
-            const Icon(Icons.local_taxi_outlined, size: 48, color: taxiAccent),
+            const Icon(PhosphorIconsFill.taxi, size: 48, color: taxiAccent),
             const SizedBox(height: 14),
             Text(
               '모집 중인 팟이 없어요',
@@ -271,7 +272,7 @@ class _CurrentSectionSelector extends StatelessWidget {
               child: _CurrentSectionButton(
                 key: const ValueKey('current-party-segment'),
                 label: '현재 파티',
-                icon: Icons.local_taxi_outlined,
+                icon: PhosphorIconsFill.taxi,
                 selected: selectedIndex == 0,
                 count: currentCount,
                 onTap: () => onSelected(0),

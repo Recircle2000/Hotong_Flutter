@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:hsro/features/taxi/widgets/taxi_theme.dart';
+import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 
 OverlayEntry? _currentBanner;
 
@@ -111,7 +112,7 @@ class _TaxiPushBannerState extends State<_TaxiPushBanner>
                     padding: const EdgeInsets.all(14),
                     child: Row(
                       children: [
-                        const Icon(Icons.local_taxi, color: taxiAccent),
+                        const Icon(PhosphorIconsFill.taxi, color: taxiAccent),
                         const SizedBox(width: 12),
                         Expanded(
                           child: Column(
