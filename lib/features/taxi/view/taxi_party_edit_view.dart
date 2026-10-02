@@ -40,10 +40,12 @@ class _TaxiPartyEditViewState extends State<TaxiPartyEditView> {
   @override
   void initState() {
     super.initState();
-    _departureSummary =
-        TextEditingController(text: widget.party.departureSummary);
-    _destinationSummary =
-        TextEditingController(text: widget.party.destinationSummary);
+    _departureSummary = TextEditingController(
+      text: widget.party.departureSummary,
+    );
+    _destinationSummary = TextEditingController(
+      text: widget.party.destinationSummary,
+    );
     _memberNote = TextEditingController(text: widget.party.memberNote);
     _departureId = widget.party.departureLocation.id;
     _destinationId = widget.party.destinationLocation.id;
@@ -109,8 +111,9 @@ class _TaxiPartyEditViewState extends State<TaxiPartyEditView> {
       return;
     }
 
-    final departureChanged =
-        !_departureAt.isAtSameMomentAs(widget.party.departureAt);
+    final departureChanged = !_departureAt.isAtSameMomentAs(
+      widget.party.departureAt,
+    );
     if (!_coreFieldsLocked && departureChanged) {
       final departureError = validateTaxiDepartureTime(_departureAt);
       if (departureError != null) {
@@ -125,13 +128,16 @@ class _TaxiPartyEditViewState extends State<TaxiPartyEditView> {
       destinationSummary: _destinationSummary.text.trim().isEmpty
           ? null
           : _destinationSummary.text.trim(),
-      memberNote:
-          _memberNote.text.trim().isEmpty ? null : _memberNote.text.trim(),
-      departureLocationId: !_coreFieldsLocked &&
+      memberNote: _memberNote.text.trim().isEmpty
+          ? null
+          : _memberNote.text.trim(),
+      departureLocationId:
+          !_coreFieldsLocked &&
               _departureId != widget.party.departureLocation.id
           ? _departureId
           : null,
-      destinationLocationId: !_coreFieldsLocked &&
+      destinationLocationId:
+          !_coreFieldsLocked &&
               _destinationId != widget.party.destinationLocation.id
           ? _destinationId
           : null,
@@ -160,44 +166,46 @@ class _TaxiPartyEditViewState extends State<TaxiPartyEditView> {
           leadingWidth: TaxiAppBarLeading.width,
           leading: TaxiAppBarLeading(enabled: !_saving),
         ),
-        body: Form(
-          key: _formKey,
-          child: ListView(
-            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-            padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
-            children: [
-              if (_coreFieldsLocked) ...[
-                const _LockedNotice(),
+        // 입력창 밖을 누르면 키보드를 닫는다.
+        body: GestureDetector(
+          behavior: HitTestBehavior.translucent,
+          onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+          child: Form(
+            key: _formKey,
+            child: ListView(
+              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
+              children: [
+                if (_coreFieldsLocked) ...[
+                  const _LockedNotice(),
+                  const SizedBox(height: 16),
+                ],
+                _RouteAndScheduleCard(
+                  locations: widget.locations,
+                  departureId: _departureId,
+                  destinationId: _destinationId,
+                  departureAt: _departureAt,
+                  maxMembers: _maxMembers,
+                  locked: _coreFieldsLocked,
+                  onDepartureChanged: _setDeparture,
+                  onDestinationChanged: _setDestination,
+                  onSwap: _swapLocations,
+                  onPickDateTime: _pickDateTime,
+                  onMaxMembersChanged: (value) =>
+                      setState(() => _maxMembers = value),
+                ),
                 const SizedBox(height: 16),
+                _LocationDetailsCard(
+                  departureSummary: _departureSummary,
+                  destinationSummary: _destinationSummary,
+                ),
+                const SizedBox(height: 16),
+                _MemberNoteCard(controller: _memberNote),
               ],
-              _RouteAndScheduleCard(
-                locations: widget.locations,
-                departureId: _departureId,
-                destinationId: _destinationId,
-                departureAt: _departureAt,
-                maxMembers: _maxMembers,
-                locked: _coreFieldsLocked,
-                onDepartureChanged: _setDeparture,
-                onDestinationChanged: _setDestination,
-                onSwap: _swapLocations,
-                onPickDateTime: _pickDateTime,
-                onMaxMembersChanged: (value) =>
-                    setState(() => _maxMembers = value),
-              ),
-              const SizedBox(height: 16),
-              _LocationDetailsCard(
-                departureSummary: _departureSummary,
-                destinationSummary: _destinationSummary,
-              ),
-              const SizedBox(height: 16),
-              _MemberNoteCard(controller: _memberNote),
-            ],
+            ),
           ),
         ),
-        bottomNavigationBar: _SaveDock(
-          saving: _saving,
-          onSave: _submit,
-        ),
+        bottomNavigationBar: _SaveDock(saving: _saving, onSave: _submit),
       ),
     );
   }
@@ -371,10 +379,9 @@ class _RouteAndScheduleCard extends StatelessWidget {
                     onPressed: locked ? null : onSwap,
                     style: IconButton.styleFrom(
                       backgroundColor: locked
-                          ? Theme.of(context)
-                              .colorScheme
-                              .onSurface
-                              .withValues(alpha: 0.04)
+                          ? Theme.of(
+                              context,
+                            ).colorScheme.onSurface.withValues(alpha: 0.04)
                           : taxiTint(context),
                       foregroundColor: locked
                           ? Theme.of(context).colorScheme.onSurfaceVariant
@@ -409,16 +416,16 @@ class _RouteAndScheduleCard extends StatelessWidget {
           const SizedBox(height: 20),
           Text(
             '총 인원',
-            style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
+            style: Theme.of(
+              context,
+            ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 5),
           Text(
             '방장인 나를 포함한 인원이에요.',
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
           ),
           const SizedBox(height: 13),
           IgnorePointer(
@@ -752,9 +759,7 @@ class _SaveDock extends StatelessWidget {
                   style: FilledButton.styleFrom(
                     backgroundColor: taxiAccent,
                     foregroundColor: taxiAccentForeground,
-                    disabledBackgroundColor: taxiAccent.withValues(
-                      alpha: 0.45,
-                    ),
+                    disabledBackgroundColor: taxiAccent.withValues(alpha: 0.45),
                     textStyle: theme.textTheme.labelLarge?.copyWith(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
