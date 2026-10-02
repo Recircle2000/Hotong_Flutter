@@ -176,7 +176,16 @@ class TaxiRepository {
     body: {'is_open': isOpen},
   );
 
-  Future<List<TaxiMessage>> getMessages(String partyId, {int? beforeId}) async {
+  Future<List<TaxiMessage>> getMessages(
+    String partyId, {
+    int? beforeId,
+  }) async => (await getMessagePage(partyId, beforeId: beforeId)).items;
+
+  /// 최근 메시지 한 쪽. [nextBeforeId]가 있으면 그 앞에 더 오래된 메시지가 남아 있다.
+  Future<({List<TaxiMessage> items, int? nextBeforeId})> getMessagePage(
+    String partyId, {
+    int? beforeId,
+  }) async {
     final data =
         await _request(
               'GET',
@@ -184,9 +193,12 @@ class TaxiRepository {
               query: beforeId == null ? null : {'before_id': '$beforeId'},
             )
             as Map<String, dynamic>;
-    return (data['items'] as List<dynamic>)
-        .map((item) => TaxiMessage.fromJson(item as Map<String, dynamic>))
-        .toList();
+    return (
+      items: (data['items'] as List<dynamic>)
+          .map((item) => TaxiMessage.fromJson(item as Map<String, dynamic>))
+          .toList(),
+      nextBeforeId: data['next_before_id'] as int?,
+    );
   }
 
   Future<void> markRead(String partyId, int lastMessageId) => _request(

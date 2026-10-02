@@ -38,6 +38,10 @@ class _TaxiChatViewState extends State<TaxiChatView> {
   Worker? _messageWorker;
   Worker? _pendingWorker;
   int _lastPendingCount = 0;
+  // 이전 메시지를 위에 붙이는 중에는 맨 아래로 따라 내려가지 않는다.
+  bool _prepending = false;
+
+  static const _loadOlderThreshold = 240.0;
   bool _hasText = false;
   bool _didInitialScroll = false;
   int _lastMessageCount = 0;
@@ -84,6 +88,30 @@ class _TaxiChatViewState extends State<TaxiChatView> {
 
   void _handleScroll() {
     if (_unseenCount.value > 0 && _isNearBottom) _unseenCount.value = 0;
+    if (_scrollController.position.pixels < _loadOlderThreshold) {
+      unawaited(_loadOlder());
+    }
+  }
+
+  /// 위쪽 끝에 가까워지면 이전 메시지를 불러오고, 보던 위치가 밀리지 않게 맞춘다.
+  Future<void> _loadOlder() async {
+    if (_prepending ||
+        !controller.hasOlder.value ||
+        controller.isLoadingOlder.value) {
+      return;
+    }
+    _prepending = true;
+    final before = _scrollController.position.maxScrollExtent;
+    await controller.loadOlder();
+    if (!mounted) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _prepending = false;
+      if (!mounted || !_scrollController.hasClients) return;
+      final added = _scrollController.position.maxScrollExtent - before;
+      if (added > 0) {
+        _scrollController.jumpTo(_scrollController.position.pixels + added);
+      }
+    });
   }
 
   void _handleMessagesChanged(List<TaxiMessage> messages) {
@@ -99,7 +127,7 @@ class _TaxiChatViewState extends State<TaxiChatView> {
       _scrollToBottom(animate: false);
       return;
     }
-    if (added <= 0) return;
+    if (added <= 0 || _prepending) return;
     // 내가 보냈거나 이미 맨 아래를 보고 있을 때만 따라 내려가고,
     // 이전 대화를 읽는 중이면 위치를 유지한 채 새 메시지 개수만 알린다.
     if (messages.last.isMine || _isNearBottom) {
@@ -306,6 +334,11 @@ class _TaxiChatViewState extends State<TaxiChatView> {
         );
       }
       final pending = controller.pending;
+      if (controller.loadFailed.value &&
+          controller.messages.isEmpty &&
+          pending.isEmpty) {
+        return _LoadFailed(onRetry: controller.load);
+      }
       if (controller.messages.isEmpty && pending.isEmpty) {
         return const _EmptyChat();
       }
@@ -350,6 +383,24 @@ class _TaxiChatViewState extends State<TaxiChatView> {
                 ],
               );
             },
+          ),
+          Positioned(
+            left: 0,
+            right: 0,
+            top: 8,
+            child: Center(
+              child: Obx(
+                () => controller.isLoadingOlder.value
+                    ? const SizedBox.square(
+                        dimension: 18,
+                        child: CircularProgressIndicator.adaptive(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(taxiAccent),
+                        ),
+                      )
+                    : const SizedBox.shrink(),
+              ),
+            ),
           ),
           Positioned(
             left: 0,
@@ -915,6 +966,32 @@ class _ChatError extends StatelessWidget {
       ),
     );
   }
+}
+
+/// 첫 불러오기에 실패했을 때. 사유는 입력창 위 안내에 뜨므로 여기서는 다시 시도만 둔다.
+class _LoadFailed extends StatelessWidget {
+  const _LoadFailed({required this.onRetry});
+
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) => Center(
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const Text('채팅을 불러오지 못했어요.'),
+        const SizedBox(height: 12),
+        FilledButton(
+          onPressed: onRetry,
+          style: FilledButton.styleFrom(
+            backgroundColor: taxiAccent,
+            foregroundColor: taxiAccentForeground,
+          ),
+          child: const Text('다시 시도'),
+        ),
+      ],
+    ),
+  );
 }
 
 class _EmptyChat extends StatelessWidget {

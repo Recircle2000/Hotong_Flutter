@@ -44,6 +44,12 @@ class TaxiTestApi {
   // 팟 상세의 참여자 목록과 채팅 메시지. 신고 화면을 시험할 때 채운다.
   List<Map<String, Object?>> members = [];
   List<Map<String, Object?>> messages = [];
+  // 설정하면 최근 메시지 응답에 "더 오래된 메시지 있음" 위치로 실리고,
+  // before_id로 다시 물으면 olderMessages를 돌려준다.
+  int? messagesNextBeforeId;
+  List<Map<String, Object?>> olderMessages = [];
+  // true면 메시지 조회가 서버 오류로 실패한다.
+  bool failMessages = false;
   final reports = <Map<String, Object?>>[];
   // 제재 상태. /me/restriction 응답으로 그대로 내려간다.
   Map<String, Object?>? suspension;
@@ -219,7 +225,17 @@ class TaxiTestApi {
             (jsonDecode(request.body) as Map)['last_message_id'] as int?;
         result = {'ok': true};
       } else if (path.endsWith('/messages')) {
-        result = {'items': messages, 'next_before_id': null};
+        if (failMessages) {
+          return http.Response(
+            jsonEncode({
+              'detail': {'code': 'SERVER_ERROR', 'message': '일시적인 오류입니다.'},
+            }),
+            500,
+          );
+        }
+        result = request.url.queryParameters.containsKey('before_id')
+            ? {'items': olderMessages, 'next_before_id': null}
+            : {'items': messages, 'next_before_id': messagesNextBeforeId};
       } else if (path.endsWith('/locations')) {
         locationsReads++;
         result = locations;

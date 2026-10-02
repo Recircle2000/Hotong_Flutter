@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:hsro/core/services/auth_service.dart';
 import 'package:hsro/core/utils/env_config.dart';
 import 'package:hsro/features/taxi/models/taxi_models.dart';
@@ -105,7 +106,10 @@ class TaxiRealtimeService {
       if (decoded is Map<String, dynamic>) {
         _events.add(TaxiRealtimeEvent.fromJson(decoded));
       }
-    } catch (_) {}
+    } catch (error) {
+      // 서버 이벤트 형식이 달라지면 조용히 사라지지 않게 흔적을 남긴다.
+      debugPrint('택시 실시간 이벤트를 해석하지 못했습니다: $error');
+    }
   }
 
   void sendMessage({

@@ -165,4 +165,52 @@ void main() {
     viewModel.onClose();
     await tester.pump();
   });
+
+  Map<String, Object?> json(int id) => {
+    'id': id,
+    'party_id': 'party',
+    'message_type': 'chat',
+    'sender_label': '참여자 1',
+    'is_mine': false,
+    'content': 'm$id',
+    'created_at': DateTime.now().toUtc().toIso8601String(),
+  };
+
+  testWidgets('이전 메시지는 위로 올릴 때 이어서 불러온다', (tester) async {
+    final api = TaxiTestApi()
+      ..messages = [json(51), json(52)]
+      ..messagesNextBeforeId = 51
+      ..olderMessages = [json(49), json(50)];
+    final viewModel = build(api, _FakeRealtime());
+    await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+    await tester.pump();
+    expect(viewModel.messages.map((item) => item.id), [51, 52]);
+    expect(viewModel.hasOlder.value, isTrue);
+
+    await tester.runAsync(viewModel.loadOlder);
+    expect(viewModel.messages.map((item) => item.id), [49, 50, 51, 52]);
+    expect(viewModel.hasOlder.value, isFalse);
+
+    viewModel.onClose();
+    await tester.pump();
+  });
+
+  testWidgets('처음 불러오기에 실패하면 다시 시도할 수 있다', (tester) async {
+    final api = TaxiTestApi()
+      ..messages = [json(1)]
+      ..failMessages = true;
+    final viewModel = build(api, _FakeRealtime());
+    await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+    await tester.pump();
+    expect(viewModel.loadFailed.value, isTrue);
+    expect(viewModel.messages, isEmpty);
+
+    api.failMessages = false;
+    await tester.runAsync(viewModel.load);
+    expect(viewModel.loadFailed.value, isFalse);
+    expect(viewModel.messages.single.id, 1);
+
+    viewModel.onClose();
+    await tester.pump();
+  });
 }
