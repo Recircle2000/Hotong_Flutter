@@ -37,8 +37,7 @@ class TaxiRealtimeService {
     _subscription = null;
     _channel = null;
     unawaited(subscription?.cancel());
-    // 죽은 소켓은 닫기가 끝나지 않을 수 있어 기다리지 않는다.
-    unawaited(channel?.sink.close().then((_) {}, onError: (_) {}));
+    _closeQuietly(channel);
     await connect();
   }
 
@@ -65,11 +64,13 @@ class TaxiRealtimeService {
         uri,
         headers: {HttpHeaders.authorizationHeader: 'Bearer $token'},
         pingInterval: const Duration(seconds: 25),
+        connectTimeout: const Duration(seconds: 5),
       );
       pendingChannel = channel;
       await channel.ready.timeout(const Duration(seconds: 5));
       if (!_shouldRun) {
-        await channel.sink.close();
+        pendingChannel = null;
+        _closeQuietly(channel);
         return;
       }
       _channel = channel;
@@ -83,12 +84,19 @@ class TaxiRealtimeService {
       );
       if (!_connected.isClosed) _connected.add(null);
     } catch (_) {
-      await pendingChannel?.sink.close();
+      // 닫기를 기다리면 응답 없는 네트워크에서 재연결이 오래 막힌다.
+      _closeQuietly(pendingChannel);
       _channel = null;
       _scheduleReconnect();
     } finally {
       _isConnecting = false;
     }
+  }
+
+  /// 죽었거나 맺어지지 않은 소켓은 닫기가 끝나지 않을 수 있어 기다리지 않는다.
+  void _closeQuietly(WebSocketChannel? channel) {
+    if (channel == null) return;
+    unawaited(channel.sink.close().then((_) {}, onError: (_) {}));
   }
 
   void _handleData(dynamic raw) {
@@ -132,10 +140,12 @@ class TaxiRealtimeService {
   Future<void> disconnect() async {
     _shouldRun = false;
     _reconnectTimer?.cancel();
-    await _subscription?.cancel();
-    await _channel?.sink.close();
+    final subscription = _subscription;
+    final channel = _channel;
     _subscription = null;
     _channel = null;
+    await subscription?.cancel();
+    _closeQuietly(channel);
   }
 
   Future<void> dispose() async {

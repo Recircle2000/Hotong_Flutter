@@ -34,6 +34,7 @@ class TaxiHomeViewModel extends GetxController with WidgetsBindingObserver {
   bool _refreshPending = false;
   Completer<void>? _refreshCompletion;
   Timer? _expiryTimer;
+  bool _wasBackgrounded = false;
   final hasLoaded = false.obs;
   // 관리자 제재 상태. 전체 새로고침(진입·복귀·생성/참여 직전) 때 함께 받는다.
   final restriction = Rxn<TaxiRestriction>();
@@ -409,9 +410,20 @@ class TaxiHomeViewModel extends GetxController with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.hidden) {
+      _wasBackgrounded = true;
+      return;
+    }
     if (state == AppLifecycleState.resumed) {
-      // 백그라운드에서 끊긴 소켓이 남아 있을 수 있어 새로 연결한다.
-      unawaited(_realtime.reconnect());
+      // 실제로 백그라운드에 다녀온 경우에만 끊겼을 수 있는 소켓을 새로 연결한다.
+      // 제어 센터나 권한 팝업처럼 잠깐 비활성화된 경우는 기존 연결을 유지한다.
+      if (_wasBackgrounded) {
+        _wasBackgrounded = false;
+        unawaited(_realtime.reconnect());
+      } else {
+        unawaited(_realtime.connect());
+      }
       unawaited(refreshAll());
     }
   }
