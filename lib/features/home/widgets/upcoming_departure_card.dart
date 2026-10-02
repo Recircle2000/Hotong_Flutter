@@ -103,6 +103,27 @@ class UpcomingDepartureCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
 
+    // 막차 배지 (카드 오른쪽 아래)
+    final lastBusBadge = Container(
+      margin: const EdgeInsets.only(left: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+      decoration: BoxDecoration(
+        color: isDarkMode
+            ? const Color(0xFFB42318).withValues(alpha: 0.25)
+            : const Color(0xFFFDECEA),
+        borderRadius: BorderRadius.circular(5),
+      ),
+      child: Text(
+        '막차',
+        style: TextStyle(
+          fontSize: 11,
+          height: 1.2,
+          fontWeight: FontWeight.w600,
+          color: isDarkMode ? const Color(0xFFFF8A80) : const Color(0xFFB42318),
+        ),
+      ),
+    );
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 6),
       child: ScaleButton(
@@ -174,32 +195,6 @@ class UpcomingDepartureCard extends StatelessWidget {
                               ],
                             ),
                           ),
-                        if (isLastBus)
-                          Container(
-                            margin: const EdgeInsets.only(right: 4),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 5,
-                              vertical: 1,
-                            ),
-                            decoration: BoxDecoration(
-                              color: isDarkMode
-                                  ? const Color(
-                                      0xFFB42318,
-                                    ).withValues(alpha: 0.25)
-                                  : const Color(0xFFFDECEA),
-                              borderRadius: BorderRadius.circular(5),
-                            ),
-                            child: Text(
-                              '막차',
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
-                                color: isDarkMode
-                                    ? const Color(0xFFFF8A80)
-                                    : const Color(0xFFB42318),
-                              ),
-                            ),
-                          ),
                         if (trailingText != null)
                           Flexible(
                             child: Text(
@@ -249,31 +244,39 @@ class UpcomingDepartureCard extends StatelessWidget {
                         ),
                       ),
                     ),
+                    if (isLastBus) lastBusBadge,
                   ],
                 )
               else
-                Text.rich(
-                  TextSpan(
-                    children: [
-                      if (routeLabel != null)
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text.rich(
                         TextSpan(
-                          text: '$routeLabel ',
-                          style: TextStyle(
-                            fontWeight: FontWeight.w700,
-                            color: routeColor,
-                          ),
+                          children: [
+                            if (routeLabel != null)
+                              TextSpan(
+                                text: '$routeLabel ',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  color: routeColor,
+                                ),
+                              ),
+                            TextSpan(text: description),
+                          ],
                         ),
-                      TextSpan(text: description),
-                    ],
-                  ),
-                  maxLines: 1,
-                  softWrap: false,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 13,
-                    height: 1.3,
-                    color: UpcomingDepartureColors.description(context),
-                  ),
+                        maxLines: 1,
+                        softWrap: false,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 13,
+                          height: 1.3,
+                          color: UpcomingDepartureColors.description(context),
+                        ),
+                      ),
+                    ),
+                    if (isLastBus) lastBusBadge,
+                  ],
                 ),
             ],
           ),
