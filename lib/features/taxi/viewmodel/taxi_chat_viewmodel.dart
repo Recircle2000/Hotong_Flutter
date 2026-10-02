@@ -28,6 +28,11 @@ class TaxiChatViewModel extends GetxController {
   final TaxiRepository _repository;
   final TaxiRealtimeService _realtime;
   final messages = <TaxiMessage>[].obs;
+
+  /// 보냈지만 아직 서버 확인을 받지 못한 내 메시지. 목록 맨 아래에 이어서 보여준다.
+  final pending = <TaxiPendingMessage>[].obs;
+  final _pendingTimers = <String, Timer>{};
+  static const _sendTimeout = Duration(seconds: 10);
   final RxBool isReadOnly;
   final RxBool isExpired;
   final isLoading = false.obs;
@@ -43,29 +48,39 @@ class TaxiChatViewModel extends GetxController {
   @override
   void onInit() {
     super.onInit();
-    _events = _realtime.events
-        .where((event) => event.partyId == partyId)
-        .listen((event) {
-          final message = event.message;
-          if (message != null && !isExpired.value) {
-            if (!messages.any((item) => item.id == message.id)) {
-              messages.add(message);
-              messages.sort((a, b) => a.id.compareTo(b.id));
-            }
-            if (message.isMine) {
-              // 서버가 보낸 사람을 그 메시지까지 읽은 것으로 처리한다.
-              _readDebounce?.cancel();
-              if (message.id > (_lastMarkedId ?? 0)) _lastMarkedId = message.id;
-            } else {
-              _scheduleMarkRead();
-            }
-          }
-          if (event.type == 'party.updated') {
-            unawaited(refreshStatus());
-          }
-        });
+    _events = _realtime.events.listen((event) {
+      if (event.type == 'error') {
+        // 구버전 서버의 오류에는 party_id가 없어 열려 있는 채팅방의 것으로 본다.
+        if (event.partyId == null || event.partyId == partyId) {
+          _handleSendError(event);
+        }
+        return;
+      }
+      if (event.partyId != partyId) return;
+      final message = event.message;
+      if (message != null && !isExpired.value) {
+        _confirmPending(message);
+        if (!messages.any((item) => item.id == message.id)) {
+          messages.add(message);
+          messages.sort((a, b) => a.id.compareTo(b.id));
+        }
+        if (message.isMine) {
+          // 서버가 보낸 사람을 그 메시지까지 읽은 것으로 처리한다.
+          _readDebounce?.cancel();
+          if (message.id > (_lastMarkedId ?? 0)) _lastMarkedId = message.id;
+        } else {
+          _scheduleMarkRead();
+        }
+      }
+      if (event.type == 'party.updated') {
+        unawaited(refreshStatus());
+      }
+    });
     // 재연결되면 끊긴 동안 놓친 메시지를 다시 불러온다.
-    _reconnects = _realtime.onConnected.listen((_) => unawaited(_resync()));
+    // 그다음 아직 확인받지 못한 메시지를 다시 보낸다(서버가 중복을 걸러 준다).
+    _reconnects = _realtime.onConnected.listen(
+      (_) => unawaited(_resync().then((_) => _flushPending())),
+    );
     _scheduleLifecycleTimers();
     unawaited(load());
   }
@@ -76,6 +91,7 @@ class TaxiChatViewModel extends GetxController {
     try {
       final latest = await _repository.getMessages(partyId);
       if (isExpired.value) return;
+      latest.forEach(_confirmPending);
       final known = {for (final item in messages) item.id};
       final missing = latest.where((item) => !known.contains(item.id)).toList();
       if (missing.isNotEmpty) {
@@ -109,7 +125,9 @@ class TaxiChatViewModel extends GetxController {
     isLoading.value = true;
     errorMessage.value = '';
     try {
-      messages.assignAll(await _repository.getMessages(partyId));
+      final loaded = await _repository.getMessages(partyId);
+      loaded.forEach(_confirmPending);
+      messages.assignAll(loaded);
       await markLatestRead();
     } on TaxiApiException catch (error) {
       if (error.code == 'CHAT_EXPIRED') _expire();
@@ -129,19 +147,99 @@ class TaxiChatViewModel extends GetxController {
         content.length > 500) {
       return false;
     }
+    final item = TaxiPendingMessage(
+      clientMessageId: newTaxiUuid(),
+      content: content,
+      createdAt: DateTime.now(),
+    );
+    pending.add(item);
+    errorMessage.value = '';
+    _transmit(item);
+    return true;
+  }
+
+  /// 소켓으로 내보내고, 일정 시간 안에 확인이 없으면 실패로 표시한다.
+  /// 연결이 끊긴 상태면 전송 중으로 두었다가 재연결될 때 다시 보낸다.
+  void _transmit(TaxiPendingMessage item) {
+    _pendingTimers.remove(item.clientMessageId)?.cancel();
+    _pendingTimers[item.clientMessageId] = Timer(
+      _sendTimeout,
+      () => _markFailed(item.clientMessageId, '전송하지 못했어요.'),
+    );
     try {
       _realtime.sendMessage(
         partyId: partyId,
-        clientMessageId: newTaxiUuid(),
-        content: content,
+        clientMessageId: item.clientMessageId,
+        content: item.content,
       );
-      // 연결 안내가 떠 있었다면 전송에 성공했으니 지운다.
-      errorMessage.value = '';
-      return true;
     } catch (_) {
-      errorMessage.value = '채팅 서버에 연결하는 중입니다. 잠시 후 다시 시도해주세요.';
-      return false;
+      // 연결 중. 재연결되면 _flushPending이 다시 보낸다.
     }
+  }
+
+  void _flushPending() {
+    for (final item in pending.where((item) => !item.isFailed).toList()) {
+      _transmit(item);
+    }
+  }
+
+  /// 서버가 돌려준 내 메시지와 짝이 맞는 전송 중 메시지를 지운다.
+  void _confirmPending(TaxiMessage message) {
+    if (!message.isMine || pending.isEmpty) return;
+    final clientId = message.clientMessageId;
+    // 구버전 서버는 client_message_id를 돌려주지 않아 내용으로 짝짓는다.
+    final index = clientId != null
+        ? pending.indexWhere((item) => item.clientMessageId == clientId)
+        : pending.indexWhere((item) => item.content == message.content);
+    if (index < 0) return;
+    _pendingTimers.remove(pending[index].clientMessageId)?.cancel();
+    pending.removeAt(index);
+  }
+
+  void _markFailed(String clientMessageId, String error) {
+    _pendingTimers.remove(clientMessageId)?.cancel();
+    final index = pending.indexWhere(
+      (item) => item.clientMessageId == clientMessageId,
+    );
+    if (index < 0) return;
+    pending[index] = pending[index].withStatus(
+      TaxiPendingStatus.failed,
+      error: error,
+    );
+  }
+
+  void _handleSendError(TaxiRealtimeEvent event) {
+    final message = event.errorMessage ?? '메시지를 보내지 못했어요.';
+    // 구버전 서버는 어떤 메시지인지 알려주지 않아 가장 오래 기다린 것으로 본다.
+    final target =
+        event.clientMessageId ??
+        pending.where((item) => !item.isFailed).firstOrNull?.clientMessageId;
+    if (target != null &&
+        pending.any((item) => item.clientMessageId == target)) {
+      _markFailed(target, message);
+    } else {
+      errorMessage.value = message;
+    }
+    // 대화가 종료됐거나 팟에서 빠진 경우 입력창 상태를 맞춘다.
+    if (event.code == 'CHAT_READ_ONLY' || event.code == 'MEMBERSHIP_REQUIRED') {
+      unawaited(refreshStatus());
+    }
+  }
+
+  /// 실패한 메시지를 같은 식별자로 다시 보낸다. 서버가 중복을 걸러 준다.
+  void retryPending(String clientMessageId) {
+    final index = pending.indexWhere(
+      (item) => item.clientMessageId == clientMessageId,
+    );
+    if (index < 0 || isReadOnly.value || isExpired.value) return;
+    final item = pending[index].withStatus(TaxiPendingStatus.sending);
+    pending[index] = item;
+    _transmit(item);
+  }
+
+  void discardPending(String clientMessageId) {
+    _pendingTimers.remove(clientMessageId)?.cancel();
+    pending.removeWhere((item) => item.clientMessageId == clientMessageId);
   }
 
   void _scheduleMarkRead() {
@@ -179,7 +277,16 @@ class TaxiChatViewModel extends GetxController {
     isExpired.value = true;
     isReadOnly.value = true;
     messages.clear();
+    _clearPending();
     errorMessage.value = '';
+  }
+
+  void _clearPending() {
+    for (final timer in _pendingTimers.values) {
+      timer.cancel();
+    }
+    _pendingTimers.clear();
+    pending.clear();
   }
 
   @override
@@ -189,6 +296,10 @@ class TaxiChatViewModel extends GetxController {
     _readDebounce?.cancel();
     _events?.cancel();
     _reconnects?.cancel();
+    for (final timer in _pendingTimers.values) {
+      timer.cancel();
+    }
+    _pendingTimers.clear();
     _readOnlyTimer?.cancel();
     _expiryTimer?.cancel();
     super.onClose();

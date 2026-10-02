@@ -268,6 +268,7 @@ class TaxiMessage {
     required this.isMine,
     required this.content,
     required this.createdAt,
+    this.clientMessageId,
   });
 
   final int id;
@@ -277,6 +278,9 @@ class TaxiMessage {
   final bool isMine;
   final String content;
   final DateTime createdAt;
+
+  /// 내가 보낸 메시지에만 온다. 전송 중인 메시지와 짝짓는 데 쓴다.
+  final String? clientMessageId;
 
   bool get isSystem => messageType == 'system';
 
@@ -288,7 +292,38 @@ class TaxiMessage {
     isMine: json['is_mine'] as bool,
     content: json['content'] as String,
     createdAt: DateTime.parse(json['created_at'] as String).toLocal(),
+    clientMessageId: json['client_message_id'] as String?,
   );
+}
+
+enum TaxiPendingStatus { sending, failed }
+
+/// 보냈지만 아직 서버 확인을 받지 못한 내 메시지.
+class TaxiPendingMessage {
+  const TaxiPendingMessage({
+    required this.clientMessageId,
+    required this.content,
+    required this.createdAt,
+    this.status = TaxiPendingStatus.sending,
+    this.error,
+  });
+
+  final String clientMessageId;
+  final String content;
+  final DateTime createdAt;
+  final TaxiPendingStatus status;
+  final String? error;
+
+  bool get isFailed => status == TaxiPendingStatus.failed;
+
+  TaxiPendingMessage withStatus(TaxiPendingStatus status, {String? error}) =>
+      TaxiPendingMessage(
+        clientMessageId: clientMessageId,
+        content: content,
+        createdAt: createdAt,
+        status: status,
+        error: error,
+      );
 }
 
 class TaxiRealtimeEvent {
@@ -299,6 +334,7 @@ class TaxiRealtimeEvent {
     this.party,
     this.code,
     this.errorMessage,
+    this.clientMessageId,
   });
 
   final String type;
@@ -307,6 +343,9 @@ class TaxiRealtimeEvent {
   final TaxiPartySummary? party;
   final String? code;
   final String? errorMessage;
+
+  /// 전송 오류가 어떤 메시지에 대한 것인지 알려준다. 구버전 서버는 보내지 않는다.
+  final String? clientMessageId;
 
   factory TaxiRealtimeEvent.fromJson(Map<String, dynamic> json) =>
       TaxiRealtimeEvent(
@@ -326,6 +365,7 @@ class TaxiRealtimeEvent {
         errorMessage: json['message'] is String
             ? json['message'] as String
             : null,
+        clientMessageId: json['client_message_id'] as String?,
       );
 }
 

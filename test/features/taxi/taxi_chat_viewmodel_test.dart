@@ -17,8 +17,17 @@ class _FakeRealtime extends TaxiRealtimeService {
   @override
   Stream<TaxiRealtimeEvent> get events => controller.stream;
 
+  final sent = <String>[];
+
   @override
   Future<void> connect() async {}
+
+  @override
+  void sendMessage({
+    required String partyId,
+    required String clientMessageId,
+    required String content,
+  }) => sent.add(clientMessageId);
 
   @override
   Future<void> dispose() async => controller.close();
@@ -70,5 +79,90 @@ void main() {
     await tester.pump();
     expect(api.markReads, 2);
     expect(api.lastMarkedMessageId, 4);
+  });
+
+  TaxiChatViewModel build(TaxiTestApi api, _FakeRealtime realtime) =>
+      TaxiChatViewModel(
+        partyId: 'party',
+        readOnlyAt: DateTime.now().add(const Duration(hours: 1)),
+        expiresAt: DateTime.now().add(const Duration(hours: 2)),
+        initiallyReadOnly: false,
+        initiallyExpired: false,
+        repository: api.repository,
+        realtime: realtime,
+      )..onInit();
+
+  TaxiRealtimeEvent mine(int id, String content, {String? clientId}) =>
+      TaxiRealtimeEvent(
+        type: 'message.created',
+        partyId: 'party',
+        message: TaxiMessage(
+          id: id,
+          partyId: 'party',
+          messageType: 'chat',
+          senderLabel: '방장',
+          isMine: true,
+          content: content,
+          createdAt: DateTime.now(),
+          clientMessageId: clientId,
+        ),
+      );
+
+  testWidgets('보낸 메시지는 서버 확인이 오면 전송 중 목록에서 빠진다', (tester) async {
+    final realtime = _FakeRealtime();
+    final viewModel = build(TaxiTestApi(), realtime);
+    await tester.pump();
+
+    expect(viewModel.send(' 안녕하세요 '), isTrue);
+    expect(viewModel.pending.single.content, '안녕하세요');
+    final clientId = realtime.sent.single;
+
+    realtime.controller.add(mine(10, '안녕하세요', clientId: clientId));
+    await tester.pump();
+    expect(viewModel.pending, isEmpty);
+    expect(viewModel.messages.single.id, 10);
+
+    // 구버전 서버는 식별자를 돌려주지 않아 내용으로 짝짓는다.
+    viewModel.send('두 번째');
+    realtime.controller.add(mine(11, '두 번째'));
+    await tester.pump();
+    expect(viewModel.pending, isEmpty);
+
+    viewModel.onClose();
+    await tester.pump();
+  });
+
+  testWidgets('확인이 없거나 서버가 거부하면 실패로 표시하고 다시 보낼 수 있다', (tester) async {
+    final realtime = _FakeRealtime();
+    final viewModel = build(TaxiTestApi(), realtime);
+    await tester.pump();
+
+    viewModel.send('첫 번째');
+    await tester.pump(const Duration(seconds: 11));
+    expect(viewModel.pending.single.isFailed, isTrue);
+
+    // 같은 식별자로 다시 보내 서버가 중복을 걸러낼 수 있게 한다.
+    final clientId = viewModel.pending.single.clientMessageId;
+    viewModel.retryPending(clientId);
+    expect(viewModel.pending.single.isFailed, isFalse);
+    expect(realtime.sent, [clientId, clientId]);
+
+    realtime.controller.add(
+      TaxiRealtimeEvent(
+        type: 'error',
+        code: 'MESSAGE_RATE_LIMITED',
+        errorMessage: '메시지를 너무 빠르게 보내고 있습니다.',
+        clientMessageId: clientId,
+      ),
+    );
+    await tester.pump();
+    expect(viewModel.pending.single.isFailed, isTrue);
+    expect(viewModel.pending.single.error, '메시지를 너무 빠르게 보내고 있습니다.');
+
+    viewModel.discardPending(clientId);
+    expect(viewModel.pending, isEmpty);
+
+    viewModel.onClose();
+    await tester.pump();
   });
 }

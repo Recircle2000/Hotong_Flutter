@@ -36,6 +36,8 @@ class _TaxiChatViewState extends State<TaxiChatView> {
   late final String _tag;
   late final TaxiChatViewModel controller;
   Worker? _messageWorker;
+  Worker? _pendingWorker;
+  int _lastPendingCount = 0;
   bool _hasText = false;
   bool _didInitialScroll = false;
   int _lastMessageCount = 0;
@@ -62,6 +64,11 @@ class _TaxiChatViewState extends State<TaxiChatView> {
     );
     _scrollController.addListener(_handleScroll);
     _messageWorker = ever(controller.messages, _handleMessagesChanged);
+    // 방금 보낸 메시지가 보이도록 전송 중 메시지가 늘면 맨 아래로 내린다.
+    _pendingWorker = ever(controller.pending, (List<TaxiPendingMessage> items) {
+      if (items.length > _lastPendingCount) _scrollToBottom();
+      _lastPendingCount = items.length;
+    });
     // 보고 있는 채팅방의 알림은 앱 안에서 다시 띄우지 않는다.
     _push?.activeChatPartyId = widget.party.id;
   }
@@ -189,6 +196,7 @@ class _TaxiChatViewState extends State<TaxiChatView> {
       push?.activeChatPartyId = null;
     }
     _messageWorker?.dispose();
+    _pendingWorker?.dispose();
     _textController.removeListener(_handleTextChanged);
     _textController.dispose();
     _scrollController.removeListener(_handleScroll);
@@ -297,7 +305,8 @@ class _TaxiChatViewState extends State<TaxiChatView> {
           ),
         );
       }
-      if (controller.messages.isEmpty) {
+      final pending = controller.pending;
+      if (controller.messages.isEmpty && pending.isEmpty) {
         return const _EmptyChat();
       }
       final messages = controller.messages;
@@ -307,8 +316,18 @@ class _TaxiChatViewState extends State<TaxiChatView> {
             controller: _scrollController,
             keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
             padding: const EdgeInsets.fromLTRB(16, 14, 16, 20),
-            itemCount: messages.length,
+            itemCount: messages.length + pending.length,
             itemBuilder: (context, index) {
+              // 서버 확인 전인 내 메시지는 목록 맨 아래에 이어서 보여준다.
+              if (index >= messages.length) {
+                final item = pending[index - messages.length];
+                return _PendingBubble(
+                  item: item,
+                  onRetry: () => controller.retryPending(item.clientMessageId),
+                  onDiscard: () =>
+                      controller.discardPending(item.clientMessageId),
+                );
+              }
               final message = messages[index];
               final previous = index > 0 ? messages[index - 1] : null;
               final next = index + 1 < messages.length
@@ -503,6 +522,117 @@ class _MessageBubble extends StatelessWidget {
                 ),
               ),
             bubbleRow,
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// 서버 확인 전인 내 메시지. 전송 중에는 흐리게, 실패하면 다시 보내기·삭제를 보여준다.
+class _PendingBubble extends StatelessWidget {
+  const _PendingBubble({
+    required this.item,
+    required this.onRetry,
+    required this.onDiscard,
+  });
+
+  final TaxiPendingMessage item;
+  final VoidCallback onRetry;
+  final VoidCallback onDiscard;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final failed = item.isFailed;
+    final statusStyle = theme.textTheme.labelSmall?.copyWith(
+      color: failed
+          ? colors.error
+          : colors.onSurfaceVariant.withValues(alpha: 0.75),
+      fontSize: 10,
+    );
+
+    Widget action(String label, VoidCallback onTap) => GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+        child: Text(
+          label,
+          style: theme.textTheme.labelSmall?.copyWith(
+            color: colors.error,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ),
+    );
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: SizedBox(
+        width: double.infinity,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                if (failed)
+                  Icon(
+                    Icons.error_outline_rounded,
+                    size: 15,
+                    color: colors.error,
+                  )
+                else
+                  Text('전송 중', style: statusStyle),
+                const SizedBox(width: 6),
+                Flexible(
+                  child: Container(
+                    constraints: BoxConstraints(
+                      maxWidth: MediaQuery.sizeOf(context).width * 0.68,
+                    ),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 15,
+                      vertical: 11,
+                    ),
+                    decoration: BoxDecoration(
+                      color: taxiAccent.withValues(alpha: 0.5),
+                      borderRadius: const BorderRadius.only(
+                        topLeft: _MessageBubble._outerRadius,
+                        topRight: _MessageBubble._outerRadius,
+                        bottomLeft: _MessageBubble._outerRadius,
+                        bottomRight: _MessageBubble._tailRadius,
+                      ),
+                    ),
+                    child: Text(
+                      item.content,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: taxiAccentForeground,
+                        height: 1.4,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            if (failed)
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Flexible(
+                    child: Text(
+                      item.error ?? '전송하지 못했어요.',
+                      style: statusStyle,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  action('다시 보내기', onRetry),
+                  action('삭제', onDiscard),
+                ],
+              ),
           ],
         ),
       ),
