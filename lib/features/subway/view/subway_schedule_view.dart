@@ -284,13 +284,6 @@ class _SubwayScheduleViewState extends State<SubwayScheduleView> {
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
               color: Theme.of(context).dividerColor.withOpacity(0.1)),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.03),
-              blurRadius: 10,
-              offset: const Offset(0, 2),
-            ),
-          ],
         ),
         child: Row(
           children: [
@@ -330,15 +323,6 @@ class _SubwayScheduleViewState extends State<SubwayScheduleView> {
         decoration: BoxDecoration(
           color: isSelected ? const Color(0xFF0052A4) : Colors.transparent,
           borderRadius: BorderRadius.circular(8),
-          boxShadow: isSelected
-              ? [
-                  BoxShadow(
-                    color: const Color(0xFF0052A4).withOpacity(0.3),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  )
-                ]
-              : [],
         ),
         child: Text(
           text,
@@ -461,15 +445,6 @@ class _SubwayScheduleViewState extends State<SubwayScheduleView> {
         decoration: BoxDecoration(
           color: isSelected ? const Color(0xFF0052A4) : Colors.transparent,
           borderRadius: BorderRadius.circular(6),
-          boxShadow: isSelected
-              ? [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
-                    blurRadius: 2,
-                    offset: const Offset(0, 1),
-                  )
-                ]
-              : [],
         ),
         child: Text(
           text,
@@ -523,13 +498,6 @@ class _SubwayScheduleViewState extends State<SubwayScheduleView> {
         borderRadius: BorderRadius.circular(16),
         border:
             Border.all(color: Theme.of(context).dividerColor.withOpacity(0.1)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.03),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
       ),
       child: Column(
         children: [

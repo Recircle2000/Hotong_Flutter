@@ -291,13 +291,6 @@ class _NearbyStopsViewState extends State<NearbyStopsView> {
         decoration: BoxDecoration(
           color: Theme.of(context).cardColor,
           borderRadius: BorderRadius.circular(25),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.1),
-              blurRadius: 10,
-              offset: const Offset(0, 0),
-            ),
-          ],
         ),
         child: Container(
           padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -450,13 +443,6 @@ class _NearbyStopsViewState extends State<NearbyStopsView> {
               // border: Border.all(color: Colors.grey.shade300),
               color: Theme.of(context).cardColor,
               borderRadius: BorderRadius.circular(25),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.1),
-                  blurRadius: 10,
-                  offset: const Offset(0, 0),
-                ),
-              ],
             ),
             child: DropdownButtonHideUnderline(
               child: DropdownButton<int>(
@@ -559,13 +545,6 @@ class _NearbyStopsViewState extends State<NearbyStopsView> {
                   decoration: BoxDecoration(
                     color: Theme.of(context).cardColor,
                     borderRadius: BorderRadius.circular(25),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.1),
-                        blurRadius: 10,
-                        offset: const Offset(0, 0),
-                      ),
-                    ],
                   ),
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   child: LayoutBuilder(
@@ -685,13 +664,6 @@ class _NearbyStopsViewState extends State<NearbyStopsView> {
                 decoration: BoxDecoration(
                   color: Theme.of(context).cardColor,
                   borderRadius: BorderRadius.circular(25),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.1),
-                      blurRadius: 10,
-                      offset: const Offset(0, 0),
-                    ),
-                  ],
                 ),
                 padding: EdgeInsets.symmetric(horizontal: 16),
                 child: Row(
@@ -744,13 +716,6 @@ class _NearbyStopsViewState extends State<NearbyStopsView> {
             decoration: BoxDecoration(
               color: Theme.of(context).cardColor,
               shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.1),
-                  blurRadius: 10,
-                  offset: const Offset(0, 0),
-                ),
-              ],
             ),
             child: Icon(
               icon,
@@ -1013,13 +978,6 @@ class _NearbyStopsViewState extends State<NearbyStopsView> {
           // border: Border.all(color: Colors.grey.shade300),
           color: Theme.of(context).cardColor,
           borderRadius: BorderRadius.circular(25),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.1),
-              blurRadius: 10,
-              offset: const Offset(0, 0),
-            ),
-          ],
         ),
         child: Column(
           children: [

@@ -1072,13 +1072,6 @@ class _ShuttleScheduleViewState extends State<ShuttleScheduleView> {
                     decoration: BoxDecoration(
                       color: Theme.of(context).cardColor,
                       borderRadius: BorderRadius.circular(25),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.1),
-                          blurRadius: 10,
-                          offset: const Offset(0, 0),
-                        ),
-                      ],
                     ),
                     child: Column(
                       children: [
@@ -1504,13 +1497,6 @@ class _ShuttleScheduleViewState extends State<ShuttleScheduleView> {
           color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.2),
           width: 1,
         ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: isDarkMode ? 0.18 : 0.08),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
       ),
       clipBehavior: Clip.antiAlias,
       child: child,

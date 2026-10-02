@@ -237,13 +237,6 @@ class _SubwayViewState extends State<SubwayView> {
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
                 color: Theme.of(context).dividerColor.withOpacity(0.1)),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.03),
-                blurRadius: 10,
-                offset: const Offset(0, 2),
-              ),
-            ],
           ),
           child: Row(
             children: [
@@ -288,15 +281,6 @@ class _SubwayViewState extends State<SubwayView> {
                   ? Colors.transparent
                   : Colors.transparent,
           borderRadius: BorderRadius.circular(8),
-          boxShadow: isSelected
-              ? [
-                  BoxShadow(
-                    color: const Color(0xFF0052A4).withOpacity(0.3),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  )
-                ]
-              : [],
         ),
         child: Text(
           text,
@@ -344,13 +328,6 @@ class _SubwayViewState extends State<SubwayView> {
                 borderRadius: BorderRadius.circular(20),
                 border: Border.all(
                     color: Theme.of(context).dividerColor.withOpacity(0.1)),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.03),
-                    blurRadius: 4,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
               ),
               child: Row(
                 children: [
@@ -465,13 +442,6 @@ class _SubwayViewState extends State<SubwayView> {
         border: Border.all(
           color: Theme.of(context).dividerColor.withOpacity(0.1),
         ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.03),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
       ),
       clipBehavior: Clip.antiAlias,
       child: IntrinsicHeight(

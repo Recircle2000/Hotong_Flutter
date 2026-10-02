@@ -6,9 +6,9 @@ class AppTheme {
   static ThemeData light() {
     return ThemeData(
       primaryColor: Colors.white,
-      scaffoldBackgroundColor: const Color(0xFFF8F9FA),
+      scaffoldBackgroundColor: const Color(0xFFF1F2F5),
       appBarTheme: const AppBarTheme(
-        backgroundColor: Color(0xFFF8F9FA),
+        backgroundColor: Color(0xFFF1F2F5),
         foregroundColor: Colors.black,
         elevation: 0,
         scrolledUnderElevation: 0,

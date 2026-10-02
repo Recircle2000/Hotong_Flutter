@@ -131,10 +131,7 @@ class _HomeViewState extends State<HomeView>
 
   @override
   Widget build(BuildContext context) {
-    // 그림자 없는 흰 카드가 구분되도록 라이트 모드 홈 배경만 한 단계 어둡게
-    final backgroundColor = Theme.of(context).brightness == Brightness.dark
-        ? Theme.of(context).scaffoldBackgroundColor
-        : const Color(0xFFF1F2F5);
+    final backgroundColor = Theme.of(context).scaffoldBackgroundColor;
 
     return WillPopScope(
       onWillPop: () async {

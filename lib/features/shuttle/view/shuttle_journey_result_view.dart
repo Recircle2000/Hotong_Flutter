@@ -344,12 +344,6 @@ class _ShuttleJourneyResultViewState extends State<ShuttleJourneyResultView> {
                 border: isNext
                     ? Border.all(color: _shuttleColor.withOpacity(0.35))
                     : null,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.08),
-                    blurRadius: 8,
-                  ),
-                ],
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,

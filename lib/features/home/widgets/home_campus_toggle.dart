@@ -92,14 +92,6 @@ class _CampusToggleButton extends StatelessWidget {
               ? selectedColor
               : selectedColor.withValues(alpha: 0),
           borderRadius: BorderRadius.circular(999),
-          boxShadow: [
-            if (isSelected)
-              const BoxShadow(
-                color: Color(0x2416181D),
-                blurRadius: 2,
-                offset: Offset(0, 1),
-              ),
-          ],
         ),
         child: Text(
           text,

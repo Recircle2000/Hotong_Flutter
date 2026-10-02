@@ -342,15 +342,6 @@ class _CurrentSectionButton extends StatelessWidget {
             decoration: BoxDecoration(
               color: selected ? taxiAccent : Colors.transparent,
               borderRadius: BorderRadius.circular(10),
-              boxShadow: selected
-                  ? [
-                      BoxShadow(
-                        color: taxiAccent.withValues(alpha: 0.24),
-                        blurRadius: 6,
-                        offset: const Offset(0, 2),
-                      ),
-                    ]
-                  : null,
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,

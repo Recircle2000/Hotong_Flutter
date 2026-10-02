@@ -301,13 +301,6 @@ class _NaverMapStationDetailViewState extends State<NaverMapStationDetailView> {
       height: 450,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(25),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 10,
-            offset: const Offset(0, 0),
-          ),
-        ],
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(25),
@@ -448,13 +441,6 @@ class _NaverMapStationDetailViewState extends State<NaverMapStationDetailView> {
                     ? Colors.grey.withOpacity(0.3)
                     : Colors.grey.withOpacity(0.1)),
             borderRadius: BorderRadius.circular(25),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.1),
-                blurRadius: 10,
-                offset: const Offset(0, 0),
-              ),
-            ],
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,

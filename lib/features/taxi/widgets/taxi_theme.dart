@@ -22,13 +22,6 @@ Color taxiAccentText(BuildContext context) =>
 BoxDecoration taxiCardDecoration(BuildContext context) => BoxDecoration(
   color: Theme.of(context).cardColor,
   borderRadius: BorderRadius.circular(24),
-  boxShadow: [
-    BoxShadow(
-      color: Colors.black.withValues(alpha: 0.06),
-      blurRadius: 16,
-      offset: const Offset(0, 4),
-    ),
-  ],
 );
 
 InputDecoration taxiInputDecoration(

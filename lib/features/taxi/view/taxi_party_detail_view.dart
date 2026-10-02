@@ -579,12 +579,6 @@ class _StatusSummary extends StatelessWidget {
           decoration: BoxDecoration(
             color: theme.cardColor,
             borderRadius: BorderRadius.circular(999),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.08),
-                blurRadius: 8,
-              ),
-            ],
           ),
           child: Text.rich(
             TextSpan(
@@ -739,13 +733,6 @@ class _RouteDot extends StatelessWidget {
       color: color,
       shape: BoxShape.circle,
       border: Border.all(color: Theme.of(context).cardColor, width: 3),
-      boxShadow: [
-        BoxShadow(
-          color: color.withValues(alpha: 0.18),
-          blurRadius: 0,
-          spreadRadius: 4,
-        ),
-      ],
     ),
   );
 }
@@ -1031,13 +1018,6 @@ class _HotongCard extends StatelessWidget {
     decoration: BoxDecoration(
       color: Theme.of(context).cardColor,
       borderRadius: BorderRadius.circular(25),
-      boxShadow: [
-        BoxShadow(
-          color: Colors.black.withValues(alpha: 0.1),
-          blurRadius: 10,
-          offset: const Offset(0, 0),
-        ),
-      ],
     ),
     child: child,
   );

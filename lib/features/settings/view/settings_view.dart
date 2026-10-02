@@ -128,13 +128,6 @@ class SettingsView extends StatelessWidget {
     return BoxDecoration(
       color: cardColor,
       borderRadius: BorderRadius.circular(24),
-      boxShadow: [
-        BoxShadow(
-          color: Colors.black.withValues(alpha: 0.08),
-          blurRadius: 16,
-          offset: const Offset(0, 6),
-        ),
-      ],
     );
   }
 
@@ -215,15 +208,6 @@ class SettingsView extends StatelessWidget {
             decoration: BoxDecoration(
               color: isSelected ? colorScheme.surface : Colors.transparent,
               borderRadius: BorderRadius.circular(8),
-              boxShadow: isSelected
-                  ? [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.08),
-                        blurRadius: 4,
-                        offset: const Offset(0, 1),
-                      ),
-                    ]
-                  : null,
             ),
             child: AnimatedDefaultTextStyle(
               duration: const Duration(milliseconds: 160),
