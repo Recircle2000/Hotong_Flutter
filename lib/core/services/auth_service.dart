@@ -13,19 +13,27 @@ class AuthService extends GetxService {
   AuthService(
     this._client, {
     Set<String> allowedTestEmails = const {},
+    Set<String> reviewEmails = const {},
     String? unavailableMessage,
-  })  : allowedTestEmails = Set.unmodifiable(allowedTestEmails),
+  })  : allowedTestEmails =
+            Set.unmodifiable({...allowedTestEmails, ...reviewEmails}),
+        reviewEmails = Set.unmodifiable(reviewEmails),
         unavailableMessage = unavailableMessage ?? '';
 
   AuthService.unavailable([String? message])
       : _client = null,
         allowedTestEmails = const {},
+        reviewEmails = const {},
         unavailableMessage = message ?? '인증 설정을 불러오지 못했습니다.';
 
   static const schoolEmailDomain = 'vision.hoseo.edu';
 
   final SupabaseClient? _client;
   final Set<String> allowedTestEmails;
+
+  /// 앱 심사용 계정. 메일함을 열 수 없는 심사자를 위해 인증번호 메일을 보내지 않고,
+  /// 인증번호 칸에 입력한 값을 Supabase에 지정해 둔 비밀번호로 확인한다.
+  final Set<String> reviewEmails;
   final String unavailableMessage;
   final sessionState = AppAuthSessionState.unavailable.obs;
   final currentSession = Rxn<Session>();
@@ -74,6 +82,7 @@ class AuthService extends GetxService {
       rawEmail,
       allowedTestEmails: allowedTestEmails,
     );
+    if (reviewEmails.contains(email)) return email;
     await client.auth.signInWithOtp(
       email: email,
       shouldCreateUser: true,
@@ -93,11 +102,16 @@ class AuthService extends GetxService {
       throw InvalidOtpException();
     }
 
-    final response = await client.auth.verifyOTP(
-      email: normalizedEmail,
-      token: normalizedOtp,
-      type: OtpType.email,
-    );
+    final response = reviewEmails.contains(normalizedEmail)
+        ? await client.auth.signInWithPassword(
+            email: normalizedEmail,
+            password: normalizedOtp,
+          )
+        : await client.auth.verifyOTP(
+            email: normalizedEmail,
+            token: normalizedOtp,
+            type: OtpType.email,
+          );
     final session = response.session;
     if (session == null || response.user == null) {
       throw const AuthException('인증 세션이 생성되지 않았습니다.');

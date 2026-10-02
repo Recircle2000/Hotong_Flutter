@@ -46,4 +46,22 @@ void main() {
       });
     }
   });
+
+  test('심사용 계정은 테스트 이메일로도 허용된다', () {
+    final service = AuthService(
+      null,
+      allowedTestEmails: const {'tester@example.com'},
+      reviewEmails: const {'review@example.com'},
+    );
+
+    expect(service.reviewEmails, {'review@example.com'});
+    expect(
+      AuthService.normalizeSchoolEmail(
+        'Review@Example.com',
+        allowedTestEmails: service.allowedTestEmails,
+      ),
+      'review@example.com',
+    );
+    expect(service.allowedTestEmails, contains('tester@example.com'));
+  });
 }

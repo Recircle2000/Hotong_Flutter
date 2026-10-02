@@ -45,6 +45,7 @@ void main() async {
       authService = await AuthService(
         Supabase.instance.client,
         allowedTestEmails: EnvConfig.authTestEmails,
+        reviewEmails: EnvConfig.authReviewEmails,
       ).init();
     } catch (_) {
       authService = await AuthService.unavailable(
