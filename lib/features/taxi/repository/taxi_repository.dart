@@ -13,6 +13,9 @@ class TaxiApiException implements Exception {
   final String message;
 }
 
+/// 동의받는 이용약관 버전. 서버의 TAXI_TERMS_VERSION과 맞춘다.
+const taxiTermsVersion = 1;
+
 class TaxiRepository {
   TaxiRepository({required http.Client client, String? baseUrl})
     : _client = client,
@@ -231,6 +234,29 @@ class TaxiRepository {
 
   Future<void> acknowledgeSanction(int id) =>
       _request('POST', '/api/taxi/me/sanctions/$id/ack');
+
+  /// 택시팟 이용약관에 동의한다.
+  Future<void> agreeTerms() =>
+      _request('PUT', '/api/taxi/me/terms', body: {'version': taxiTermsVersion});
+
+  /// 같은 팟의 참여자를 익명 라벨로 차단한다. 상대에게는 알리지 않는다.
+  Future<void> blockMember({
+    required String partyId,
+    required String targetLabel,
+  }) => _request(
+    'POST',
+    '/api/taxi/parties/$partyId/blocks',
+    body: {'target_label': targetLabel},
+  );
+
+  Future<List<TaxiBlock>> getBlocks() async {
+    final data = await _request('GET', '/api/taxi/me/blocks') as List<dynamic>;
+    return data
+        .map((item) => TaxiBlock.fromJson(item as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<void> unblock(int id) => _request('DELETE', '/api/taxi/me/blocks/$id');
 
   /// 이 기기를 현재 계정의 알림 수신 기기로 등록한다.
   Future<void> registerPushToken(String token, {required String platform}) =>

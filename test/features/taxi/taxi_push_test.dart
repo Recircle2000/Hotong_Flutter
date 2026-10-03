@@ -11,6 +11,7 @@ import 'package:hsro/features/taxi/view/taxi_chat_view.dart';
 import 'package:hsro/features/taxi/view/taxi_home_view.dart';
 import 'package:hsro/features/taxi/viewmodel/taxi_home_viewmodel.dart';
 import 'package:hsro/features/taxi/widgets/taxi_tab_bar.dart';
+import 'package:hsro/features/taxi/view/tabs/taxi_profile_tab.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'taxi_test_api.dart';
@@ -298,7 +299,16 @@ void main() {
     );
     await tab(tester, '내정보');
 
-    await tester.ensureVisible(find.text('로그아웃'));
+    await tester.scrollUntilVisible(
+      find.text('로그아웃'),
+      200,
+      scrollable: find
+          .descendant(
+            of: find.byType(TaxiProfileTab),
+            matching: find.byType(Scrollable),
+          )
+          .first,
+    );
     await tester.pumpAndSettle();
     await tester.tap(find.text('로그아웃'));
     await tester.pumpAndSettle();

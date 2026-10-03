@@ -30,6 +30,7 @@ class TaxiMember {
     required this.isOwner,
     required this.isMe,
     required this.joinedAt,
+    this.isBlocked = false,
   });
 
   final String label;
@@ -37,11 +38,15 @@ class TaxiMember {
   final bool isMe;
   final DateTime joinedAt;
 
+  /// 내가 차단한 참여자인지
+  final bool isBlocked;
+
   factory TaxiMember.fromJson(Map<String, dynamic> json) => TaxiMember(
     label: json['label'] as String,
     isOwner: json['is_owner'] as bool,
     isMe: json['is_me'] as bool,
     joinedAt: DateTime.parse(json['joined_at'] as String).toLocal(),
+    isBlocked: json['is_blocked'] as bool? ?? false,
   );
 }
 
@@ -269,6 +274,7 @@ class TaxiMessage {
     required this.content,
     required this.createdAt,
     this.clientMessageId,
+    this.senderBlocked = false,
   });
 
   final int id;
@@ -282,7 +288,22 @@ class TaxiMessage {
   /// 내가 보낸 메시지에만 온다. 전송 중인 메시지와 짝짓는 데 쓴다.
   final String? clientMessageId;
 
+  /// 내가 차단한 참여자가 보낸 메시지. 채팅에서 접어서 보여준다.
+  final bool senderBlocked;
+
   bool get isSystem => messageType == 'system';
+
+  TaxiMessage copyWith({bool? senderBlocked}) => TaxiMessage(
+    id: id,
+    partyId: partyId,
+    messageType: messageType,
+    senderLabel: senderLabel,
+    isMine: isMine,
+    content: content,
+    createdAt: createdAt,
+    clientMessageId: clientMessageId,
+    senderBlocked: senderBlocked ?? this.senderBlocked,
+  );
 
   factory TaxiMessage.fromJson(Map<String, dynamic> json) => TaxiMessage(
     id: json['id'] as int,
@@ -293,6 +314,7 @@ class TaxiMessage {
     content: json['content'] as String,
     createdAt: DateTime.parse(json['created_at'] as String).toLocal(),
     clientMessageId: json['client_message_id'] as String?,
+    senderBlocked: json['sender_blocked'] as bool? ?? false,
   );
 }
 
@@ -431,7 +453,12 @@ class TaxiSanction {
 }
 
 class TaxiRestriction {
-  const TaxiRestriction({this.userKey, this.suspension, this.notice});
+  const TaxiRestriction({
+    this.userKey,
+    this.suspension,
+    this.notice,
+    this.termsRequired = false,
+  });
 
   /// 이의제기 때 알려줄 내 고유번호 6자리. 관리자 화면의 익명 ID와 같다.
   final String? userKey;
@@ -442,6 +469,9 @@ class TaxiRestriction {
   /// 아직 확인하지 않은 제재 안내(경고 포함)
   final TaxiSanction? notice;
 
+  /// 이용약관에 동의해야 택시팟을 쓸 수 있는지
+  final bool termsRequired;
+
   factory TaxiRestriction.fromJson(Map<String, dynamic> json) =>
       TaxiRestriction(
         userKey: json['user_key'] as String?,
@@ -451,7 +481,33 @@ class TaxiRestriction {
         notice: json['notice'] is Map<String, dynamic>
             ? TaxiSanction.fromJson(json['notice'] as Map<String, dynamic>)
             : null,
+        termsRequired: json['terms_required'] as bool? ?? false,
       );
+}
+
+/// 내가 차단한 참여자. 익명이라 차단 당시의 라벨과 팟 정보로 보여준다.
+class TaxiBlock {
+  const TaxiBlock({
+    required this.id,
+    required this.targetLabel,
+    required this.departureLocation,
+    required this.destinationLocation,
+    required this.departureAt,
+  });
+
+  final int id;
+  final String targetLabel;
+  final String departureLocation;
+  final String destinationLocation;
+  final DateTime departureAt;
+
+  factory TaxiBlock.fromJson(Map<String, dynamic> json) => TaxiBlock(
+    id: json['id'] as int,
+    targetLabel: json['target_label'] as String,
+    departureLocation: json['departure_location'] as String,
+    destinationLocation: json['destination_location'] as String,
+    departureAt: DateTime.parse(json['departure_at'] as String).toLocal(),
+  );
 }
 
 /// 택시 화면에 들어오거나 돌아올 때 한 번에 받는 데이터.

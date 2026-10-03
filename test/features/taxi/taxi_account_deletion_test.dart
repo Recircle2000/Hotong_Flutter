@@ -7,6 +7,7 @@ import 'package:hsro/features/taxi/services/taxi_realtime_service.dart';
 import 'package:hsro/features/taxi/view/taxi_home_view.dart';
 import 'package:hsro/features/taxi/viewmodel/taxi_home_viewmodel.dart';
 import 'package:hsro/features/taxi/widgets/taxi_tab_bar.dart';
+import 'package:hsro/features/taxi/view/tabs/taxi_profile_tab.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'taxi_test_api.dart';
 
@@ -57,7 +58,17 @@ void main() {
 
   Future<void> confirmDeletion(WidgetTester tester) async {
     final button = find.byKey(const ValueKey('delete-account'));
-    await tester.ensureVisible(button);
+    // 내정보 목록 맨 아래에 있어 처음에는 화면 밖이다.
+    await tester.scrollUntilVisible(
+      button,
+      200,
+      scrollable: find
+          .descendant(
+            of: find.byType(TaxiProfileTab),
+            matching: find.byType(Scrollable),
+          )
+          .first,
+    );
     await tester.pumpAndSettle();
     await tester.tap(button);
     await tester.pumpAndSettle();

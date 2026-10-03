@@ -96,6 +96,18 @@ class TaxiChatViewModel extends GetxController with WidgetsBindingObserver {
   }
 
   /// 화면을 비우지 않고 서버의 메시지를 받아 빠진 것만 채운다.
+  /// 방금 차단한 참여자의 메시지를 바로 접는다. 라벨은 팟 안에서 하나뿐이다.
+  void markSenderBlocked(String label) {
+    // assignAll은 목록을 먼저 비우므로, 새 목록을 다 만든 뒤에 넘긴다.
+    final updated = [
+      for (final message in messages)
+        !message.isMine && message.senderLabel == label
+            ? message.copyWith(senderBlocked: true)
+            : message,
+    ];
+    messages.assignAll(updated);
+  }
+
   Future<void> _resync() async {
     if (isExpired.value || isLoading.value) return;
     // 처음 불러오기에 실패한 상태였다면 재연결을 계기로 처음부터 다시 받는다.

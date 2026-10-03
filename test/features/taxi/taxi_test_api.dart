@@ -56,6 +56,11 @@ class TaxiTestApi {
   Map<String, Object?>? notice;
   final acknowledgedSanctions = <int>[];
   int restrictionReads = 0;
+  // true면 이용약관 동의가 필요하다고 내려간다. 동의 요청을 받으면 false가 된다.
+  bool termsRequired = false;
+  int termsAgreements = 0;
+  // 내가 차단한 참여자. 차단 요청을 받으면 쌓이고, 참여자 목록에 is_blocked로 반영된다.
+  final blocks = <Map<String, Object?>>[];
   // 서버로 나간 모든 요청. "GET /api/taxi/parties" 형태로 쌓인다.
   final requests = <String>[];
   // 서버에 등록된 알림 기기 토큰과 요청 순서.
@@ -191,6 +196,7 @@ class TaxiTestApi {
             'user_key': 'a1b2c3',
             'suspension': suspension,
             'notice': notice,
+            'terms_required': termsRequired,
           },
         };
       } else if (path.endsWith('/me/restriction')) {
@@ -199,7 +205,34 @@ class TaxiTestApi {
           'user_key': 'a1b2c3',
           'suspension': suspension,
           'notice': notice,
+          'terms_required': termsRequired,
         };
+      } else if (path.endsWith('/me/terms')) {
+        termsAgreements++;
+        termsRequired = false;
+        return http.Response('', 204);
+      } else if (path.endsWith('/me/blocks')) {
+        result = blocks;
+      } else if (path.contains('/me/blocks/')) {
+        final id = int.parse(path.split('/').last);
+        blocks.removeWhere((block) => block['id'] == id);
+        return http.Response('', 204);
+      } else if (path.endsWith('/blocks')) {
+        final label = (jsonDecode(request.body) as Map)['target_label'];
+        final block = {
+          'id': blocks.length + 1,
+          'target_label': label,
+          'departure_location': '아산캠퍼스',
+          'destination_location': '천안아산역',
+          'departure_at': departure.toUtc().toIso8601String(),
+          'created_at': DateTime.now().toUtc().toIso8601String(),
+        };
+        blocks.add(block);
+        members = [
+          for (final member in members)
+            member['label'] == label ? {...member, 'is_blocked': true} : member,
+        ];
+        return http.Response.bytes(utf8.encode(jsonEncode(block)), 201);
       } else if (path.endsWith('/me/push-token')) {
         final body = jsonDecode(request.body) as Map;
         final token = body['token'] as String;

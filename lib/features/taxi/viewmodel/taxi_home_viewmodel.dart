@@ -59,6 +59,19 @@ class TaxiHomeViewModel extends GetxController with WidgetsBindingObserver {
 
   String? get userKey => restriction.value?.userKey;
 
+  bool get termsRequired => restriction.value?.termsRequired ?? false;
+
+  /// 이용약관 동의를 서버에 기록한 뒤 호출한다. 다음 새로고침 전에도 바로 반영한다.
+  void markTermsAgreed() {
+    final current = restriction.value;
+    if (current == null || !current.termsRequired) return;
+    restriction.value = TaxiRestriction(
+      userKey: current.userKey,
+      suspension: current.suspension,
+      notice: current.notice,
+    );
+  }
+
   /// 안내를 확인한 제재는 다시 띄우지 않는다.
   Future<void> acknowledgeNotice(TaxiSanction notice) async {
     final current = restriction.value;
@@ -66,6 +79,7 @@ class TaxiHomeViewModel extends GetxController with WidgetsBindingObserver {
       restriction.value = TaxiRestriction(
         userKey: current!.userKey,
         suspension: current.suspension,
+        termsRequired: current.termsRequired,
       );
     }
     try {

@@ -5,6 +5,7 @@ import 'package:get/get.dart';
 import 'package:hsro/core/services/auth_service.dart';
 import 'package:hsro/features/taxi/models/taxi_models.dart';
 import 'package:hsro/features/taxi/services/taxi_realtime_service.dart';
+import 'package:hsro/features/taxi/view/tabs/taxi_profile_tab.dart';
 import 'package:hsro/features/taxi/view/taxi_home_view.dart';
 import 'package:hsro/features/taxi/view/taxi_party_detail_view.dart';
 import 'package:hsro/features/taxi/viewmodel/taxi_home_viewmodel.dart';
@@ -81,6 +82,18 @@ void main() {
     await tab(tester, '내정보');
     expect(find.text('이메일 인증 완료'), findsOneWidget);
     expect(find.text('로그인 정보'), findsNothing);
+    // 로그아웃은 목록 아래쪽에 있어 스크롤해야 보인다.
+    await tester.scrollUntilVisible(
+      find.text('로그아웃'),
+      200,
+      scrollable: find
+          .descendant(
+            of: find.byType(TaxiProfileTab),
+            matching: find.byType(Scrollable),
+          )
+          .first,
+    );
+    await tester.pumpAndSettle();
     // 로그아웃은 확인창에서 한 번 더 확인해야 실행된다.
     await tester.tap(find.text('로그아웃'));
     await tester.pumpAndSettle();

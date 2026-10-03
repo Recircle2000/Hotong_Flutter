@@ -10,6 +10,7 @@ import 'package:hsro/features/taxi/view/taxi_party_edit_view.dart';
 import 'package:hsro/features/taxi/viewmodel/taxi_party_detail_viewmodel.dart';
 import 'package:hsro/features/taxi/widgets/taxi_action_sheet.dart';
 import 'package:hsro/features/taxi/widgets/taxi_app_bar_leading.dart';
+import 'package:hsro/features/taxi/widgets/taxi_block_sheet.dart';
 import 'package:hsro/features/taxi/widgets/taxi_confirm_dialog.dart';
 import 'package:hsro/features/taxi/widgets/taxi_report_sheet.dart';
 import 'package:hsro/features/taxi/widgets/taxi_theme.dart';
@@ -258,9 +259,17 @@ class TaxiPartyDetailViewState extends State<TaxiPartyDetailView> {
   ) async {
     final action = await showTaxiActionSheet<String>(
       context,
-      title: member.label,
-      actions: const [
-        TaxiSheetAction(
+      title: member.isBlocked ? '${member.label} · 차단함' : member.label,
+      actions: [
+        // 차단 해제는 내정보 > 차단 목록에서 한다.
+        if (!member.isBlocked)
+          const TaxiSheetAction(
+            value: 'block',
+            label: '차단하기',
+            icon: Icons.block_rounded,
+            destructive: true,
+          ),
+        const TaxiSheetAction(
           value: 'report',
           label: '신고하기',
           icon: Icons.flag_outlined,
@@ -268,13 +277,25 @@ class TaxiPartyDetailViewState extends State<TaxiPartyDetailView> {
         ),
       ],
     );
-    if (action != 'report' || !mounted) return;
-    await reportTaxiMember(
-      context,
-      repository: widget.repository,
-      partyId: party.id,
-      targetLabel: member.label,
-    );
+    if (!mounted) return;
+    switch (action) {
+      case 'block':
+        final blocked = await blockTaxiMember(
+          context,
+          repository: widget.repository,
+          partyId: party.id,
+          targetLabel: member.label,
+        );
+        // 참여자 카드의 '차단함' 표시를 바로 반영한다.
+        if (blocked) await controller.load();
+      case 'report':
+        await reportTaxiMember(
+          context,
+          repository: widget.repository,
+          partyId: party.id,
+          targetLabel: member.label,
+        );
+    }
   }
 
   @override
@@ -1027,6 +1048,14 @@ class _MemberTile extends StatelessWidget {
                           '나',
                           style: theme.textTheme.labelSmall?.copyWith(
                             color: taxiAccentText(context),
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      if (member.isBlocked)
+                        Text(
+                          '차단함',
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: colors.error,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
