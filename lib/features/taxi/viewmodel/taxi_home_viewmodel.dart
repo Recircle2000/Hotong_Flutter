@@ -104,6 +104,60 @@ class TaxiHomeViewModel extends GetxController with WidgetsBindingObserver {
         refreshAll,
       );
     }
+    _scheduleRecentPartyExpiry();
+  }
+
+  // 출발·취소로 현재팟에서 빠진 팟을 잠시 카드로 남겨 둔다.
+  static const departedPartyCardWindow = Duration(hours: 2);
+  static const cancelledPartyCardWindow = Duration(hours: 1);
+  // 카드 표시 기한이 지나면 값이 바뀌어 화면을 다시 그린다. 서버 요청은 없다.
+  final _recentPartyTick = 0.obs;
+  Timer? _recentPartyTimer;
+
+  /// 출발 후 2시간, 취소 후 1시간이 지나지 않은 팟 가운데 가장 최근 것.
+  TaxiPartySummary? get recentEndedParty {
+    _recentPartyTick.value;
+    return _recentEndedParty(DateTime.now());
+  }
+
+  TaxiPartySummary? _recentEndedParty(DateTime now) {
+    TaxiPartySummary? latest;
+    for (final party in recentChats) {
+      final until = _recentPartyCardUntil(party);
+      if (until == null || !until.isAfter(now)) continue;
+      if (latest == null ||
+          _partyEndedAt(party).isAfter(_partyEndedAt(latest))) {
+        latest = party;
+      }
+    }
+    return latest;
+  }
+
+  // 취소된 팟은 채팅 작성 기한이 취소 시각이다(서버 chat_deadlines).
+  static DateTime _partyEndedAt(TaxiPartySummary party) =>
+      party.recruitmentStatus == 'cancelled'
+      ? party.chatWritableUntil
+      : party.departureAt;
+
+  static DateTime? _recentPartyCardUntil(TaxiPartySummary party) =>
+      switch (party.recruitmentStatus) {
+        'cancelled' => party.chatWritableUntil.add(cancelledPartyCardWindow),
+        'ended' => party.departureAt.add(departedPartyCardWindow),
+        _ => null,
+      };
+
+  void _scheduleRecentPartyExpiry() {
+    _recentPartyTimer?.cancel();
+    final party = _recentEndedParty(DateTime.now());
+    if (party == null) return;
+    _recentPartyTimer = Timer(
+      _recentPartyCardUntil(party)!.difference(DateTime.now()) +
+          const Duration(seconds: 1),
+      () {
+        _recentPartyTick.value++;
+        _scheduleRecentPartyExpiry();
+      },
+    );
   }
 
   int get totalUnread => [
@@ -437,6 +491,7 @@ class TaxiHomeViewModel extends GetxController with WidgetsBindingObserver {
     _partyRefreshDebounces.clear();
     _searchRefreshDebounce?.cancel();
     _expiryTimer?.cancel();
+    _recentPartyTimer?.cancel();
     _events?.cancel();
     unawaited(_realtime.dispose());
     _repository.close();

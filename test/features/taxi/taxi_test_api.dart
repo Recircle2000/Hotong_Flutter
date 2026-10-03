@@ -64,8 +64,12 @@ class TaxiTestApi {
   // 설정하면 신고 요청이 이 오류로 실패한다.
   ({int status, String code, String message})? reportError;
   final departure = DateTime.now().add(const Duration(hours: 1));
+  // 최근 채팅 팟이 출발(취소)한 지 얼마나 됐는지. 첫 조회 전에 바꾼다.
+  Duration recentAge = const Duration(hours: 1);
+  // 최근 채팅 가운데 취소된 팟. 취소 시각은 recentDeparture다.
+  final cancelledIds = <String>{};
   // 이미 출발한 팟의 출발 시각. 서버처럼 조회할 때마다 같은 값을 준다.
-  final recentDeparture = DateTime.now().subtract(const Duration(hours: 1));
+  late final recentDeparture = DateTime.now().subtract(recentAge);
   final locations = [
     {
       'id': 1,
@@ -101,7 +105,12 @@ class TaxiTestApi {
 
   Map<String, Object?> party(String id, {bool owner = false}) {
     final isRecent = recentChatIds.contains(id);
-    final partyDeparture = isRecent ? recentDeparture : departure;
+    final cancelled = cancelledIds.contains(id);
+    final partyDeparture = isRecent && !cancelled ? recentDeparture : departure;
+    // 취소된 팟은 서버처럼 채팅 작성 기한이 취소 시각이다.
+    final writableUntil = cancelled
+        ? recentDeparture
+        : partyDeparture.add(const Duration(hours: 3));
     return {
       'id': id,
       'meeting_code': 'H7KP',
@@ -113,14 +122,19 @@ class TaxiTestApi {
       'max_members': 4,
       'current_members': currentMembers,
       'remaining_seats': 4 - currentMembers,
-      'status': isRecent ? 'in_progress' : 'recruiting',
-      'recruitment_status': isRecent ? 'ended' : 'recruiting',
-      'chat_status': 'writable',
-      'chat_writable_until': partyDeparture
-          .add(const Duration(hours: 3))
-          .toUtc()
-          .toIso8601String(),
-      'chat_visible_until': partyDeparture
+      'status': cancelled
+          ? 'cancelled'
+          : isRecent
+          ? 'in_progress'
+          : 'recruiting',
+      'recruitment_status': cancelled
+          ? 'cancelled'
+          : isRecent
+          ? 'ended'
+          : 'recruiting',
+      'chat_status': cancelled ? 'read_only' : 'writable',
+      'chat_writable_until': writableUntil.toUtc().toIso8601String(),
+      'chat_visible_until': writableUntil
           .add(const Duration(hours: 48))
           .toUtc()
           .toIso8601String(),

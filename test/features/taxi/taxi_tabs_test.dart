@@ -77,7 +77,7 @@ void main() {
       1,
     );
     await tab(tester, '현재팟');
-    expect(find.text('모집 중인 팟이 없어요'), findsOneWidget);
+    expect(find.text('참여 중인 팟이 없어요'), findsOneWidget);
     await tab(tester, '내정보');
     expect(find.text('이메일 인증 완료'), findsOneWidget);
     expect(find.text('로그인 정보'), findsNothing);
@@ -267,18 +267,80 @@ void main() {
     await tab(tester, '현재팟');
     expect(find.byKey(const ValueKey('current-party-segment')), findsOneWidget);
     expect(find.byKey(const ValueKey('recent-chat-segment')), findsOneWidget);
-    expect(find.text('모집 중인 팟이 없어요'), findsOneWidget);
+    expect(find.text('참여 중인 팟이 없어요'), findsOneWidget);
     expect(find.textContaining('채팅 가능'), findsNothing);
 
     await tester.tap(find.byKey(const ValueKey('recent-chat-segment')));
     await tester.pumpAndSettle();
 
-    expect(find.text('모집 중인 팟이 없어요'), findsNothing);
+    expect(find.text('참여 중인 팟이 없어요'), findsNothing);
     expect(find.byKey(const ValueKey('recent-chats-pane')), findsOneWidget);
     expect(find.textContaining('채팅 가능'), findsOneWidget);
     expect(find.text('아산캠퍼스 → 천안아산역'), findsOneWidget);
     await tester.pumpWidget(const SizedBox());
   });
+
+  testWidgets('출발한 지 2시간 안 된 팟은 현재팟 아래 카드로 남고 누르면 상세로 간다', (tester) async {
+    final api = TaxiTestApi()..recentChatIds.add('recent');
+    await launch(tester, api);
+    await tab(tester, '현재팟');
+
+    final card = find.byKey(const ValueKey('recent-ended-party'));
+    expect(find.text('최근 참여한 팟'), findsOneWidget);
+    expect(card, findsOneWidget);
+    expect(
+      find.descendant(of: card, matching: find.text('출발함')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: card, matching: find.text('# H7KP')),
+      findsOneWidget,
+    );
+
+    await tester.tap(card);
+    await tester.pumpAndSettle();
+    expect(find.byType(TaxiPartyDetailView), findsOneWidget);
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('취소된 팟 카드는 만남 코드 없이 취소됨으로 보인다', (tester) async {
+    final api = TaxiTestApi()
+      ..recentChatIds.add('recent')
+      ..cancelledIds.add('recent')
+      ..recentAge = const Duration(minutes: 30);
+    await launch(tester, api);
+    await tab(tester, '현재팟');
+
+    final card = find.byKey(const ValueKey('recent-ended-party'));
+    expect(
+      find.descendant(of: card, matching: find.text('취소됨')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: card, matching: find.textContaining('#')),
+      findsNothing,
+    );
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  for (final (name, cancelled, age) in [
+    ('출발 후 2시간이 지난 팟', false, const Duration(hours: 2, minutes: 1)),
+    ('취소 후 1시간이 지난 팟', true, const Duration(hours: 1, minutes: 1)),
+  ]) {
+    testWidgets('$name은 카드로 보이지 않는다', (tester) async {
+      final api = TaxiTestApi()
+        ..recentChatIds.add('recent')
+        ..recentAge = age;
+      if (cancelled) api.cancelledIds.add('recent');
+      await launch(tester, api);
+      await tab(tester, '현재팟');
+
+      expect(find.text('참여 중인 팟이 없어요'), findsOneWidget);
+      expect(find.byKey(const ValueKey('recent-ended-party')), findsNothing);
+      expect(find.text('최근 참여한 팟'), findsNothing);
+      await tester.pumpWidget(const SizedBox());
+    });
+  }
 
   testWidgets('채팅 실시간 이벤트는 전체 API 재조회 없이 배지를 갱신한다', (tester) async {
     final api = TaxiTestApi()..recentChatIds.add('recent');

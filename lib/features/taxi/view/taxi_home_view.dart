@@ -448,6 +448,7 @@ class _TaxiHomeViewState extends State<TaxiHomeView> {
                           onPartySelected: (id) =>
                               setState(() => _selectedPartyId = id),
                           onOpenRecentChat: _openRecentChat,
+                          onOpenParty: _openParty,
                           onSearch: () => _select(1),
                           onCreate: () => _select(0),
                         ),
