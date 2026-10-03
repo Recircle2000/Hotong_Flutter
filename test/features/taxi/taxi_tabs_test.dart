@@ -5,6 +5,7 @@ import 'package:get/get.dart';
 import 'package:hsro/core/services/auth_service.dart';
 import 'package:hsro/features/taxi/models/taxi_models.dart';
 import 'package:hsro/features/taxi/services/taxi_realtime_service.dart';
+import 'package:hsro/features/taxi/view/tabs/taxi_profile_tab.dart';
 import 'package:hsro/features/taxi/view/taxi_home_view.dart';
 import 'package:hsro/features/taxi/view/taxi_party_detail_view.dart';
 import 'package:hsro/features/taxi/viewmodel/taxi_home_viewmodel.dart';
@@ -77,10 +78,22 @@ void main() {
       1,
     );
     await tab(tester, '현재팟');
-    expect(find.text('모집 중인 팟이 없어요'), findsOneWidget);
+    expect(find.text('참여 중인 팟이 없어요'), findsOneWidget);
     await tab(tester, '내정보');
     expect(find.text('이메일 인증 완료'), findsOneWidget);
     expect(find.text('로그인 정보'), findsNothing);
+    // 로그아웃은 목록 아래쪽에 있어 스크롤해야 보인다.
+    await tester.scrollUntilVisible(
+      find.text('로그아웃'),
+      200,
+      scrollable: find
+          .descendant(
+            of: find.byType(TaxiProfileTab),
+            matching: find.byType(Scrollable),
+          )
+          .first,
+    );
+    await tester.pumpAndSettle();
     // 로그아웃은 확인창에서 한 번 더 확인해야 실행된다.
     await tester.tap(find.text('로그아웃'));
     await tester.pumpAndSettle();
@@ -267,18 +280,80 @@ void main() {
     await tab(tester, '현재팟');
     expect(find.byKey(const ValueKey('current-party-segment')), findsOneWidget);
     expect(find.byKey(const ValueKey('recent-chat-segment')), findsOneWidget);
-    expect(find.text('모집 중인 팟이 없어요'), findsOneWidget);
+    expect(find.text('참여 중인 팟이 없어요'), findsOneWidget);
     expect(find.textContaining('채팅 가능'), findsNothing);
 
     await tester.tap(find.byKey(const ValueKey('recent-chat-segment')));
     await tester.pumpAndSettle();
 
-    expect(find.text('모집 중인 팟이 없어요'), findsNothing);
+    expect(find.text('참여 중인 팟이 없어요'), findsNothing);
     expect(find.byKey(const ValueKey('recent-chats-pane')), findsOneWidget);
     expect(find.textContaining('채팅 가능'), findsOneWidget);
     expect(find.text('아산캠퍼스 → 천안아산역'), findsOneWidget);
     await tester.pumpWidget(const SizedBox());
   });
+
+  testWidgets('출발한 지 2시간 안 된 팟은 현재팟 아래 카드로 남고 누르면 상세로 간다', (tester) async {
+    final api = TaxiTestApi()..recentChatIds.add('recent');
+    await launch(tester, api);
+    await tab(tester, '현재팟');
+
+    final card = find.byKey(const ValueKey('recent-ended-party'));
+    expect(find.text('최근 참여한 팟'), findsOneWidget);
+    expect(card, findsOneWidget);
+    expect(
+      find.descendant(of: card, matching: find.text('모집 종료')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: card, matching: find.text('# H7KP')),
+      findsOneWidget,
+    );
+
+    await tester.tap(card);
+    await tester.pumpAndSettle();
+    expect(find.byType(TaxiPartyDetailView), findsOneWidget);
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('취소된 팟 카드는 만남 코드 없이 취소됨으로 보인다', (tester) async {
+    final api = TaxiTestApi()
+      ..recentChatIds.add('recent')
+      ..cancelledIds.add('recent')
+      ..recentAge = const Duration(minutes: 30);
+    await launch(tester, api);
+    await tab(tester, '현재팟');
+
+    final card = find.byKey(const ValueKey('recent-ended-party'));
+    expect(
+      find.descendant(of: card, matching: find.text('취소됨')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: card, matching: find.textContaining('#')),
+      findsNothing,
+    );
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  for (final (name, cancelled, age) in [
+    ('출발 후 2시간이 지난 팟', false, const Duration(hours: 2, minutes: 1)),
+    ('취소 후 1시간이 지난 팟', true, const Duration(hours: 1, minutes: 1)),
+  ]) {
+    testWidgets('$name은 카드로 보이지 않는다', (tester) async {
+      final api = TaxiTestApi()
+        ..recentChatIds.add('recent')
+        ..recentAge = age;
+      if (cancelled) api.cancelledIds.add('recent');
+      await launch(tester, api);
+      await tab(tester, '현재팟');
+
+      expect(find.text('참여 중인 팟이 없어요'), findsOneWidget);
+      expect(find.byKey(const ValueKey('recent-ended-party')), findsNothing);
+      expect(find.text('최근 참여한 팟'), findsNothing);
+      await tester.pumpWidget(const SizedBox());
+    });
+  }
 
   testWidgets('채팅 실시간 이벤트는 전체 API 재조회 없이 배지를 갱신한다', (tester) async {
     final api = TaxiTestApi()..recentChatIds.add('recent');
@@ -447,16 +522,16 @@ void main() {
       await tab(tester, '현재팟');
       // 나가기 버튼은 스크롤 맨 아래에 있어 처음에는 화면 밖이다.
       final leave = find.byKey(const ValueKey('leave-party'));
-      await tester.scrollUntilVisible(
-        leave,
-        200,
-        scrollable: find
-            .descendant(
-              of: find.byType(TaxiPartyDetailView),
-              matching: find.byType(Scrollable),
-            )
-            .first,
-      );
+      final scrollable = find
+          .descendant(
+            of: find.byType(TaxiPartyDetailView),
+            matching: find.byType(Scrollable),
+          )
+          .first;
+      await tester.scrollUntilVisible(leave, 200, scrollable: scrollable);
+      // 막 보이기 시작한 위치는 아래쪽 채팅 버튼에 가려질 수 있어 끝까지 내린다.
+      await tester.drag(scrollable, const Offset(0, -400));
+      await tester.pumpAndSettle();
       await tester.tap(leave);
       await tester.pumpAndSettle();
       expect(

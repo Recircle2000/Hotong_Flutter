@@ -106,7 +106,10 @@ void main() {
 
     // 목록, 이용 제한, 현재팟 상세까지 묶음 조회 하나로 받는다.
     expect(api.requests, ['GET /api/taxi/home']);
-    expect(find.text('인원 2 / 4명'), findsOneWidget);
+    expect(
+      find.text('2 / 4명', findRichText: true, skipOffstage: false),
+      findsOneWidget,
+    );
     expect(viewModel.userKey, 'a1b2c3');
     await tester.pumpWidget(const SizedBox());
   });
@@ -206,7 +209,10 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(api.requests, isEmpty);
-    expect(find.text('인원 3 / 4명'), findsOneWidget);
+    expect(
+      find.text('3 / 4명', findRichText: true, skipOffstage: false),
+      findsOneWidget,
+    );
 
     // 상세가 없는 알림(구버전 서버)은 한 번만 다시 조회한다.
     api.currentMembers = 4;
@@ -220,7 +226,10 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(api.requests, ['GET /api/taxi/parties/existing']);
-    expect(find.text('인원 4 / 4명'), findsOneWidget);
+    expect(
+      find.text('4 / 4명', findRichText: true, skipOffstage: false),
+      findsOneWidget,
+    );
     await tester.pumpWidget(const SizedBox());
   });
 
@@ -259,7 +268,10 @@ void main() {
     await tester.pumpAndSettle();
 
     // 묶음 조회에 상세가 들어 있어 따로 다시 받지 않는다.
-    expect(find.text('인원 3 / 4명'), findsOneWidget);
+    expect(
+      find.text('3 / 4명', findRichText: true, skipOffstage: false),
+      findsOneWidget,
+    );
     expect(api.requests, ['GET /api/taxi/home']);
     await tester.pumpWidget(const SizedBox());
   });

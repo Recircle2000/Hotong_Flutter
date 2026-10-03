@@ -10,6 +10,7 @@ import 'package:hsro/features/taxi/services/taxi_realtime_service.dart';
 import 'package:hsro/features/taxi/viewmodel/taxi_chat_viewmodel.dart';
 import 'package:hsro/features/taxi/widgets/taxi_action_sheet.dart';
 import 'package:hsro/features/taxi/widgets/taxi_app_bar_leading.dart';
+import 'package:hsro/features/taxi/widgets/taxi_block_sheet.dart';
 import 'package:hsro/features/taxi/widgets/taxi_report_sheet.dart';
 import 'package:hsro/features/taxi/widgets/taxi_theme.dart';
 import 'package:intl/intl.dart';
@@ -32,6 +33,8 @@ class TaxiChatView extends StatefulWidget {
 
 class _TaxiChatViewState extends State<TaxiChatView> {
   final _textController = TextEditingController();
+  // 차단한 참여자의 메시지 가운데 눌러서 펼친 것
+  final _revealed = <int>{};
   final _scrollController = ScrollController();
   late final String _tag;
   late final TaxiChatViewModel controller;
@@ -185,9 +188,20 @@ class _TaxiChatViewState extends State<TaxiChatView> {
     final action = await showTaxiActionSheet<String>(
       context,
       title: label,
-      actions: const [
-        TaxiSheetAction(value: 'copy', label: '복사', icon: Icons.copy_rounded),
-        TaxiSheetAction(
+      actions: [
+        const TaxiSheetAction(
+          value: 'copy',
+          label: '복사',
+          icon: Icons.copy_rounded,
+        ),
+        if (!message.senderBlocked)
+          const TaxiSheetAction(
+            value: 'block',
+            label: '차단하기',
+            icon: Icons.block_rounded,
+            destructive: true,
+          ),
+        const TaxiSheetAction(
           value: 'report',
           label: '신고하기',
           icon: Icons.flag_outlined,
@@ -199,6 +213,15 @@ class _TaxiChatViewState extends State<TaxiChatView> {
     switch (action) {
       case 'copy':
         _copyMessage(message);
+      case 'block':
+        FocusManager.instance.primaryFocus?.unfocus();
+        final blocked = await blockTaxiMember(
+          context,
+          repository: widget.repository,
+          partyId: widget.party.id,
+          targetLabel: label,
+        );
+        if (blocked) controller.markSenderBlocked(label);
       case 'report':
         FocusManager.instance.primaryFocus?.unfocus();
         await reportTaxiMember(
@@ -378,6 +401,11 @@ class _TaxiChatViewState extends State<TaxiChatView> {
                         showDate || !_isContinuation(previous, message),
                     isLastInGroup:
                         next == null || !_isContinuation(message, next),
+                    // 차단한 참여자의 메시지는 접어 두고, 누르면 그 메시지만 펼친다.
+                    collapsed:
+                        message.senderBlocked &&
+                        !_revealed.contains(message.id),
+                    onReveal: () => setState(() => _revealed.add(message.id)),
                     onLongPress: () => _onMessageLongPress(message),
                   ),
                 ],
@@ -480,12 +508,18 @@ class _MessageBubble extends StatelessWidget {
     required this.isFirstInGroup,
     required this.isLastInGroup,
     required this.onLongPress,
+    this.collapsed = false,
+    this.onReveal,
   });
 
   final TaxiMessage message;
   final bool isFirstInGroup;
   final bool isLastInGroup;
   final VoidCallback onLongPress;
+
+  /// 차단한 참여자의 메시지라 내용을 가리고 있는지
+  final bool collapsed;
+  final VoidCallback? onReveal;
 
   static const _outerRadius = Radius.circular(19);
   static const _joinedRadius = Radius.circular(6);
@@ -513,7 +547,8 @@ class _MessageBubble extends StatelessWidget {
     final senderSideTop = isFirstInGroup ? _outerRadius : _joinedRadius;
     final senderSideBottom = isLastInGroup ? _tailRadius : _joinedRadius;
     final bubble = GestureDetector(
-      onLongPress: onLongPress,
+      onTap: collapsed ? onReveal : null,
+      onLongPress: collapsed ? null : onLongPress,
       child: Container(
         constraints: BoxConstraints(
           maxWidth: MediaQuery.sizeOf(context).width * 0.68,
@@ -530,13 +565,32 @@ class _MessageBubble extends StatelessWidget {
             bottomRight: isMine ? senderSideBottom : _outerRadius,
           ),
         ),
-        child: Text(
-          message.content,
-          style: theme.textTheme.bodyMedium?.copyWith(
-            color: isMine ? taxiAccentForeground : colors.onSurface,
-            height: 1.4,
-          ),
-        ),
+        child: collapsed
+            ? Text.rich(
+                TextSpan(
+                  text: '차단한 참여자의 메시지예요 · ',
+                  children: [
+                    TextSpan(
+                      text: '보기',
+                      style: TextStyle(
+                        color: taxiAccentText(context),
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: colors.onSurfaceVariant,
+                  height: 1.4,
+                ),
+              )
+            : Text(
+                message.content,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: isMine ? taxiAccentForeground : colors.onSurface,
+                  height: 1.4,
+                ),
+              ),
       ),
     );
 

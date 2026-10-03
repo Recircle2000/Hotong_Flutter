@@ -56,6 +56,11 @@ class TaxiTestApi {
   Map<String, Object?>? notice;
   final acknowledgedSanctions = <int>[];
   int restrictionReads = 0;
+  // true면 이용약관 동의가 필요하다고 내려간다. 동의 요청을 받으면 false가 된다.
+  bool termsRequired = false;
+  int termsAgreements = 0;
+  // 내가 차단한 참여자. 차단 요청을 받으면 쌓이고, 참여자 목록에 is_blocked로 반영된다.
+  final blocks = <Map<String, Object?>>[];
   // 서버로 나간 모든 요청. "GET /api/taxi/parties" 형태로 쌓인다.
   final requests = <String>[];
   // 서버에 등록된 알림 기기 토큰과 요청 순서.
@@ -64,8 +69,12 @@ class TaxiTestApi {
   // 설정하면 신고 요청이 이 오류로 실패한다.
   ({int status, String code, String message})? reportError;
   final departure = DateTime.now().add(const Duration(hours: 1));
+  // 최근 채팅 팟이 출발(취소)한 지 얼마나 됐는지. 첫 조회 전에 바꾼다.
+  Duration recentAge = const Duration(hours: 1);
+  // 최근 채팅 가운데 취소된 팟. 취소 시각은 recentDeparture다.
+  final cancelledIds = <String>{};
   // 이미 출발한 팟의 출발 시각. 서버처럼 조회할 때마다 같은 값을 준다.
-  final recentDeparture = DateTime.now().subtract(const Duration(hours: 1));
+  late final recentDeparture = DateTime.now().subtract(recentAge);
   final locations = [
     {
       'id': 1,
@@ -101,7 +110,12 @@ class TaxiTestApi {
 
   Map<String, Object?> party(String id, {bool owner = false}) {
     final isRecent = recentChatIds.contains(id);
-    final partyDeparture = isRecent ? recentDeparture : departure;
+    final cancelled = cancelledIds.contains(id);
+    final partyDeparture = isRecent && !cancelled ? recentDeparture : departure;
+    // 취소된 팟은 서버처럼 채팅 작성 기한이 취소 시각이다.
+    final writableUntil = cancelled
+        ? recentDeparture
+        : partyDeparture.add(const Duration(hours: 3));
     return {
       'id': id,
       'meeting_code': 'H7KP',
@@ -113,14 +127,19 @@ class TaxiTestApi {
       'max_members': 4,
       'current_members': currentMembers,
       'remaining_seats': 4 - currentMembers,
-      'status': isRecent ? 'in_progress' : 'recruiting',
-      'recruitment_status': isRecent ? 'ended' : 'recruiting',
-      'chat_status': 'writable',
-      'chat_writable_until': partyDeparture
-          .add(const Duration(hours: 3))
-          .toUtc()
-          .toIso8601String(),
-      'chat_visible_until': partyDeparture
+      'status': cancelled
+          ? 'cancelled'
+          : isRecent
+          ? 'in_progress'
+          : 'recruiting',
+      'recruitment_status': cancelled
+          ? 'cancelled'
+          : isRecent
+          ? 'ended'
+          : 'recruiting',
+      'chat_status': cancelled ? 'read_only' : 'writable',
+      'chat_writable_until': writableUntil.toUtc().toIso8601String(),
+      'chat_visible_until': writableUntil
           .add(const Duration(hours: 48))
           .toUtc()
           .toIso8601String(),
@@ -177,6 +196,7 @@ class TaxiTestApi {
             'user_key': 'a1b2c3',
             'suspension': suspension,
             'notice': notice,
+            'terms_required': termsRequired,
           },
         };
       } else if (path.endsWith('/me/restriction')) {
@@ -185,7 +205,34 @@ class TaxiTestApi {
           'user_key': 'a1b2c3',
           'suspension': suspension,
           'notice': notice,
+          'terms_required': termsRequired,
         };
+      } else if (path.endsWith('/me/terms')) {
+        termsAgreements++;
+        termsRequired = false;
+        return http.Response('', 204);
+      } else if (path.endsWith('/me/blocks')) {
+        result = blocks;
+      } else if (path.contains('/me/blocks/')) {
+        final id = int.parse(path.split('/').last);
+        blocks.removeWhere((block) => block['id'] == id);
+        return http.Response('', 204);
+      } else if (path.endsWith('/blocks')) {
+        final label = (jsonDecode(request.body) as Map)['target_label'];
+        final block = {
+          'id': blocks.length + 1,
+          'target_label': label,
+          'departure_location': '아산캠퍼스',
+          'destination_location': '천안아산역',
+          'departure_at': departure.toUtc().toIso8601String(),
+          'created_at': DateTime.now().toUtc().toIso8601String(),
+        };
+        blocks.add(block);
+        members = [
+          for (final member in members)
+            member['label'] == label ? {...member, 'is_blocked': true} : member,
+        ];
+        return http.Response.bytes(utf8.encode(jsonEncode(block)), 201);
       } else if (path.endsWith('/me/push-token')) {
         final body = jsonDecode(request.body) as Map;
         final token = body['token'] as String;

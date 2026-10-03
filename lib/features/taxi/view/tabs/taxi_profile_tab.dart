@@ -19,6 +19,8 @@ class TaxiProfileTab extends StatelessWidget {
     this.onDeleteAccount,
     this.push,
     this.onPushChanged,
+    required this.onBlocks,
+    required this.onTerms,
   });
 
   final TaxiHomeViewModel controller;
@@ -35,6 +37,8 @@ class TaxiProfileTab extends StatelessWidget {
   /// null이면 알림 스위치를 숨긴다(푸시를 쓸 수 없는 환경).
   final TaxiPushService? push;
   final ValueChanged<bool>? onPushChanged;
+  final VoidCallback onBlocks;
+  final VoidCallback onTerms;
 
   @override
   Widget build(BuildContext context) => Obx(
@@ -123,6 +127,25 @@ class TaxiProfileTab extends StatelessWidget {
             ),
           ),
         ],
+        const SizedBox(height: 12),
+        Card(
+          child: ListTile(
+            key: const ValueKey('taxi-block-list'),
+            leading: const Icon(Icons.block_rounded, color: taxiAccent),
+            title: const Text('차단 목록'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: onBlocks,
+          ),
+        ),
+        const SizedBox(height: 12),
+        Card(
+          child: ListTile(
+            leading: const Icon(Icons.description_outlined, color: taxiAccent),
+            title: const Text('이용약관'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: onTerms,
+          ),
+        ),
         const SizedBox(height: 12),
         Card(
           child: ListTile(

@@ -14,10 +14,12 @@ import 'package:hsro/features/taxi/view/tabs/taxi_create_tab.dart';
 import 'package:hsro/features/taxi/view/tabs/taxi_current_tab.dart';
 import 'package:hsro/features/taxi/view/tabs/taxi_find_tab.dart';
 import 'package:hsro/features/taxi/view/tabs/taxi_profile_tab.dart';
+import 'package:hsro/features/taxi/view/taxi_block_list_view.dart';
 import 'package:hsro/features/taxi/view/taxi_chat_view.dart';
 import 'package:hsro/features/taxi/view/taxi_party_create_view.dart';
 import 'package:hsro/features/taxi/view/taxi_party_detail_view.dart';
 import 'package:hsro/features/taxi/view/taxi_party_history_view.dart';
+import 'package:hsro/features/taxi/view/taxi_terms_view.dart';
 import 'package:hsro/features/taxi/viewmodel/taxi_home_viewmodel.dart';
 import 'package:hsro/features/taxi/widgets/taxi_app_bar_leading.dart';
 import 'package:hsro/features/taxi/widgets/taxi_confirm_dialog.dart';
@@ -55,6 +57,7 @@ class _TaxiHomeViewState extends State<TaxiHomeView> {
   final Map<String, GlobalKey<TaxiPartyDetailViewState>> _detailKeys = {};
   Worker? _restrictionWorker;
   bool _showingNotice = false;
+  bool _showingTerms = false;
   TaxiPushService? _push;
   Worker? _pushWorker;
 
@@ -74,8 +77,8 @@ class _TaxiHomeViewState extends State<TaxiHomeView> {
       tag: _tag,
     );
     controller.setSearchVisible(_index == 1);
-    // 확인하지 않은 제재가 있으면 택시 화면에 들어올 때 한 번 안내한다.
-    _restrictionWorker = ever(controller.restriction, (_) => _showNotice());
+    // 약관 동의가 필요하면 먼저 받고, 확인하지 않은 제재가 있으면 한 번 안내한다.
+    _restrictionWorker = ever(controller.restriction, (_) => _onRestriction());
     final push = Get.isRegistered<TaxiPushService>()
         ? Get.find<TaxiPushService>()
         : null;
@@ -152,6 +155,37 @@ class _TaxiHomeViewState extends State<TaxiHomeView> {
     );
   }
 
+  Future<void> _onRestriction() async {
+    if (controller.termsRequired) {
+      // 동의하면 restriction이 다시 바뀌어 제재 안내로 이어진다.
+      await _requireTerms();
+    } else {
+      await _showNotice();
+    }
+  }
+
+  /// 이용약관 동의를 받는다. 동의하지 않으면 택시 화면을 닫고 false를 돌려준다.
+  Future<bool> _requireTerms() async {
+    if (!controller.termsRequired) return true;
+    if (_showingTerms || !mounted) return false;
+    _showingTerms = true;
+    try {
+      final agreed = await Get.to<bool>(
+        () => TaxiTermsView(onAgree: controller.repository.agreeTerms),
+        fullscreenDialog: true,
+      );
+      if (!mounted) return false;
+      if (agreed == true) {
+        controller.markTermsAgreed();
+        return true;
+      }
+      Navigator.of(context).maybePop();
+      return false;
+    } finally {
+      _showingTerms = false;
+    }
+  }
+
   Future<void> _showNotice() async {
     final notice = controller.restriction.value?.notice;
     if (notice == null || _showingNotice || !mounted) return;
@@ -172,6 +206,7 @@ class _TaxiHomeViewState extends State<TaxiHomeView> {
     // 내 팟과 이용 제한을 한 번에 다시 확인한다.
     await controller.refreshAll();
     if (!mounted) return false;
+    if (!await _requireTerms()) return false;
     final allowed = controller.canCreateOrJoin;
     if (!allowed) {
       final suspension = controller.suspension;
@@ -448,6 +483,7 @@ class _TaxiHomeViewState extends State<TaxiHomeView> {
                           onPartySelected: (id) =>
                               setState(() => _selectedPartyId = id),
                           onOpenRecentChat: _openRecentChat,
+                          onOpenParty: _openParty,
                           onSearch: () => _select(1),
                           onCreate: () => _select(0),
                         ),
@@ -459,6 +495,12 @@ class _TaxiHomeViewState extends State<TaxiHomeView> {
                           onLogout: _busy ? null : _logout,
                           push: _push,
                           onPushChanged: _busy ? null : _setPush,
+                          onBlocks: () => Get.to(
+                            () => TaxiBlockListView(
+                              repository: controller.repository,
+                            ),
+                          ),
+                          onTerms: () => Get.to(() => const TaxiTermsView()),
                           onDeleteAccount:
                               _busy || widget.onDeleteAccount == null
                               ? null

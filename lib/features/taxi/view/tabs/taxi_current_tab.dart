@@ -31,6 +31,7 @@ class TaxiCurrentTab extends StatelessWidget {
     required this.onSectionChanged,
     required this.onPartySelected,
     required this.onOpenRecentChat,
+    required this.onOpenParty,
     required this.onSearch,
     required this.onCreate,
   });
@@ -45,6 +46,7 @@ class TaxiCurrentTab extends StatelessWidget {
   final ValueChanged<int> onSectionChanged;
   final ValueChanged<String?> onPartySelected;
   final Future<void> Function(TaxiPartySummary party) onOpenRecentChat;
+  final Future<void> Function(TaxiPartySummary party) onOpenParty;
   final VoidCallback onSearch;
   final VoidCallback onCreate;
 
@@ -92,6 +94,7 @@ class TaxiCurrentTab extends StatelessWidget {
           onRetry: controller.isLoading.value ? null : controller.refreshAll,
         );
       }
+      final recent = controller.recentEndedParty;
       return RefreshIndicator(
         onRefresh: controller.refreshAll,
         color: taxiAccent,
@@ -102,7 +105,7 @@ class TaxiCurrentTab extends StatelessWidget {
             const Icon(PhosphorIconsFill.taxi, size: 48, color: taxiAccent),
             const SizedBox(height: 14),
             Text(
-              '모집 중인 팟이 없어요',
+              '참여 중인 팟이 없어요',
               textAlign: TextAlign.center,
               style: Theme.of(
                 context,
@@ -117,6 +120,22 @@ class TaxiCurrentTab extends StatelessWidget {
                 TextButton(onPressed: onCreate, child: const Text('팟 생성')),
               ],
             ),
+            if (recent != null) ...[
+              const SizedBox(height: 32),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(2, 0, 2, 10),
+                child: Text(
+                  '최근 참여한 팟',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+                ),
+              ),
+              _RecentEndedPartyCard(
+                party: recent,
+                onTap: () => onOpenParty(recent),
+              ),
+            ],
           ],
         ),
       );
@@ -429,6 +448,113 @@ class _RecentChatTile extends StatelessWidget {
           ),
         ),
         trailing: const Icon(Icons.chevron_right_rounded),
+      ),
+    );
+  }
+}
+
+/// 출발·취소로 현재팟에서 빠진 직후의 팟. 사라진 팟을 찾을 수 있게 잠시 남긴다.
+class _RecentEndedPartyCard extends StatelessWidget {
+  const _RecentEndedPartyCard({required this.party, required this.onTap});
+
+  final TaxiPartySummary party;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final cancelled = party.recruitmentStatus == 'cancelled';
+    final meetingCode = cancelled ? null : party.meetingCode;
+    return Container(
+      key: const ValueKey('recent-ended-party'),
+      decoration: taxiCardDecoration(context),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(24),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(18, 14, 12, 14),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 3,
+                            ),
+                            decoration: BoxDecoration(
+                              color: cancelled
+                                  ? colors.errorContainer
+                                  : taxiTint(context),
+                              borderRadius: BorderRadius.circular(999),
+                            ),
+                            child: Text(
+                              cancelled ? '취소됨' : '모집 종료',
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                color: cancelled
+                                    ? colors.onErrorContainer
+                                    : taxiAccentText(context),
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            '${DateFormat('HH:mm').format(party.departureAt)} 출발',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: colors.onSurfaceVariant,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          if (meetingCode != null) ...[
+                            const SizedBox(width: 8),
+                            Text(
+                              '# $meetingCode',
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: taxiAccentText(context),
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        '${party.departureLocation.name} → ${party.destinationLocation.name}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (party.unreadCount > 0) ...[
+                  const SizedBox(width: 8),
+                  Badge(
+                    label: Text(
+                      party.unreadCount > 99 ? '99+' : '${party.unreadCount}',
+                    ),
+                  ),
+                ],
+                const SizedBox(width: 4),
+                Icon(
+                  Icons.chevron_right_rounded,
+                  color: colors.onSurfaceVariant,
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
