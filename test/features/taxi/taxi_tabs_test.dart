@@ -289,7 +289,7 @@ void main() {
     expect(find.text('최근 참여한 팟'), findsOneWidget);
     expect(card, findsOneWidget);
     expect(
-      find.descendant(of: card, matching: find.text('출발함')),
+      find.descendant(of: card, matching: find.text('모집 종료')),
       findsOneWidget,
     );
     expect(
@@ -509,16 +509,16 @@ void main() {
       await tab(tester, '현재팟');
       // 나가기 버튼은 스크롤 맨 아래에 있어 처음에는 화면 밖이다.
       final leave = find.byKey(const ValueKey('leave-party'));
-      await tester.scrollUntilVisible(
-        leave,
-        200,
-        scrollable: find
-            .descendant(
-              of: find.byType(TaxiPartyDetailView),
-              matching: find.byType(Scrollable),
-            )
-            .first,
-      );
+      final scrollable = find
+          .descendant(
+            of: find.byType(TaxiPartyDetailView),
+            matching: find.byType(Scrollable),
+          )
+          .first;
+      await tester.scrollUntilVisible(leave, 200, scrollable: scrollable);
+      // 막 보이기 시작한 위치는 아래쪽 채팅 버튼에 가려질 수 있어 끝까지 내린다.
+      await tester.drag(scrollable, const Offset(0, -400));
+      await tester.pumpAndSettle();
       await tester.tap(leave);
       await tester.pumpAndSettle();
       expect(

@@ -497,7 +497,7 @@ class _RecentEndedPartyCard extends StatelessWidget {
                               borderRadius: BorderRadius.circular(999),
                             ),
                             child: Text(
-                              cancelled ? '취소됨' : '출발함',
+                              cancelled ? '취소됨' : '모집 종료',
                               style: theme.textTheme.labelSmall?.copyWith(
                                 color: cancelled
                                     ? colors.onErrorContainer

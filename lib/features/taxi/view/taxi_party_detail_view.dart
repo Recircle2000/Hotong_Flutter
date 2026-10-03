@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:hsro/features/taxi/models/taxi_models.dart';
@@ -329,8 +331,6 @@ class TaxiPartyDetailViewState extends State<TaxiPartyDetailView> {
         children: [
           if (controller.errorMessage.isNotEmpty)
             _ErrorBanner(message: controller.errorMessage.value),
-          _StatusSummary(party: party),
-          const SizedBox(height: 14),
           _RouteOverviewCard(party: party),
           const SizedBox(height: 16),
           _MembersCard(
@@ -495,10 +495,11 @@ class TaxiPartyDetailViewState extends State<TaxiPartyDetailView> {
   }
 }
 
-class _StatusSummary extends StatelessWidget {
-  const _StatusSummary({required this.party});
+/// 모집 상태 칩. 참여자 카드 제목 옆에 둔다.
+class _RecruitmentStatusChip extends StatelessWidget {
+  const _RecruitmentStatusChip({required this.status});
 
-  final TaxiPartyDetail party;
+  final String status;
 
   @override
   Widget build(BuildContext context) {
@@ -511,7 +512,6 @@ class _StatusSummary extends StatelessWidget {
       'ended': '모집 종료',
       'cancelled': '취소',
     };
-    final status = party.recruitmentStatus;
     final active = status == 'recruiting';
     final cancelled = status == 'cancelled';
     final chipColor = cancelled
@@ -525,95 +525,122 @@ class _StatusSummary extends StatelessWidget {
         ? taxiAccentText(context)
         : colors.onSurfaceVariant;
 
-    return Row(
-      children: [
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-          decoration: BoxDecoration(
-            color: chipColor,
-            borderRadius: BorderRadius.circular(999),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 7,
-                height: 7,
-                decoration: BoxDecoration(
-                  color: chipForeground,
-                  shape: BoxShape.circle,
-                ),
-              ),
-              const SizedBox(width: 6),
-              Text(
-                labels[status] ?? status,
-                style: theme.textTheme.labelMedium?.copyWith(
-                  color: chipForeground,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
-          ),
-        ),
-        if (party.meetingCode != null) ...[
-          const SizedBox(width: 8),
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: chipColor,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
+            width: 6,
+            height: 6,
             decoration: BoxDecoration(
-              color: colors.surfaceContainerHighest,
-              borderRadius: BorderRadius.circular(999),
+              color: chipForeground,
+              shape: BoxShape.circle,
             ),
-            child: Text(
-              '# ${party.meetingCode}',
-              style: theme.textTheme.labelMedium?.copyWith(
-                color: colors.onSurfaceVariant,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 1.1,
-              ),
+          ),
+          const SizedBox(width: 5),
+          Text(
+            labels[status] ?? status,
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: chipForeground,
+              fontWeight: FontWeight.bold,
             ),
           ),
         ],
-        const Spacer(),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
-          decoration: BoxDecoration(
-            color: theme.cardColor,
-            borderRadius: BorderRadius.circular(999),
-          ),
-          child: Text.rich(
-            TextSpan(
-              text: '인원 ',
-              children: [
-                TextSpan(
-                  text: '${party.currentMembers}',
-                  style: TextStyle(
-                    color: taxiAccentText(context),
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                TextSpan(text: ' / ${party.maxMembers}명'),
-              ],
-            ),
-            style: theme.textTheme.labelMedium?.copyWith(
-              color: colors.onSurfaceVariant,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ),
-      ],
+      ),
     );
   }
 }
 
-class _RouteOverviewCard extends StatelessWidget {
+/// 만나서 서로 확인하는 만남 코드. 출발 장소 바로 아래에 크게 보여준다.
+class _MeetingCode extends StatelessWidget {
+  const _MeetingCode({required this.code});
+
+  final String code;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      key: const ValueKey('meeting-code'),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+      decoration: BoxDecoration(
+        color: taxiTint(context, 0.1),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '만남 코드',
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    color: taxiAccentText(context),
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  '만나면 서로 코드를 확인하세요',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          Text(
+            code,
+            style: theme.textTheme.headlineSmall?.copyWith(
+              fontWeight: FontWeight.w800,
+              letterSpacing: 4,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RouteOverviewCard extends StatefulWidget {
   const _RouteOverviewCard({required this.party});
 
   final TaxiPartyDetail party;
 
-  String _departureState() {
+  @override
+  State<_RouteOverviewCard> createState() => _RouteOverviewCardState();
+}
+
+class _RouteOverviewCardState extends State<_RouteOverviewCard> {
+  // 화면을 켜 둔 채 기다려도 "출발 n분 전"이 실제 시간과 어긋나지 않게 다시 그린다.
+  Timer? _clock;
+
+  @override
+  void initState() {
+    super.initState();
+    _clock = Timer.periodic(const Duration(seconds: 15), (_) {
+      if (mounted) setState(() {});
+    });
+  }
+
+  @override
+  void dispose() {
+    _clock?.cancel();
+    super.dispose();
+  }
+
+  String _departureState(DateTime now) {
+    final party = widget.party;
     if (party.recruitmentStatus == 'cancelled') return '취소된 팟';
-    final difference = party.departureAt.difference(DateTime.now());
-    if (!party.departureAt.isAfter(DateTime.now())) return '모집 종료';
+    final difference = party.departureAt.difference(now);
+    if (!party.departureAt.isAfter(now)) return '출발 시간 지남';
     final minutes = difference.inMinutes;
     if (minutes < 60) return '출발 ${minutes < 1 ? 1 : minutes}분 전';
     final hours = minutes ~/ 60;
@@ -626,51 +653,82 @@ class _RouteOverviewCard extends StatelessWidget {
     return '출발 ${difference.inDays}일 전';
   }
 
+  String _dayLabel(DateTime now) {
+    final departure = widget.party.departureAt;
+    final days = DateTime(
+      departure.year,
+      departure.month,
+      departure.day,
+    ).difference(DateTime(now.year, now.month, now.day)).inDays;
+    final date = DateFormat('M월 d일 (E)', 'ko').format(departure);
+    return switch (days) {
+      0 => '오늘 · $date',
+      1 => '내일 · $date',
+      _ => date,
+    };
+  }
+
   @override
   Widget build(BuildContext context) {
+    final party = widget.party;
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
+    final now = DateTime.now();
+    final upcoming =
+        party.recruitmentStatus != 'cancelled' &&
+        party.departureAt.isAfter(now);
+    // 10분 안으로 다가오면 색을 채워 더 눈에 띄게 한다.
+    final imminent =
+        upcoming &&
+        party.departureAt.difference(now) < const Duration(minutes: 10);
 
     return _HotongCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Text(
+            _dayLabel(now),
+            style: theme.textTheme.labelMedium?.copyWith(
+              color: colors.onSurfaceVariant,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 2),
           Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '출발 예정 시간',
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: colors.onSurfaceVariant,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      DateFormat(
-                        'M월 d일 (E) HH:mm',
-                        'ko',
-                      ).format(party.departureAt),
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
+                child: Text(
+                  '${DateFormat('HH:mm').format(party.departureAt)} 출발',
+                  key: const ValueKey('departure-clock'),
+                  style: theme.textTheme.headlineMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+                key: const ValueKey('departure-countdown'),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 7,
+                ),
                 decoration: BoxDecoration(
-                  color: taxiTint(context, 0.09),
-                  borderRadius: BorderRadius.circular(8),
+                  color: imminent
+                      ? taxiAccent
+                      : upcoming
+                      ? taxiTint(context, 0.12)
+                      : colors.onSurface.withValues(alpha: 0.06),
+                  borderRadius: BorderRadius.circular(10),
                 ),
                 child: Text(
-                  _departureState(),
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: taxiAccentText(context),
-                    fontWeight: FontWeight.bold,
+                  _departureState(now),
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    color: imminent
+                        ? taxiAccentForeground
+                        : upcoming
+                        ? taxiAccentText(context)
+                        : colors.onSurfaceVariant,
+                    fontWeight: FontWeight.w800,
                   ),
                 ),
               ),
@@ -682,12 +740,17 @@ class _RouteOverviewCard extends StatelessWidget {
             location: party.departureLocation.name,
             detail: party.departureSummary,
             continues: true,
+            emphasizeDetail: true,
           ),
           _RoutePoint(
             label: '도착',
             location: party.destinationLocation.name,
             detail: party.destinationSummary,
           ),
+          if (party.meetingCode != null) ...[
+            const SizedBox(height: 20),
+            _MeetingCode(code: party.meetingCode!),
+          ],
           if (party.isMember && party.memberNote?.isNotEmpty == true) ...[
             const Divider(height: 32),
             Row(
@@ -743,12 +806,15 @@ class _RoutePoint extends StatelessWidget {
     required this.location,
     this.detail,
     this.continues = false,
+    this.emphasizeDetail = false,
   });
 
   final String label;
   final String location;
   final String? detail;
   final bool continues;
+  // 만날 위치는 사람을 찾는 데 쓰이므로 거점 이름 못지않게 잘 보이게 한다.
+  final bool emphasizeDetail;
 
   @override
   Widget build(BuildContext context) {
@@ -797,18 +863,23 @@ class _RoutePoint extends StatelessWidget {
                   const SizedBox(height: 4),
                   Text(
                     location,
-                    style: theme.textTheme.titleLarge?.copyWith(
+                    style: theme.textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.w800,
                     ),
                   ),
                   if (showDetail) ...[
-                    const SizedBox(height: 5),
+                    const SizedBox(height: 4),
                     Text(
                       description,
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                        height: 1.45,
-                      ),
+                      style: emphasizeDetail
+                          ? theme.textTheme.bodyLarge?.copyWith(
+                              fontWeight: FontWeight.w600,
+                              height: 1.4,
+                            )
+                          : theme.textTheme.bodyMedium?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                              height: 1.45,
+                            ),
                     ),
                   ],
                 ],
@@ -842,12 +913,22 @@ class _MembersCard extends StatelessWidget {
                   fontWeight: FontWeight.bold,
                 ),
               ),
+              const SizedBox(width: 8),
+              _RecruitmentStatusChip(status: party.recruitmentStatus),
               const Spacer(),
-              Text(
-                '${party.currentMembers} / ${party.maxMembers}명',
-                style: theme.textTheme.labelMedium?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                  fontWeight: FontWeight.w600,
+              Text.rich(
+                TextSpan(
+                  children: [
+                    TextSpan(
+                      text: '${party.currentMembers}',
+                      style: TextStyle(color: taxiAccentText(context)),
+                    ),
+                    TextSpan(text: ' / ${party.maxMembers}명'),
+                  ],
+                ),
+                key: const ValueKey('member-count'),
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.bold,
                 ),
               ),
             ],
