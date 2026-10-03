@@ -42,6 +42,8 @@ class TaxiPartyCreateViewState extends State<TaxiPartyCreateView> {
   final _detailsFormKey = GlobalKey<FormState>();
   final _pageController = PageController();
   final _departureSummary = TextEditingController();
+  // 출발 장소가 비어 있으면 화면 아래에 가려진 입력창으로 스크롤한다.
+  final _departureSummaryKey = GlobalKey();
   final _destinationSummary = TextEditingController();
   final _memberNote = TextEditingController();
 
@@ -109,12 +111,11 @@ class TaxiPartyCreateViewState extends State<TaxiPartyCreateView> {
     return true;
   }
 
-  bool _validateDepartureDetails({bool showMissingMessage = false}) {
+  bool _validateDepartureDetails() {
     if (_departureSummary.text.trim().isEmpty) {
+      // 입력창 아래 오류 문구가 보이도록 스크롤한다. 키보드를 띄우면 문구가 가려져 포커스는 주지 않는다.
       _detailsFormKey.currentState?.validate();
-      if (showMissingMessage) {
-        _showMessage('출발 장소를 입력해주세요.');
-      }
+      unawaited(_revealDepartureSummary());
       return false;
     }
     final formState = _detailsFormKey.currentState;
@@ -125,6 +126,19 @@ class TaxiPartyCreateViewState extends State<TaxiPartyCreateView> {
       return false;
     }
     return true;
+  }
+
+  Future<void> _revealDepartureSummary() async {
+    // 2단계에서 돌아오는 경우 페이지 이동이 끝난 뒤에 스크롤한다.
+    await WidgetsBinding.instance.endOfFrame;
+    final fieldContext = _departureSummaryKey.currentContext;
+    if (!mounted || fieldContext == null || !fieldContext.mounted) return;
+    await Scrollable.ensureVisible(
+      fieldContext,
+      alignment: 0.5,
+      duration: const Duration(milliseconds: 280),
+      curve: Curves.easeOutCubic,
+    );
   }
 
   void _setDepartureDay(int dayOffset) {
@@ -203,7 +217,10 @@ class TaxiPartyCreateViewState extends State<TaxiPartyCreateView> {
       if (_currentStep != 0) unawaited(_goToStep(0));
       return;
     }
-    if (!_validateDepartureDetails(showMissingMessage: true)) {
+    if (_currentStep != 0 && _departureSummary.text.trim().isEmpty) {
+      await _goToStep(0);
+    }
+    if (!_validateDepartureDetails()) {
       if (_currentStep != 0) unawaited(_goToStep(0));
       return;
     }
@@ -303,6 +320,7 @@ class TaxiPartyCreateViewState extends State<TaxiPartyCreateView> {
                       onSwap: _swapLocations,
                       departureAt: _departureAt,
                       departureSummary: _departureSummary,
+                      departureSummaryKey: _departureSummaryKey,
                       destinationSummary: _destinationSummary,
                       onDepartureDayChanged: _setDepartureDay,
                       onDepartureTimeChanged: _setDepartureTime,
@@ -441,6 +459,7 @@ class _RouteStep extends StatelessWidget {
     required this.onSwap,
     required this.departureAt,
     required this.departureSummary,
+    required this.departureSummaryKey,
     required this.destinationSummary,
     required this.onDepartureDayChanged,
     required this.onDepartureTimeChanged,
@@ -464,6 +483,7 @@ class _RouteStep extends StatelessWidget {
   final VoidCallback onSwap;
   final DateTime departureAt;
   final TextEditingController departureSummary;
+  final GlobalKey departureSummaryKey;
   final TextEditingController destinationSummary;
   final ValueChanged<int> onDepartureDayChanged;
   final ValueChanged<DateTime> onDepartureTimeChanged;
@@ -605,7 +625,10 @@ class _RouteStep extends StatelessWidget {
                   ),
                   const SizedBox(height: 14),
                   TextFormField(
+                    key: departureSummaryKey,
                     controller: departureSummary,
+                    // 오류가 뜬 뒤 입력하면 바로 지운다.
+                    autovalidateMode: AutovalidateMode.onUserInteraction,
                     maxLength: 80,
                     textInputAction: TextInputAction.next,
                     decoration: _placeholderDecoration(context, '출발 장소'),

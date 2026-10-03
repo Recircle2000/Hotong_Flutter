@@ -113,10 +113,14 @@ void main() {
 
     await tester.tap(find.text('다음'));
     await tester.pumpAndSettle();
-    await tester.enterText(
-      find.byType(TextFormField).first,
-      '정문 택시승강장',
+    // 출발 장소가 비면 아래쪽 입력창으로 스크롤해 오류 문구가 다음 버튼 위에 보인다.
+    final error = find.text('출발 장소를 입력해주세요.');
+    expect(error, findsOneWidget);
+    expect(
+      tester.getRect(error).bottom,
+      lessThan(tester.getRect(find.text('다음')).top),
     );
+    await tester.enterText(find.byType(TextFormField).first, '정문 택시승강장');
     await tester.tap(find.text('다음'));
     await tester.pumpAndSettle();
 
