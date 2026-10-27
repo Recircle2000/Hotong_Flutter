@@ -567,30 +567,36 @@ class _ShuttleJourneyResultViewState extends State<ShuttleJourneyResultView> {
     );
   }
 
-  // 순환 노선(KTX 순환 등)은 테두리 배지로 구분해, 같은 정류장에 노선이 섞여도
-  // 한눈에 알아보게 한다.
+  // 정규 노선(아캠 → 천캠, 천캠 → 아캠, 온양방향)은 빨간 배지, 나머지 노선은 파란
+  // 테두리 배지로 구분해 같은 정류장에 노선이 섞여도 한눈에 알아보게 한다.
+  static const _regularRouteNames = {'아캠→천캠', '천캠→아캠', '온양방향'};
+
   Widget _buildRouteBadge(ShuttleJourney journey) {
-    final isLoop = journey.routeName.contains('순환');
-    final loopColor = Theme.of(context).brightness == Brightness.dark
+    final isRegularRoute = _regularRouteNames.contains(
+      journey.routeName.replaceAll(RegExp(r'\s'), ''),
+    );
+    final outlineColor = Theme.of(context).brightness == Brightness.dark
         ? const Color(0xFF7FA6FF)
         : const Color(0xFF1D4ED8);
     return Container(
       constraints: const BoxConstraints(maxWidth: 180),
       padding: EdgeInsets.symmetric(
-        horizontal: isLoop ? 6 : 7,
-        vertical: isLoop ? 1 : 2,
+        horizontal: isRegularRoute ? 7 : 6,
+        vertical: isRegularRoute ? 2 : 1,
       ),
       decoration: BoxDecoration(
-        color: isLoop ? Theme.of(context).cardColor : _shuttleColor,
+        color: isRegularRoute ? _shuttleColor : Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(6),
-        border: isLoop ? Border.all(color: loopColor, width: 1.5) : null,
+        border: isRegularRoute
+            ? null
+            : Border.all(color: outlineColor, width: 1.5),
       ),
       child: Text(
         journey.routeName,
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
         style: TextStyle(
-          color: isLoop ? loopColor : Colors.white,
+          color: isRegularRoute ? Colors.white : outlineColor,
           fontSize: 12,
           fontWeight: FontWeight.bold,
         ),
