@@ -285,6 +285,56 @@ void main() {
     expect(viewModel.favoriteJourneys, isEmpty);
   });
 
+  test('favorite journeys reorder and keep hidden ones at the end', () async {
+    final third = ShuttleStation(
+      id: 5,
+      name: '천안아산역',
+      latitude: 36.2,
+      longitude: 127.2,
+    );
+    final hiddenOrigin = ShuttleStation(
+      id: 3,
+      name: '중간 출발지',
+      latitude: 36.05,
+      longitude: 127.05,
+    );
+    final hiddenDestination = ShuttleStation(
+      id: 4,
+      name: '중간 도착지',
+      latitude: 36.06,
+      longitude: 127.06,
+    );
+    viewModel.stations.addAll([third, hiddenOrigin, hiddenDestination]);
+    FavoriteShuttleJourney favorite(int originId, int destinationId) =>
+        FavoriteShuttleJourney(
+          originStationId: originId,
+          destinationStationId: destinationId,
+          createdAt: DateTime(2026, 8, 24),
+        );
+    viewModel.favoriteJourneys.addAll([
+      favorite(origin.id, destination.id),
+      favorite(hiddenOrigin.id, hiddenDestination.id),
+      favorite(origin.id, third.id),
+      favorite(destination.id, origin.id),
+    ]);
+
+    await viewModel.reorderFavoriteJourneys(2, 0);
+
+    expect(
+      viewModel.validFavoriteJourneys.map((item) => item.key),
+      ['2:1', '1:2', '1:5'],
+    );
+    expect(viewModel.favoriteJourneys.last.key, '3:4');
+    expect(
+      viewModel.favoriteRouteLabel(viewModel.favoriteJourneys.first),
+      '도착 → 아산캠퍼스',
+    );
+    expect(
+      preferences.values['shuttle_favorite_journeys'],
+      contains('"originStationId":2'),
+    );
+  });
+
   test('intermediate-to-intermediate journey favorite is hidden', () {
     final intermediateOrigin = ShuttleStation(
       id: 3,

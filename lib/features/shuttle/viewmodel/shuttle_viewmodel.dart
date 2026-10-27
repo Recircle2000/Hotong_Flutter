@@ -250,6 +250,11 @@ class ShuttleViewModel extends GetxController {
   String favoriteDisplayName(FavoriteShuttleJourney favorite) {
     final customName = favorite.customName?.trim();
     if (customName != null && customName.isNotEmpty) return customName;
+    return favoriteRouteLabel(favorite);
+  }
+
+  // 이름과 상관없이 실제 출발 → 도착 정류장을 보여줄 때 사용
+  String favoriteRouteLabel(FavoriteShuttleJourney favorite) {
     final rawOrigin = stationById(favorite.originStationId)?.name ?? '출발지';
     final rawDestination =
         stationById(favorite.destinationStationId)?.name ?? '도착지';
@@ -549,6 +554,21 @@ class ShuttleViewModel extends GetxController {
     favoriteJourneys[index] = favorite.copyWith(
       customName: customName.trim().isEmpty ? null : customName.trim(),
     );
+    await _persistFavoriteJourneys();
+  }
+
+  // 화면에 보이는 즐겨찾기 순서에서 [oldIndex] 항목을 [newIndex] 위치로 옮긴다.
+  // 지금 보이지 않는(운행하지 않는) 즐겨찾기는 순서 맨 뒤에 그대로 둔다.
+  Future<void> reorderFavoriteJourneys(int oldIndex, int newIndex) async {
+    final ordered = validFavoriteJourneys.toList();
+    if (oldIndex < 0 || oldIndex >= ordered.length) return;
+    final moved = ordered.removeAt(oldIndex);
+    ordered.insert(newIndex.clamp(0, ordered.length), moved);
+    final visibleKeys = ordered.map((item) => item.key).toSet();
+    favoriteJourneys.assignAll([
+      ...ordered,
+      ...favoriteJourneys.where((item) => !visibleKeys.contains(item.key)),
+    ]);
     await _persistFavoriteJourneys();
   }
 
