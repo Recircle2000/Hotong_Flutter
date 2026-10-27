@@ -1466,19 +1466,28 @@ class _ShuttleRouteSelectionViewState extends State<ShuttleRouteSelectionView> {
         return SizedBox.shrink();
       }
 
+      // "평일(월~목) 시간표 적용"처럼 운행 유형만 강조하고 나머지는 약하게 둔다.
       return Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(
-            '운행 유형: $scheduleTypeName',
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: Theme.of(context).brightness == Brightness.dark
-                  ? Colors.redAccent
-                  : shuttleColor,
+          if (scheduleTypeName.isNotEmpty) ...[
+            Text(
+              scheduleTypeName,
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: _accentForeground(context),
+              ),
             ),
-          ),
+            const SizedBox(width: 4),
+            Text(
+              '시간표 적용',
+              style: TextStyle(
+                fontSize: 13,
+                color: Theme.of(context).hintColor,
+              ),
+            ),
+          ],
           SizedBox(width: 8),
           SizedBox(
             width: 14,
