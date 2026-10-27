@@ -793,9 +793,11 @@ class _ShuttleJourneyResultViewState extends State<ShuttleJourneyResultView> {
                         color: topLineColor ?? Colors.transparent,
                       ),
                     ),
+                    // 승차·하차는 크게 채우고, 중간 정류장은 작은 고리로 지나가는 선과
+                    // 같은 색을 써서 선 위에 다른 색 점이 얹혀 보이지 않게 한다.
                     Container(
-                      width: 12,
-                      height: 12,
+                      width: isJourneyStop ? 12 : 8,
+                      height: isJourneyStop ? 12 : 8,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         color: isJourneyStop
@@ -804,7 +806,12 @@ class _ShuttleJourneyResultViewState extends State<ShuttleJourneyResultView> {
                         border: isJourneyStop
                             ? null
                             : Border.all(
-                                color: hintColor.withValues(alpha: 0.5),
+                                color:
+                                    onRide &&
+                                        index > originIndex &&
+                                        index < destinationIndex
+                                    ? _shuttleColor
+                                    : hintColor.withValues(alpha: 0.5),
                                 width: 2,
                               ),
                       ),
