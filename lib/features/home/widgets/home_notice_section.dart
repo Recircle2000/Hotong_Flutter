@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 import 'package:hsro/features/notice/view/notice_detail_view.dart';
 import 'package:hsro/features/notice/view/notice_list_view.dart';
 import 'package:hsro/features/notice/viewmodel/notice_viewmodel.dart';
+import 'package:hsro/shared/widgets/auto_scroll_text.dart';
 import 'package:hsro/shared/widgets/scale_button.dart';
 
 class HomeNoticeSection extends StatelessWidget {
@@ -85,12 +86,16 @@ class HomeNoticeSection extends StatelessWidget {
                       }
 
                       final notice = noticeViewModel.notice.value;
-                      // 공지 제목은 길면 말줄임표로 자름
-                      return Text(
-                        notice?.title ?? '새로운 공지사항이 없습니다',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                      final title = notice?.title ?? '새로운 공지사항이 없습니다';
+                      // 공지 제목이 길면 옆으로 흘려 끝까지 보여준다.
+                      return AutoScrollText(
+                        // 공지가 바뀌면 스크롤을 처음부터 다시 시작
+                        key: ValueKey(title),
+                        text: title,
                         style: const TextStyle(fontSize: 15),
+                        height: 20,
+                        pauseDuration: const Duration(milliseconds: 1200),
+                        scrollDuration: const Duration(seconds: 4),
                       );
                     }),
                   ),
