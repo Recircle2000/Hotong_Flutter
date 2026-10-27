@@ -30,7 +30,7 @@ final class IOSCompactDatePickerFactory: NSObject, FlutterPlatformViewFactory {
 
 // 실제 iOS compact 날짜 선택기를 감싸는 PlatformView 구현체다.
 final class IOSCompactDatePickerView: NSObject, FlutterPlatformView {
-  private let container = UIView()
+  private let container = LayoutObservingView()
   private let picker = UIDatePicker()
   // picker 기본 문자열 대신 원하는 형식으로 보이게 할 라벨이다.
   private let titleLabel = UILabel()
@@ -89,10 +89,33 @@ final class IOSCompactDatePickerView: NSObject, FlutterPlatformView {
 
     container.bringSubviewToFront(titleLabel)
     updateDisplayedDate()
+
+    // Flutter가 글자를 직접 그리고 줄 전체를 눌리게 하고 싶을 때 쓴다.
+    if args?["hideLabel"] as? Bool ?? false {
+      titleLabel.isHidden = true
+    }
+    // picker 크기를 늘려도 안쪽 버튼은 글자 크기 그대로라, picker를 컨테이너 크기만큼
+    // 확대해서 터치 영역을 맞춘다.
+    if args?["fillTapArea"] as? Bool ?? false {
+      // 확대하면 흐린 글자가 비쳐 보여 더 투명하게 한다. 0.01 미만이면 터치를 못 받는다.
+      picker.alpha = 0.011
+      container.onLayout = { [weak self] in self?.scalePickerToFill() }
+    }
   }
 
   func view() -> UIView {
     container
+  }
+
+  private func scalePickerToFill() {
+    picker.transform = .identity
+    let pickerSize = picker.bounds.size
+    let containerSize = container.bounds.size
+    guard pickerSize.width > 0, pickerSize.height > 0 else { return }
+    picker.transform = CGAffineTransform(
+      scaleX: containerSize.width / pickerSize.width,
+      y: containerSize.height / pickerSize.height
+    )
   }
 
   private func configurePicker(with args: [String: Any]?) {
@@ -173,5 +196,15 @@ final class IOSCompactDatePickerView: NSObject, FlutterPlatformView {
     formatter.timeZone = picker.timeZone
     formatter.dateFormat = displayFormat
     titleLabel.text = formatter.string(from: picker.date)
+  }
+}
+
+// 크기가 정해질 때마다 알려주는 컨테이너. picker 확대 비율을 다시 계산할 때 쓴다.
+private final class LayoutObservingView: UIView {
+  var onLayout: (() -> Void)?
+
+  override func layoutSubviews() {
+    super.layoutSubviews()
+    onLayout?()
   }
 }

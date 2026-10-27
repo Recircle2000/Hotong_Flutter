@@ -345,8 +345,6 @@ class _ShuttleJourneyResultViewState extends State<ShuttleJourneyResultView> {
   }
 
   Widget _buildAndroidDateSelector(BuildContext context) {
-    final date = DateFormat('yyyy-MM-dd').parse(_displayDate);
-    final hintColor = Theme.of(context).hintColor;
     return Semantics(
       button: true,
       label: '탑승일 ${_formatDate(_displayDate)}, 날짜 변경',
@@ -354,103 +352,75 @@ class _ShuttleJourneyResultViewState extends State<ShuttleJourneyResultView> {
       child: InkWell(
         borderRadius: BorderRadius.circular(12),
         onTap: _selectDate,
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(minHeight: 44),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.calendar_today_outlined, size: 18, color: hintColor),
-                const SizedBox(width: 6),
-                Flexible(
-                  child: Text.rich(
-                    TextSpan(
-                      text: DateFormat('M월 d일 ').format(date),
-                      children: [
-                        TextSpan(
-                          text: '(${_weekday(date)})',
-                          style: TextStyle(
-                            fontWeight: FontWeight.w500,
-                            color: hintColor,
-                          ),
-                        ),
-                      ],
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                      fontFeatures: [FontFeature.tabularFigures()],
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 4),
-                Icon(Icons.expand_more_rounded, size: 18, color: hintColor),
-              ],
-            ),
-          ),
-        ),
+        child: _buildDateLabelRow(context),
       ),
     );
   }
 
   Widget _buildIOSDateSelector(BuildContext context) {
     final current = DateFormat('yyyy-MM-dd').parse(_displayDate);
-    final hintColor = Theme.of(context).hintColor;
-    const dateStyle = TextStyle(fontSize: 16, fontWeight: FontWeight.w700);
-    // 네이티브 라벨은 가운데 정렬이라, 날짜 글자 폭에 맞춰야 요일과 붙어 보인다.
-    final datePainter = TextPainter(
-      text: TextSpan(
-        text: DateFormat('M월 d일').format(current),
-        style: dateStyle,
-      ),
-      textDirection: Directionality.of(context),
-      textScaler: MediaQuery.textScalerOf(context),
-      maxLines: 1,
-    )..layout();
-    final dateWidth = datePainter.width.ceilToDouble() + 4;
-    datePainter.dispose();
-
-    return SizedBox(
-      height: 44,
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
+    // 글자는 Flutter가 그리고, 그 위에 투명한 iOS 날짜 선택기를 줄 전체 크기로
+    // 덮어 아이콘·요일·화살표 어디를 눌러도 달력이 열리게 한다.
+    return Semantics(
+      label: '탑승일 ${_formatDate(_displayDate)}',
+      child: Stack(
         children: [
-          Padding(
-            padding: const EdgeInsets.only(left: 4, right: 6),
-            child: Icon(
-              Icons.calendar_today_outlined,
-              size: 18,
-              color: hintColor,
-            ),
-          ),
-          SizedBox(
-            width: dateWidth,
+          ExcludeSemantics(child: _buildDateLabelRow(context)),
+          Positioned.fill(
             child: IOSCompactDatePickerField(
-              key: ValueKey('journey_date_${_displayDate}'),
+              key: ValueKey('journey_date_$_displayDate'),
               initialDate: current,
               minimumDate: _minimumSelectableDate(),
               maximumDate: _maximumSelectableDate(),
               onDateChanged: _applySelectedDate,
-              displayFormat: 'M월 d일',
-              fontSize: dateStyle.fontSize,
-              bold: true,
+              fillTapArea: true,
+              height: 44,
             ),
           ),
-          const SizedBox(width: 4),
-          Text(
-            '(${_weekday(current)})',
-            style: TextStyle(
-              color: hintColor,
-              fontSize: 16,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          const SizedBox(width: 4),
-          Icon(Icons.expand_more_rounded, size: 18, color: hintColor),
         ],
+      ),
+    );
+  }
+
+  Widget _buildDateLabelRow(BuildContext context) {
+    final date = DateFormat('yyyy-MM-dd').parse(_displayDate);
+    final hintColor = Theme.of(context).hintColor;
+    return ConstrainedBox(
+      constraints: const BoxConstraints(minHeight: 44),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.calendar_today_outlined, size: 18, color: hintColor),
+            const SizedBox(width: 6),
+            Flexible(
+              child: Text.rich(
+                TextSpan(
+                  text: DateFormat('M월 d일 ').format(date),
+                  children: [
+                    TextSpan(
+                      text: '(${_weekday(date)})',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w500,
+                        color: hintColor,
+                      ),
+                    ),
+                  ],
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  fontFeatures: [FontFeature.tabularFigures()],
+                ),
+              ),
+            ),
+            const SizedBox(width: 4),
+            Icon(Icons.expand_more_rounded, size: 18, color: hintColor),
+          ],
+        ),
       ),
     );
   }
