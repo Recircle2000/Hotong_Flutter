@@ -26,7 +26,7 @@ class ShuttleJourneyResultView extends StatefulWidget {
 class _ShuttleJourneyResultViewState extends State<ShuttleJourneyResultView> {
   static const Color _shuttleColor = Color(0xFFB83227);
   static const double _journeyCardExtent = 104;
-  static const double _headerTransitionHeight = 32;
+  static const double _headerTransitionHeight = 12;
   final ShuttleViewModel _viewModel = Get.find<ShuttleViewModel>();
   late ShuttleJourneySearchResult _result;
   late final ScrollController _journeyScrollController;
@@ -65,17 +65,29 @@ class _ShuttleJourneyResultViewState extends State<ShuttleJourneyResultView> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: Theme.of(context).cardColor,
-        foregroundColor: Theme.of(context).colorScheme.onSurface,
-        surfaceTintColor: Colors.transparent,
-        shadowColor: Colors.transparent,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        title: Text(
-          '${_result.originStationName}  →  ${_result.destinationStationName}',
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        title: Semantics(
+          label:
+              '${_result.originStationName}에서 '
+              '${_result.destinationStationName}',
+          excludeSemantics: true,
+          child: Text.rich(
+            TextSpan(
+              children: [
+                TextSpan(text: _result.originStationName),
+                const WidgetSpan(
+                  alignment: PlaceholderAlignment.middle,
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 6),
+                    child: Icon(Icons.arrow_forward_rounded, size: 16),
+                  ),
+                ),
+                TextSpan(text: _result.destinationStationName),
+              ],
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+          ),
         ),
         actions: [
           LinkShareButton(
@@ -186,7 +198,7 @@ class _ShuttleJourneyResultViewState extends State<ShuttleJourneyResultView> {
   }
 
   Widget _buildHeaderTransition(BuildContext context) {
-    final cardColor = Theme.of(context).cardColor;
+    final cardColor = Theme.of(context).scaffoldBackgroundColor;
     return Container(
       height: _headerTransitionHeight,
       decoration: BoxDecoration(
@@ -206,105 +218,146 @@ class _ShuttleJourneyResultViewState extends State<ShuttleJourneyResultView> {
   }
 
   Widget _buildJourneyHeader(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      decoration: BoxDecoration(color: Theme.of(context).cardColor),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 2, 16, 4),
+      child: Row(
         children: [
-          Row(
-            children: [
-              const Icon(Icons.schedule, color: _shuttleColor, size: 16),
-              const SizedBox(width: 6),
-              Text(
-                _result.scheduleTypeName,
-                style: const TextStyle(
-                  color: _shuttleColor,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 13,
-                ),
-              ),
-              const Spacer(),
-              Text(
-                '총 ${_result.journeys.length}회 운행',
-                style: TextStyle(
-                  color: Theme.of(context).hintColor,
-                  fontSize: 12,
-                ),
-              ),
-            ],
-          ),
-          const Divider(height: 10),
-          if (Platform.isIOS)
-            _buildIOSDateSelector(context)
-          else
-            InkWell(
-              borderRadius: BorderRadius.circular(12),
-              onTap: _selectDate,
-              child: SizedBox(
-                height: 28,
-                child: Row(
-                  children: [
-                    const Icon(Icons.calendar_today, size: 16),
-                    const SizedBox(width: 7),
-                    Text(
-                      _formatDate(_result.date),
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 13,
-                      ),
-                    ),
-                    const Spacer(),
-                    const Icon(Icons.chevron_right, size: 20),
-                  ],
-                ),
-              ),
+          Expanded(
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Platform.isIOS
+                  ? _buildIOSDateSelector(context)
+                  : _buildAndroidDateSelector(context),
             ),
+          ),
+          const SizedBox(width: 8),
+          // 운행 유형 표시는 기존 모양 그대로 둔다.
+          const Icon(Icons.schedule, color: _shuttleColor, size: 16),
+          const SizedBox(width: 6),
+          Text(
+            _result.scheduleTypeName,
+            style: const TextStyle(
+              color: _shuttleColor,
+              fontWeight: FontWeight.bold,
+              fontSize: 13,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            '총 ${_result.journeys.length}회',
+            style: TextStyle(color: Theme.of(context).hintColor, fontSize: 13),
+          ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildAndroidDateSelector(BuildContext context) {
+    final date = DateFormat('yyyy-MM-dd').parse(_result.date);
+    final hintColor = Theme.of(context).hintColor;
+    return Semantics(
+      button: true,
+      label: '탑승일 ${_formatDate(_result.date)}, 날짜 변경',
+      excludeSemantics: true,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: _selectDate,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 44),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.calendar_today_outlined, size: 18, color: hintColor),
+                const SizedBox(width: 6),
+                Flexible(
+                  child: Text.rich(
+                    TextSpan(
+                      text: DateFormat('M월 d일 ').format(date),
+                      children: [
+                        TextSpan(
+                          text: '(${_weekday(date)})',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w500,
+                            color: hintColor,
+                          ),
+                        ),
+                      ],
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      fontFeatures: [FontFeature.tabularFigures()],
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 4),
+                Icon(Icons.expand_more_rounded, size: 18, color: hintColor),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
 
   Widget _buildIOSDateSelector(BuildContext context) {
     final current = DateFormat('yyyy-MM-dd').parse(_result.date);
-    final minimumDate = _minimumSelectableDate();
-    final maximumDate = _maximumSelectableDate();
-    const weekdays = ['월', '화', '수', '목', '금', '토', '일'];
+    final hintColor = Theme.of(context).hintColor;
+    const dateStyle = TextStyle(fontSize: 16, fontWeight: FontWeight.w700);
+    // 네이티브 라벨은 가운데 정렬이라, 날짜 글자 폭에 맞춰야 요일과 붙어 보인다.
+    final datePainter = TextPainter(
+      text: TextSpan(
+        text: DateFormat('M월 d일').format(current),
+        style: dateStyle,
+      ),
+      textDirection: Directionality.of(context),
+      textScaler: MediaQuery.textScalerOf(context),
+      maxLines: 1,
+    )..layout();
+    final dateWidth = datePainter.width.ceilToDouble() + 4;
+    datePainter.dispose();
 
     return SizedBox(
-      height: 32,
-      child: Stack(
-        alignment: Alignment.center,
+      height: 44,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          const Align(
-            alignment: Alignment.centerLeft,
-            child: Icon(Icons.calendar_today, size: 16),
+          Padding(
+            padding: const EdgeInsets.only(left: 4, right: 6),
+            child: Icon(
+              Icons.calendar_today_outlined,
+              size: 18,
+              color: hintColor,
+            ),
           ),
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              SizedBox(
-                width: 136,
-                child: IOSCompactDatePickerField(
-                  key: ValueKey('journey_date_${_result.date}'),
-                  initialDate: current,
-                  minimumDate: minimumDate,
-                  maximumDate: maximumDate,
-                  onDateChanged: _applySelectedDate,
-                ),
-              ),
-              const SizedBox(width: 2),
-              Text(
-                '(${weekdays[current.weekday - 1]})',
-                style: const TextStyle(
-                  color: _shuttleColor,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
+          SizedBox(
+            width: dateWidth,
+            child: IOSCompactDatePickerField(
+              key: ValueKey('journey_date_${_result.date}'),
+              initialDate: current,
+              minimumDate: _minimumSelectableDate(),
+              maximumDate: _maximumSelectableDate(),
+              onDateChanged: _applySelectedDate,
+              displayFormat: 'M월 d일',
+              fontSize: dateStyle.fontSize,
+              bold: true,
+            ),
           ),
+          const SizedBox(width: 4),
+          Text(
+            '(${_weekday(current)})',
+            style: TextStyle(
+              color: hintColor,
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(width: 4),
+          Icon(Icons.expand_more_rounded, size: 18, color: hintColor),
         ],
       ),
     );
@@ -315,6 +368,7 @@ class _ShuttleJourneyResultViewState extends State<ShuttleJourneyResultView> {
     final departed = _hasDeparted(journey);
     final isNext = journey.scheduleId == nextScheduleId;
     final isExpanded = _expandedScheduleId == journey.scheduleId;
+    final hintColor = Theme.of(context).hintColor;
     final cardKey = _journeyCardKeys.putIfAbsent(
       journey.scheduleId,
       GlobalKey.new,
@@ -323,143 +377,160 @@ class _ShuttleJourneyResultViewState extends State<ShuttleJourneyResultView> {
       key: cardKey,
       child: Opacity(
         opacity: departed ? 0.45 : 1,
-        child: GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onTap: () => _toggleJourneyExpansion(journey),
-          child: AnimatedSize(
-            duration: const Duration(milliseconds: 220),
-            curve: Curves.easeOutCubic,
-            alignment: Alignment.topCenter,
-            child: Container(
-              constraints: const BoxConstraints(
-                minHeight: _journeyCardExtent - 10,
-              ),
-              margin: const EdgeInsets.only(bottom: 10),
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              decoration: BoxDecoration(
-                color: Theme.of(context).cardColor,
-                borderRadius: BorderRadius.circular(20),
-                border: isNext
-                    ? Border.all(color: _shuttleColor.withOpacity(0.35))
-                    : null,
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Row(
+        child: AnimatedSize(
+          duration: const Duration(milliseconds: 220),
+          curve: Curves.easeOutCubic,
+          alignment: Alignment.topCenter,
+          child: Container(
+            margin: const EdgeInsets.only(bottom: 10),
+            decoration: BoxDecoration(
+              color: Theme.of(context).cardColor,
+              borderRadius: BorderRadius.circular(16),
+              border: isNext
+                  ? Border.all(color: _shuttleColor.withValues(alpha: 0.35))
+                  : null,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Semantics(
+                  button: true,
+                  expanded: isExpanded,
+                  label:
+                      '${journey.routeName} 노선, '
+                      '${_spokenTime(journey.originArrivalTime)} '
+                      '${_result.originStationName} 출발, '
+                      '${_spokenTime(journey.destinationArrivalTime)} '
+                      '${_result.destinationStationName} 도착, '
+                      '${journey.durationMinutes}분 소요'
+                      '${isNext ? ', 다음 셔틀' : ''}'
+                      '${departed ? ', 운행 종료' : ''}',
+                  excludeSemantics: true,
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () => _toggleJourneyExpansion(journey),
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(
+                        minHeight: _journeyCardExtent - 10,
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 10, 12, 10),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Flexible(
-                              child: Container(
-                                constraints: const BoxConstraints(
-                                  maxWidth: 180,
-                                ),
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 7,
-                                  vertical: 3,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: _shuttleColor,
-                                  borderRadius: BorderRadius.circular(7),
-                                ),
-                                child: Text(
-                                  journey.routeName,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.bold,
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Row(
+                                    children: [
+                                      Flexible(
+                                        child: _buildRouteBadge(journey),
+                                      ),
+                                      if (isNext)
+                                        _buildStatusChip(
+                                          '다음 셔틀',
+                                          _shuttleColor,
+                                        ),
+                                      if (departed)
+                                        _buildStatusChip('운행 종료', Colors.grey),
+                                    ],
                                   ),
                                 ),
-                              ),
+                                Icon(
+                                  isExpanded
+                                      ? Icons.expand_less_rounded
+                                      : Icons.expand_more_rounded,
+                                  size: 20,
+                                  color: hintColor,
+                                ),
+                              ],
                             ),
-                            const SizedBox(width: 6),
-                            Text(
-                              '·',
-                              style: TextStyle(
-                                color: Theme.of(context).hintColor,
-                                fontSize: 12,
-                              ),
-                            ),
-                            const SizedBox(width: 6),
-                            Text(
-                              '${journey.intermediateStopCount}개 정류장 경유',
-                              style: TextStyle(
-                                color: Theme.of(context).hintColor,
-                                fontSize: 11,
-                              ),
+                            const SizedBox(height: 4),
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                _buildJourneyTime(
+                                  context,
+                                  time: journey.originArrivalTime,
+                                  stationName: _result.originStationName,
+                                ),
+                                const SizedBox(
+                                  width: 30,
+                                  height: 30,
+                                  child: Center(
+                                    child: Icon(
+                                      Icons.arrow_forward_rounded,
+                                      color: _shuttleColor,
+                                      size: 17,
+                                    ),
+                                  ),
+                                ),
+                                _buildJourneyTime(
+                                  context,
+                                  time: journey.destinationArrivalTime,
+                                  stationName: _result.destinationStationName,
+                                ),
+                                const SizedBox(width: 8),
+                                SizedBox(
+                                  height: 30,
+                                  child: Align(
+                                    alignment: Alignment.bottomLeft,
+                                    child: Padding(
+                                      padding: const EdgeInsets.only(bottom: 3),
+                                      child: Text(
+                                        '${journey.durationMinutes}분',
+                                        style: TextStyle(
+                                          color: hintColor,
+                                          fontSize: 14,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
                           ],
                         ),
                       ),
-                      if (isNext) _buildStatusChip('다음 셔틀', _shuttleColor),
-                      if (departed) _buildStatusChip('운행 종료', Colors.grey),
-                      const SizedBox(width: 2),
-                      Icon(
-                        isExpanded ? Icons.expand_less : Icons.expand_more,
-                        size: 19,
-                        color: Theme.of(context).hintColor,
-                      ),
-                    ],
+                    ),
                   ),
-                  const SizedBox(height: 8),
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildJourneyTime(
-                        context,
-                        time: journey.originArrivalTime,
-                        stationName: _result.originStationName,
-                        fontSize: 22,
-                      ),
-                      const SizedBox(width: 9),
-                      const Padding(
-                        padding: EdgeInsets.only(top: 2),
-                        child: SizedBox(
-                          height: 26,
-                          child: Center(
-                            child: Icon(
-                              Icons.arrow_forward,
-                              color: _shuttleColor,
-                              size: 19,
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 9),
-                      Padding(
-                        padding: const EdgeInsets.only(top: 2),
-                        child: _buildJourneyTime(
-                          context,
-                          time: journey.destinationArrivalTime,
-                          stationName: _result.destinationStationName,
-                          fontSize: 20,
-                        ),
-                      ),
-                      const SizedBox(width: 7),
-                      SizedBox(
-                        height: 26,
-                        child: Center(
-                          child: Text(
-                            '(${journey.durationMinutes}분)',
-                            style: TextStyle(
-                              color: Theme.of(context).hintColor,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  if (isExpanded) _buildExpandedSchedule(context, journey),
-                ],
-              ),
+                ),
+                if (isExpanded) _buildExpandedSchedule(context, journey),
+              ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+
+  // 순환 노선(KTX 순환 등)은 테두리 배지로 구분해, 같은 정류장에 노선이 섞여도
+  // 한눈에 알아보게 한다.
+  Widget _buildRouteBadge(ShuttleJourney journey) {
+    final isLoop = journey.routeName.contains('순환');
+    final loopColor = Theme.of(context).brightness == Brightness.dark
+        ? const Color(0xFF7FA6FF)
+        : const Color(0xFF1D4ED8);
+    return Container(
+      constraints: const BoxConstraints(maxWidth: 180),
+      padding: EdgeInsets.symmetric(
+        horizontal: isLoop ? 6 : 7,
+        vertical: isLoop ? 1 : 2,
+      ),
+      decoration: BoxDecoration(
+        color: isLoop ? Theme.of(context).cardColor : _shuttleColor,
+        borderRadius: BorderRadius.circular(6),
+        border: isLoop ? Border.all(color: loopColor, width: 1.5) : null,
+      ),
+      child: Text(
+        journey.routeName,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(
+          color: isLoop ? loopColor : Colors.white,
+          fontSize: 12,
+          fontWeight: FontWeight.bold,
         ),
       ),
     );
@@ -469,13 +540,15 @@ class _ShuttleJourneyResultViewState extends State<ShuttleJourneyResultView> {
     BuildContext context, {
     required String time,
     required String stationName,
-    required double fontSize,
   }) {
-    final timeStyle = TextStyle(
-      fontSize: fontSize,
-      fontWeight: FontWeight.bold,
+    const timeStyle = TextStyle(
+      fontSize: 26,
+      height: 1.15,
+      fontWeight: FontWeight.w800,
+      fontFeatures: [FontFeature.tabularFigures()],
     );
     final formattedTime = _shortTime(time);
+    // 정류장 이름이 길어도 시각 폭을 넘지 않도록 시각 너비에 맞춘다.
     final timePainter = TextPainter(
       text: TextSpan(text: formattedTime, style: timeStyle),
       textDirection: Directionality.of(context),
@@ -491,12 +564,11 @@ class _ShuttleJourneyResultViewState extends State<ShuttleJourneyResultView> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(formattedTime, maxLines: 1, softWrap: false, style: timeStyle),
-          const SizedBox(height: 1),
           Text(
             stationName,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: TextStyle(color: Theme.of(context).hintColor, fontSize: 10),
+            style: TextStyle(color: Theme.of(context).hintColor, fontSize: 13),
           ),
         ],
       ),
@@ -508,100 +580,260 @@ class _ShuttleJourneyResultViewState extends State<ShuttleJourneyResultView> {
     final stops = _scheduleStopsCache[journey.scheduleId];
     final hasNoStops = _noScheduleStopIds.contains(journey.scheduleId);
 
+    Widget body;
+    if (isLoading) {
+      body = const Center(
+        child: Padding(
+          padding: EdgeInsets.symmetric(vertical: 14),
+          child: SizedBox(
+            width: 20,
+            height: 20,
+            child: CircularProgressIndicator.adaptive(strokeWidth: 2),
+          ),
+        ),
+      );
+    } else if (hasNoStops || stops == null || stops.isEmpty) {
+      body = Padding(
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        child: Text(
+          '정류장별 시간표가 없습니다.',
+          style: TextStyle(color: Theme.of(context).hintColor),
+        ),
+      );
+    } else {
+      final (originIndex, destinationIndex) = _journeyStopIndexes(
+        journey,
+        stops,
+      );
+      body = Column(
+        children: [
+          for (var index = 0; index < stops.length; index++)
+            _buildScheduleStopRow(
+              context,
+              stops[index],
+              index: index,
+              lastIndex: stops.length - 1,
+              originIndex: originIndex,
+              destinationIndex: destinationIndex,
+            ),
+        ],
+      );
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Divider(height: 22),
-        const Text(
-          '전체 정류장 시간표',
-          style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+        Padding(
+          padding: const EdgeInsets.only(left: 16, right: 12),
+          child: Divider(
+            height: 1,
+            color: Theme.of(context).dividerColor.withValues(alpha: 0.45),
+          ),
         ),
-        const SizedBox(height: 8),
-        if (isLoading)
-          const Center(
-            child: Padding(
-              padding: EdgeInsets.symmetric(vertical: 14),
-              child: SizedBox(
-                width: 20,
-                height: 20,
-                child: CircularProgressIndicator.adaptive(strokeWidth: 2),
-              ),
-            ),
-          )
-        else if (hasNoStops || stops == null || stops.isEmpty)
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 10),
-            child: Text(
-              '정류장별 시간표가 없습니다.',
-              style: TextStyle(color: Theme.of(context).hintColor),
-            ),
-          )
-        else
-          ...stops.map((stop) => _buildScheduleStopRow(context, stop)),
+        Padding(padding: const EdgeInsets.fromLTRB(16, 4, 12, 12), child: body),
       ],
     );
   }
 
-  Widget _buildScheduleStopRow(BuildContext context, ScheduleStop stop) {
-    final isOrigin =
-        stop.stationId == _result.originStationId ||
-        _viewModel.logicalStationName(stop.stationName) ==
-            _result.originStationName;
-    final isDestination =
-        stop.stationId == _result.destinationStationId ||
-        _viewModel.logicalStationName(stop.stationName) ==
-            _result.destinationStationName;
+  // 정류장 목록에서 이번 여정의 승차·하차 위치를 찾는다. 같은 정류장을 두 번
+  // 지나는 노선이 있어 순번을 먼저 보고, 순번이 없으면 이름으로 찾는다.
+  (int, int) _journeyStopIndexes(
+    ShuttleJourney journey,
+    List<ScheduleStop> stops,
+  ) {
+    var originIndex = stops.indexWhere(
+      (stop) => stop.stopOrder == journey.originStopOrder,
+    );
+    var destinationIndex = stops.indexWhere(
+      (stop) => stop.stopOrder == journey.destinationStopOrder,
+    );
+    if (originIndex < 0) {
+      originIndex = stops.indexWhere(
+        (stop) =>
+            stop.stationId == _result.originStationId ||
+            _viewModel.logicalStationName(stop.stationName) ==
+                _result.originStationName,
+      );
+    }
+    if (destinationIndex < 0) {
+      destinationIndex = stops.lastIndexWhere(
+        (stop) =>
+            stop.stationId == _result.destinationStationId ||
+            _viewModel.logicalStationName(stop.stationName) ==
+                _result.destinationStationName,
+      );
+    }
+    return (originIndex, destinationIndex);
+  }
+
+  Widget _buildScheduleStopRow(
+    BuildContext context,
+    ScheduleStop stop, {
+    required int index,
+    required int lastIndex,
+    required int originIndex,
+    required int destinationIndex,
+  }) {
+    final isOrigin = index == originIndex;
+    final isDestination = index == destinationIndex;
     final isJourneyStop = isOrigin || isDestination;
+    final isTerminal = index == lastIndex && !isJourneyStop;
+    final onRide = originIndex >= 0 && destinationIndex > originIndex;
+    final hintColor = Theme.of(context).hintColor;
+    final mutedLine = Theme.of(context).dividerColor.withValues(alpha: 0.6);
+    // 승차~하차 구간의 선만 셔틀 색으로 칠한다.
+    final topLineColor = index == 0
+        ? null
+        : (onRide && index > originIndex && index <= destinationIndex
+              ? _shuttleColor
+              : mutedLine);
+    final bottomLineColor = index == lastIndex
+        ? null
+        : (onRide && index >= originIndex && index < destinationIndex
+              ? _shuttleColor
+              : mutedLine);
     final stationId = stop.stationId;
+    final time = _shortTime(stop.arrivalTime);
+    final role = isOrigin
+        ? '승차'
+        : isDestination
+        ? '하차'
+        : isTerminal
+        ? '종점'
+        : null;
+
     // 정류장을 누르면 정류장 정보(지도·사진) 화면으로 이동
-    return InkWell(
-      borderRadius: BorderRadius.circular(8),
-      onTap: stationId == null
-          ? null
-          : () {
-              HapticFeedback.lightImpact();
-              Get.to(() => NaverMapStationDetailView(stationId: stationId));
-            },
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 7),
-        child: Row(
-          children: [
-            Icon(
-              isJourneyStop ? Icons.circle : Icons.circle_outlined,
-              size: isJourneyStop ? 10 : 8,
-              color: isJourneyStop
-                  ? _shuttleColor
-                  : Theme.of(context).hintColor,
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                stop.stationName,
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: isJourneyStop
-                      ? FontWeight.bold
-                      : FontWeight.normal,
+    return Semantics(
+      button: stationId != null,
+      label:
+          '${stop.stationName}${role == null ? '' : ', $role'}, '
+          '${_spokenTime(stop.arrivalTime)}',
+      excludeSemantics: true,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(8),
+        onTap: stationId == null
+            ? null
+            : () {
+                HapticFeedback.lightImpact();
+                Get.to(() => NaverMapStationDetailView(stationId: stationId));
+              },
+        child: SizedBox(
+          height: 40,
+          child: Row(
+            children: [
+              SizedBox(
+                width: 12,
+                child: Column(
+                  children: [
+                    Expanded(
+                      child: Container(
+                        width: 2,
+                        color: topLineColor ?? Colors.transparent,
+                      ),
+                    ),
+                    Container(
+                      width: 12,
+                      height: 12,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: isJourneyStop
+                            ? _shuttleColor
+                            : Theme.of(context).cardColor,
+                        border: isJourneyStop
+                            ? null
+                            : Border.all(
+                                color: hintColor.withValues(alpha: 0.5),
+                                width: 2,
+                              ),
+                      ),
+                    ),
+                    Expanded(
+                      child: Container(
+                        width: 2,
+                        color: bottomLineColor ?? Colors.transparent,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ),
-            Text(
-              _shortTime(stop.arrivalTime),
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: isJourneyStop ? FontWeight.bold : FontWeight.w600,
-                color: isJourneyStop ? _shuttleColor : null,
+              const SizedBox(width: 12),
+              Expanded(
+                child: Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        stop.stationName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: isJourneyStop ? 16 : 15,
+                          fontWeight: isJourneyStop
+                              ? FontWeight.w700
+                              : FontWeight.normal,
+                          color: isJourneyStop ? null : hintColor,
+                        ),
+                      ),
+                    ),
+                    if (role != null) ...[
+                      const SizedBox(width: 6),
+                      _buildStopRoleChip(
+                        context,
+                        role,
+                        emphasized: !isTerminal,
+                      ),
+                    ],
+                  ],
+                ),
               ),
-            ),
-            if (stationId != null) ...[
-              const SizedBox(width: 2),
-              Icon(
-                Icons.chevron_right,
-                size: 18,
-                color: Theme.of(context).hintColor,
+              const SizedBox(width: 8),
+              Text(
+                time,
+                style: TextStyle(
+                  fontSize: isJourneyStop ? 16 : 15,
+                  fontWeight: isJourneyStop ? FontWeight.w800 : FontWeight.w700,
+                  color: isJourneyStop ? _shuttleColor : hintColor,
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                ),
+              ),
+              SizedBox(
+                width: 20,
+                child: stationId == null
+                    ? null
+                    : Icon(
+                        Icons.chevron_right_rounded,
+                        size: 18,
+                        color: hintColor.withValues(alpha: 0.6),
+                      ),
               ),
             ],
-          ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStopRoleChip(
+    BuildContext context,
+    String label, {
+    required bool emphasized,
+  }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+      decoration: BoxDecoration(
+        color: emphasized
+            ? _shuttleColor.withValues(alpha: isDark ? 0.25 : 0.1)
+            : Theme.of(context).scaffoldBackgroundColor,
+        borderRadius: BorderRadius.circular(5),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w700,
+          color: emphasized
+              ? (isDark ? Colors.redAccent : _shuttleColor)
+              : Theme.of(context).hintColor,
         ),
       ),
     );
@@ -780,6 +1012,17 @@ class _ShuttleJourneyResultViewState extends State<ShuttleJourneyResultView> {
   String _shortTime(String value) {
     final parts = value.split(':');
     return parts.length >= 2 ? '${parts[0]}:${parts[1]}' : value;
+  }
+
+  String _weekday(DateTime date) =>
+      const ['월', '화', '수', '목', '금', '토', '일'][date.weekday - 1];
+
+  // 화면 읽기 프로그램이 "09:15"를 시각으로 읽도록 바꾼다.
+  String _spokenTime(String value) {
+    final parts = value.split(':');
+    if (parts.length < 2) return value;
+    return '${int.tryParse(parts[0]) ?? parts[0]}시 '
+        '${int.tryParse(parts[1]) ?? parts[1]}분';
   }
 
   String _formatDate(String value) {

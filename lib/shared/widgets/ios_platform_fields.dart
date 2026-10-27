@@ -10,6 +10,10 @@ class IOSCompactDatePickerField extends StatefulWidget {
   final DateTime minimumDate;
   final DateTime maximumDate;
   final ValueChanged<DateTime> onDateChanged;
+  // 비워 두면 iOS 쪽 기본값("yyyy년M월d일", 16pt 보통 굵기)을 쓴다.
+  final String? displayFormat;
+  final double? fontSize;
+  final bool bold;
 
   const IOSCompactDatePickerField({
     super.key,
@@ -17,6 +21,9 @@ class IOSCompactDatePickerField extends StatefulWidget {
     required this.minimumDate,
     required this.maximumDate,
     required this.onDateChanged,
+    this.displayFormat,
+    this.fontSize,
+    this.bold = false,
   });
 
   @override
@@ -44,6 +51,10 @@ class _IOSCompactDatePickerFieldState extends State<IOSCompactDatePickerField> {
           'initialDate': widget.initialDate.millisecondsSinceEpoch,
           'minimumDate': widget.minimumDate.millisecondsSinceEpoch,
           'maximumDate': widget.maximumDate.millisecondsSinceEpoch,
+          if (widget.displayFormat != null)
+            'displayFormat': widget.displayFormat,
+          if (widget.fontSize != null) 'fontSize': widget.fontSize,
+          'bold': widget.bold,
         },
         creationParamsCodec: const StandardMessageCodec(),
         onPlatformViewCreated: _handlePlatformViewCreated,
@@ -102,10 +113,7 @@ class _IOSRoutePopupButtonFieldState extends State<IOSRoutePopupButtonField> {
       creationParams: {
         'selectedRouteId': widget.selectedRouteId,
         'routes': widget.routes
-            .map((route) => {
-                  'id': route.id,
-                  'title': route.routeName,
-                })
+            .map((route) => {'id': route.id, 'title': route.routeName})
             .toList(growable: false),
       },
       creationParamsCodec: const StandardMessageCodec(),
