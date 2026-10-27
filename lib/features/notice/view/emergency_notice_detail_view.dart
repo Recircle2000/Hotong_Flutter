@@ -51,6 +51,9 @@ class EmergencyNoticeDetailView extends StatelessWidget {
                   child: MarkdownBody(
                     // 긴급 공지 본문은 마크다운으로 렌더링
                     data: notice.content,
+                    // 관리자 페이지의 Toast UI 에디터는 Enter 한 번도 줄바꿈으로 보여주므로
+                    // 앱에서도 같은 줄바꿈을 살린다.
+                    softLineBreak: true,
                     styleSheet: MarkdownStyleSheet.fromTheme(theme).copyWith(
                       p: theme.textTheme.bodyLarge?.copyWith(height: 1.6),
                     ),
