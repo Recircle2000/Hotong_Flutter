@@ -12,6 +12,7 @@ import 'package:intl/intl.dart';
 import 'package:hsro/core/services/link_share_service.dart';
 import 'package:hsro/core/utils/transport_share_links.dart';
 import 'package:hsro/shared/widgets/link_share_button.dart';
+import 'package:hsro/shared/widgets/skeleton.dart';
 
 class ShuttleJourneyResultView extends StatefulWidget {
   final ShuttleJourneySearchResult initialResult;
@@ -29,6 +30,8 @@ class _ShuttleJourneyResultViewState extends State<ShuttleJourneyResultView> {
   static const double _headerTransitionHeight = 12;
   final ShuttleViewModel _viewModel = Get.find<ShuttleViewModel>();
   late ShuttleJourneySearchResult _result;
+  // 날짜 표시는 고르는 즉시 바꾸고, 목록은 불러온 뒤 _result로 바꾼다.
+  late String _displayDate;
   late final ScrollController _journeyScrollController;
   final Map<int, GlobalKey> _journeyCardKeys = <int, GlobalKey>{};
   final Map<int, List<ScheduleStop>> _scheduleStopsCache =
@@ -38,11 +41,16 @@ class _ShuttleJourneyResultViewState extends State<ShuttleJourneyResultView> {
   int? _expandedScheduleId;
   Timer? _clockTimer;
   int _pendingReloads = 0;
+  // 날짜를 바꿔 다시 불러오는 동안만 스켈레톤 카드를 보여준다.
+  int _dateReloads = 0;
+  bool _showSkeleton = false;
+  Timer? _skeletonDelayTimer;
 
   @override
   void initState() {
     super.initState();
     _result = widget.initialResult;
+    _displayDate = _result.date;
     _journeyScrollController = ScrollController(
       initialScrollOffset: _initialJourneyScrollOffset(),
     );
@@ -57,6 +65,7 @@ class _ShuttleJourneyResultViewState extends State<ShuttleJourneyResultView> {
   @override
   void dispose() {
     _clockTimer?.cancel();
+    _skeletonDelayTimer?.cancel();
     _journeyScrollController.dispose();
     super.dispose();
   }
@@ -128,58 +137,15 @@ class _ShuttleJourneyResultViewState extends State<ShuttleJourneyResultView> {
             Expanded(
               child: Stack(
                 children: [
-                  _result.journeys.isEmpty
-                      ? RefreshIndicator(
-                          onRefresh: _reload,
-                          color: _shuttleColor,
-                          child: ListView(
-                            physics: const AlwaysScrollableScrollPhysics(),
-                            padding: const EdgeInsets.fromLTRB(
-                              16,
-                              _headerTransitionHeight,
-                              16,
-                              16,
-                            ),
-                            children: [_buildEmptyState(context)],
+                  AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 200),
+                    child: _showSkeleton
+                        ? _buildSkeletonList(context)
+                        : KeyedSubtree(
+                            key: ValueKey('journeys_${_result.date}'),
+                            child: _buildJourneyList(context),
                           ),
-                        )
-                      : LayoutBuilder(
-                          builder: (context, constraints) {
-                            final allJourneysCompleted =
-                                _areAllJourneysCompletedToday;
-                            final bottomPadding = allJourneysCompleted
-                                ? 16.0
-                                : constraints.maxHeight > _journeyCardExtent
-                                ? constraints.maxHeight - _journeyCardExtent
-                                : 16.0;
-                            return RefreshIndicator(
-                              onRefresh: _reload,
-                              color: _shuttleColor,
-                              child: ListView.builder(
-                                controller: _journeyScrollController,
-                                physics: const AlwaysScrollableScrollPhysics(),
-                                padding: EdgeInsets.fromLTRB(
-                                  16,
-                                  _headerTransitionHeight,
-                                  16,
-                                  bottomPadding,
-                                ),
-                                itemCount:
-                                    _result.journeys.length +
-                                    (allJourneysCompleted ? 1 : 0),
-                                itemBuilder: (context, index) {
-                                  if (index == _result.journeys.length) {
-                                    return _buildAllJourneysEnded(context);
-                                  }
-                                  return _buildJourneyCard(
-                                    context,
-                                    _result.journeys[index],
-                                  );
-                                },
-                              ),
-                            );
-                          },
-                        ),
+                  ),
                   Positioned(
                     top: 0,
                     left: 0,
@@ -190,6 +156,117 @@ class _ShuttleJourneyResultViewState extends State<ShuttleJourneyResultView> {
                   ),
                 ],
               ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildJourneyList(BuildContext context) {
+    if (_result.journeys.isEmpty) {
+      return RefreshIndicator(
+        onRefresh: _reload,
+        color: _shuttleColor,
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(
+            16,
+            _headerTransitionHeight,
+            16,
+            16,
+          ),
+          children: [_buildEmptyState(context)],
+        ),
+      );
+    }
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final allJourneysCompleted = _areAllJourneysCompletedToday;
+        final bottomPadding = allJourneysCompleted
+            ? 16.0
+            : constraints.maxHeight > _journeyCardExtent
+            ? constraints.maxHeight - _journeyCardExtent
+            : 16.0;
+        return RefreshIndicator(
+          onRefresh: _reload,
+          color: _shuttleColor,
+          child: ListView.builder(
+            controller: _journeyScrollController,
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: EdgeInsets.fromLTRB(
+              16,
+              _headerTransitionHeight,
+              16,
+              bottomPadding,
+            ),
+            itemCount: _result.journeys.length + (allJourneysCompleted ? 1 : 0),
+            itemBuilder: (context, index) {
+              if (index == _result.journeys.length) {
+                return _buildAllJourneysEnded(context);
+              }
+              return _buildJourneyCard(context, _result.journeys[index]);
+            },
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildSkeletonList(BuildContext context) {
+    return Semantics(
+      key: const ValueKey('journeys_skeleton'),
+      label: '시간표 불러오는 중',
+      liveRegion: true,
+      child: ExcludeSemantics(
+        child: ListView.builder(
+          physics: const NeverScrollableScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(
+            16,
+            _headerTransitionHeight,
+            16,
+            16,
+          ),
+          itemCount: 8,
+          itemBuilder: (context, _) => _buildSkeletonCard(context),
+        ),
+      ),
+    );
+  }
+
+  // 실제 시간 카드와 같은 크기·배치로 막대만 그려, 불러온 뒤 자리가 흔들리지 않게 한다.
+  Widget _buildSkeletonCard(BuildContext context) {
+    return Container(
+      height: _journeyCardExtent - 10,
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.fromLTRB(16, 10, 12, 10),
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: const SkeletonShimmer(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SkeletonBox(width: 76, height: 20),
+            SizedBox(height: 7),
+            Row(
+              children: [
+                SkeletonBox(width: 72, height: 26),
+                SizedBox(width: 30),
+                SkeletonBox(width: 72, height: 26),
+                SizedBox(width: 8),
+                SkeletonBox(width: 30, height: 14),
+              ],
+            ),
+            SizedBox(height: 6),
+            Row(
+              children: [
+                SkeletonBox(width: 58, height: 12, radius: 4),
+                SizedBox(width: 44),
+                SkeletonBox(width: 58, height: 12, radius: 4),
+              ],
             ),
           ],
         ),
@@ -231,33 +308,48 @@ class _ShuttleJourneyResultViewState extends State<ShuttleJourneyResultView> {
             ),
           ),
           const SizedBox(width: 8),
-          // 운행 유형 표시는 기존 모양 그대로 둔다.
-          const Icon(Icons.schedule, color: _shuttleColor, size: 16),
-          const SizedBox(width: 6),
-          Text(
-            _result.scheduleTypeName,
-            style: const TextStyle(
-              color: _shuttleColor,
-              fontWeight: FontWeight.bold,
-              fontSize: 13,
+          if (_showSkeleton)
+            const SkeletonShimmer(
+              child: Row(
+                children: [
+                  SkeletonBox(width: 92, height: 16, radius: 4),
+                  SizedBox(width: 8),
+                  SkeletonBox(width: 42, height: 16, radius: 4),
+                ],
+              ),
+            )
+          else ...[
+            // 운행 유형 표시는 기존 모양 그대로 둔다.
+            const Icon(Icons.schedule, color: _shuttleColor, size: 16),
+            const SizedBox(width: 6),
+            Text(
+              _result.scheduleTypeName,
+              style: const TextStyle(
+                color: _shuttleColor,
+                fontWeight: FontWeight.bold,
+                fontSize: 13,
+              ),
             ),
-          ),
-          const SizedBox(width: 8),
-          Text(
-            '총 ${_result.journeys.length}회',
-            style: TextStyle(color: Theme.of(context).hintColor, fontSize: 13),
-          ),
+            const SizedBox(width: 8),
+            Text(
+              '총 ${_result.journeys.length}회',
+              style: TextStyle(
+                color: Theme.of(context).hintColor,
+                fontSize: 13,
+              ),
+            ),
+          ],
         ],
       ),
     );
   }
 
   Widget _buildAndroidDateSelector(BuildContext context) {
-    final date = DateFormat('yyyy-MM-dd').parse(_result.date);
+    final date = DateFormat('yyyy-MM-dd').parse(_displayDate);
     final hintColor = Theme.of(context).hintColor;
     return Semantics(
       button: true,
-      label: '탑승일 ${_formatDate(_result.date)}, 날짜 변경',
+      label: '탑승일 ${_formatDate(_displayDate)}, 날짜 변경',
       excludeSemantics: true,
       child: InkWell(
         borderRadius: BorderRadius.circular(12),
@@ -305,7 +397,7 @@ class _ShuttleJourneyResultViewState extends State<ShuttleJourneyResultView> {
   }
 
   Widget _buildIOSDateSelector(BuildContext context) {
-    final current = DateFormat('yyyy-MM-dd').parse(_result.date);
+    final current = DateFormat('yyyy-MM-dd').parse(_displayDate);
     final hintColor = Theme.of(context).hintColor;
     const dateStyle = TextStyle(fontSize: 16, fontWeight: FontWeight.w700);
     // 네이티브 라벨은 가운데 정렬이라, 날짜 글자 폭에 맞춰야 요일과 붙어 보인다.
@@ -337,7 +429,7 @@ class _ShuttleJourneyResultViewState extends State<ShuttleJourneyResultView> {
           SizedBox(
             width: dateWidth,
             child: IOSCompactDatePickerField(
-              key: ValueKey('journey_date_${_result.date}'),
+              key: ValueKey('journey_date_${_displayDate}'),
               initialDate: current,
               minimumDate: _minimumSelectableDate(),
               maximumDate: _maximumSelectableDate(),
@@ -1032,8 +1124,19 @@ class _ShuttleJourneyResultViewState extends State<ShuttleJourneyResultView> {
         '(${weekdays[date.weekday - 1]})';
   }
 
-  Future<void> _reload() async {
-    setState(() => _pendingReloads++);
+  // [showSkeleton]은 날짜를 바꿀 때만 켠다. 당겨서 새로고침은 기존 표시만 쓴다.
+  Future<void> _reload({bool showSkeleton = false}) async {
+    setState(() {
+      _pendingReloads++;
+      if (showSkeleton) _dateReloads++;
+    });
+    if (showSkeleton) {
+      // 응답이 아주 빠르면 스켈레톤이 깜빡이기만 하므로 잠시 기다렸다 띄운다.
+      _skeletonDelayTimer?.cancel();
+      _skeletonDelayTimer = Timer(const Duration(milliseconds: 150), () {
+        if (mounted && _dateReloads > 0) setState(() => _showSkeleton = true);
+      });
+    }
     try {
       final result = await _viewModel.searchJourneys();
       if (result != null && mounted) {
@@ -1041,12 +1144,23 @@ class _ShuttleJourneyResultViewState extends State<ShuttleJourneyResultView> {
         _scrollToNextJourney();
       }
     } finally {
-      if (mounted) setState(() => _pendingReloads--);
+      if (mounted) {
+        setState(() {
+          _pendingReloads--;
+          if (showSkeleton) _dateReloads--;
+          if (_dateReloads == 0) {
+            _skeletonDelayTimer?.cancel();
+            _showSkeleton = false;
+            // 불러오지 못했으면 날짜 표시도 지금 보이는 목록의 날짜로 되돌린다.
+            _displayDate = _result.date;
+          }
+        });
+      }
     }
   }
 
   Future<void> _selectDate() async {
-    final current = DateFormat('yyyy-MM-dd').parse(_result.date);
+    final current = DateFormat('yyyy-MM-dd').parse(_displayDate);
     final selected = await showDatePicker(
       context: context,
       initialDate: current,
@@ -1074,12 +1188,14 @@ class _ShuttleJourneyResultViewState extends State<ShuttleJourneyResultView> {
   }
 
   Future<void> _applySelectedDate(DateTime selected) async {
-    _viewModel.selectDate(DateFormat('yyyy-MM-dd').format(selected));
-    await _reload();
+    final date = DateFormat('yyyy-MM-dd').format(selected);
+    setState(() => _displayDate = date);
+    _viewModel.selectDate(date);
+    await _reload(showSkeleton: true);
   }
 
   Future<void> _searchNextDate() async {
-    final current = DateFormat('yyyy-MM-dd').parse(_result.date);
+    final current = DateFormat('yyyy-MM-dd').parse(_displayDate);
     await _applySelectedDate(current.add(const Duration(days: 1)));
   }
 }
