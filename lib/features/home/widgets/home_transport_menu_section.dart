@@ -55,7 +55,7 @@ class HomeTransportMenuSection extends StatelessWidget {
 
   Widget _taxiCard([TaxiAvailabilityService? availability]) => Expanded(
     child: _TransportMenuCard(
-      title: '택시',
+      title: '택시팟',
       icon: PhosphorIconsRegular.taxi,
       color: const Color(0xFFF5A623),
       onTap: () async {

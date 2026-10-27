@@ -176,7 +176,7 @@ class _UpcomingDeparturesArrivalWidgetState
                                   context,
                                   viewModel.shuttleEmptyMessage.value,
                                 )
-                              : Column(
+                              : UpcomingDepartureCardGroup(
                                   children: viewModel.shuttleArrivals
                                       .take(3)
                                       .map(
@@ -203,7 +203,7 @@ class _UpcomingDeparturesArrivalWidgetState
                                   context,
                                   viewModel.busEmptyMessage.value,
                                 )
-                              : Column(
+                              : UpcomingDepartureCardGroup(
                                   children: viewModel.busArrivals
                                       .take(3)
                                       .map(
@@ -343,6 +343,7 @@ class _UpcomingDeparturesArrivalWidgetState
     final String arrivalTime = _formatTime(arrival.arrivalTime);
 
     return UpcomingDepartureCard(
+      inGroup: true,
       primaryText: formatMinutesLeft(arrival.minutesLeft),
       primaryColor: _getMinuteBadgeColor(arrival.minutesLeft),
       trailingText: arrivalTime,
@@ -374,6 +375,7 @@ class _UpcomingDeparturesArrivalWidgetState
     final bool isScheduled = arrival.kind == LocationBusArrivalKind.scheduled;
 
     return UpcomingDepartureCard(
+      inGroup: true,
       primaryText: isScheduled
           ? formatMinutesLeft(arrival.minutesLeft ?? 0)
           : arrival.badgeText,

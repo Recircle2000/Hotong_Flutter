@@ -33,6 +33,21 @@ class BusDeparture {
       departureTime is String;
 }
 
+// 90분 안에 출발하는 차가 없을 때 안내할 다음 출발 정보
+class NextDepartureHint {
+  const NextDepartureHint({
+    required this.time,
+    required this.isFirstOfDay,
+    this.routeLabel,
+  });
+
+  final DateTime time;
+  // true면 오늘 아직 한 대도 출발하지 않은 상태(첫차 전)
+  final bool isFirstOfDay;
+  // 시내버스 노선 번호처럼 시각 앞에 붙일 이름
+  final String? routeLabel;
+}
+
 class UpcomingDepartureViewModel extends GetxController
     with WidgetsBindingObserver {
   UpcomingDepartureViewModel({
@@ -98,6 +113,11 @@ class UpcomingDepartureViewModel extends GetxController
   // 오늘 셔틀버스 운행 없음 플래그 (schedules가 아예 비어있을 때)
   final isShuttleServiceNotOperated = false.obs;
 
+  // 90분 안에 출발하는 차가 없을 때 보여줄 오늘의 다음 출발(첫차 포함)
+  final nextShuttleDeparture = Rxn<NextDepartureHint>();
+  // 시내버스는 주요 노선별로 한 줄씩 안내한다.
+  final nextCityBusDepartures = <NextDepartureHint>[].obs;
+
   // 천안 실시간 버스 계산용 정류장 순서 캐시
   List<String> _ce24DownStops = [];
   List<String> _ce81DownStops = [];
@@ -108,6 +128,7 @@ class UpcomingDepartureViewModel extends GetxController
   // 천안 캠퍼스용 임시 시내버스 데이터 저장 (깜박임 방지)
   List<BusDeparture>? _tempCityBuses;
   bool? _tempCityBusServiceEnded;
+  List<NextDepartureHint>? _tempNextCityBuses;
   List<BusDeparture>? _tempRealtimeBuses;
   Worker? _campusWorker;
   Worker? _activeWorker;
@@ -307,8 +328,12 @@ class UpcomingDepartureViewModel extends GetxController
           if (_tempCityBusServiceEnded != null) {
             isCityBusServiceEnded.value = _tempCityBusServiceEnded!;
           }
+          if (_tempNextCityBuses != null) {
+            nextCityBusDepartures.assignAll(_tempNextCityBuses!);
+          }
           _tempCityBuses = null;
           _tempCityBusServiceEnded = null;
+          _tempNextCityBuses = null;
         }
       } else {
         // 아산은 순차 갱신으로 충분
@@ -371,6 +396,11 @@ class UpcomingDepartureViewModel extends GetxController
       final String departurePlace =
           currentCampus == '천안' ? '각원사 회차지' : '호서대학교 기점';
       bool lastBusDeparted = true;
+      bool anyBusDeparted = false;
+      DateTime? nextBusTime;
+      String? nextBusRoute;
+      // 노선 번호별 오늘 남은 가장 이른 출발
+      final Map<String, DateTime> nextBusPerRoute = {};
       // 노선별 실제 막차 시각 먼저 계산
       busData.forEach((routeKey, routeData) {
         if (routeKey == 'version') return; // version 필드는 무시
@@ -401,6 +431,22 @@ class UpcomingDepartureViewModel extends GetxController
                 departureTime.day == today.day) {
               final difference = departureTime.difference(now);
               final minutesLeft = (difference.inSeconds / 60).ceil();
+              // 오늘 아직 출발하지 않은 버스가 하나라도 있으면 운행 종료가 아니다.
+              if (difference.inSeconds > 0) {
+                lastBusDeparted = false;
+                final routeNumber = routeKey.split('_')[0];
+                if (nextBusTime == null ||
+                    departureTime.isBefore(nextBusTime!)) {
+                  nextBusTime = departureTime;
+                  nextBusRoute = routeNumber;
+                }
+                final routeNext = nextBusPerRoute[routeNumber];
+                if (routeNext == null || departureTime.isBefore(routeNext)) {
+                  nextBusPerRoute[routeNumber] = departureTime;
+                }
+              } else {
+                anyBusDeparted = true;
+              }
               if (difference.inSeconds > 0 && difference.inMinutes <= 90) {
                 final busDep = BusDeparture(
                   routeName: routeKey.split('_')[0],
@@ -434,19 +480,45 @@ class UpcomingDepartureViewModel extends GetxController
           routeKey: bus.routeKey,
         );
       }
+      // 주요 노선(아캠 순환5·1000, 천캠 24·81)은 노선마다 다음 출발을 보여주고,
+      // 주요 노선이 모두 끝났으면 남은 노선 중 가장 이른 한 대를 보여준다.
+      final mainRoutes = currentCampus == '천안'
+          ? const ['24', '81']
+          : const ['순환5', '1000'];
+      final nextBuses = [
+        for (final route in mainRoutes)
+          if (nextBusPerRoute[route] != null)
+            NextDepartureHint(
+              time: nextBusPerRoute[route]!,
+              isFirstOfDay: !anyBusDeparted,
+              routeLabel: route,
+            ),
+      ]..sort((a, b) => a.time.compareTo(b.time));
+      if (nextBuses.isEmpty && nextBusTime != null) {
+        nextBuses.add(
+          NextDepartureHint(
+            time: nextBusTime!,
+            isFirstOfDay: !anyBusDeparted,
+            routeLabel: nextBusRoute,
+          ),
+        );
+      }
       // 천안은 임시 버퍼, 그 외는 즉시 UI 갱신
       if (updateUI) {
         upcomingCityBuses.value = upcomingBuses.take(3).toList();
         isCityBusServiceEnded.value = lastBusDeparted;
+        nextCityBusDepartures.assignAll(nextBuses);
       } else {
         _tempCityBuses = upcomingBuses;
         _tempCityBusServiceEnded = lastBusDeparted;
+        _tempNextCityBuses = nextBuses;
       }
     } catch (e) {
       print('시내버스 데이터 로드 중 오류: $e');
       if (updateUI) {
         upcomingCityBuses.clear();
         isCityBusServiceEnded.value = false; // 오류 시 false로 초기화
+        nextCityBusDepartures.clear();
       }
     }
   }
@@ -513,11 +585,14 @@ class UpcomingDepartureViewModel extends GetxController
       if (schedulesData.isEmpty) {
         isShuttleServiceEnded.value = true;
         isShuttleServiceNotOperated.value = true;
+        nextShuttleDeparture.value = null;
         upcomingShuttles.clear();
         return;
       } else {
         isShuttleServiceNotOperated.value = false;
       }
+      bool anyShuttleDeparted = false;
+      DateTime? nextShuttleTime;
       // 노선명 조회와 90분 이내 스케줄 추출
       for (int i = 0; i < schedulesData.length; i++) {
         final schedule = schedulesData[i];
@@ -567,6 +642,12 @@ class UpcomingDepartureViewModel extends GetxController
           }
           if (difference.inSeconds > 0) {
             lastShuttleDeparted = false;
+            if (nextShuttleTime == null ||
+                departureTime.isBefore(nextShuttleTime)) {
+              nextShuttleTime = departureTime;
+            }
+          } else {
+            anyShuttleDeparted = true;
           }
         }
       }
@@ -594,6 +675,12 @@ class UpcomingDepartureViewModel extends GetxController
           .sort((a, b) => a.minutesLeft.compareTo(b.minutesLeft));
       upcomingShuttles.value = upcomingShuttleList.take(3).toList();
       isShuttleServiceEnded.value = lastShuttleDeparted;
+      nextShuttleDeparture.value = nextShuttleTime == null
+          ? null
+          : NextDepartureHint(
+              time: nextShuttleTime,
+              isFirstOfDay: !anyShuttleDeparted,
+            );
       if (upcomingShuttles.isNotEmpty &&
           upcomingShuttles[0].scheduleId != null) {
         selectedScheduleId.value = upcomingShuttles[0].scheduleId!;
@@ -602,6 +689,7 @@ class UpcomingDepartureViewModel extends GetxController
       print('셔틀버스 데이터 로드 중 오류: $e');
       upcomingShuttles.clear();
       isShuttleServiceEnded.value = false;
+      nextShuttleDeparture.value = null;
     }
   }
 

@@ -83,6 +83,7 @@ class UpcomingDepartureCard extends StatelessWidget {
     this.isLastBus = false,
     this.scrollDescription = false,
     this.isRealtime = false,
+    this.inGroup = false,
   });
 
   final String primaryText;
@@ -97,6 +98,8 @@ class UpcomingDepartureCard extends StatelessWidget {
   final bool scrollDescription;
   // true면 실시간 위치 기반 정보임을 알리는 배지 표시
   final bool isRealtime;
+  // true면 UpcomingDepartureCardGroup 안의 한 줄로 그린다(배경·간격은 그룹이 맡는다).
+  final bool inGroup;
   final VoidCallback onTap;
 
   @override
@@ -125,13 +128,16 @@ class UpcomingDepartureCard extends StatelessWidget {
     );
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
+      padding: EdgeInsets.only(bottom: inGroup ? 0 : 6),
       child: ScaleButton(
         onTap: onTap,
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
           decoration: BoxDecoration(
-            color: UpcomingDepartureColors.card(context),
+            // 그룹 안에서는 투명하게 두되, 줄 전체가 눌리도록 색은 채워 둔다.
+            color: inGroup
+                ? Colors.transparent
+                : UpcomingDepartureColors.card(context),
             borderRadius: BorderRadius.circular(16),
           ),
           child: Column(
@@ -281,6 +287,39 @@ class UpcomingDepartureCard extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+// 셔틀버스/시내버스 출발 정보 여러 줄을 카드 한 장으로 묶고 줄 사이에 구분선을 둔다.
+class UpcomingDepartureCardGroup extends StatelessWidget {
+  const UpcomingDepartureCardGroup({super.key, required this.children});
+
+  // inGroup: true로 만든 UpcomingDepartureCard 목록
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    final divider = Divider(
+      height: 1,
+      thickness: 1,
+      indent: 12,
+      endIndent: 12,
+      color: Theme.of(context).dividerColor.withValues(alpha: 0.35),
+    );
+    return Container(
+      decoration: BoxDecoration(
+        color: UpcomingDepartureColors.card(context),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        children: [
+          for (var index = 0; index < children.length; index++) ...[
+            if (index > 0) divider,
+            children[index],
+          ],
+        ],
       ),
     );
   }
