@@ -756,6 +756,7 @@ class _ShuttleJourneyResultViewState extends State<ShuttleJourneyResultView> {
               : mutedLine);
     final stationId = stop.stationId;
     final time = _shortTime(stop.arrivalTime);
+    final (stopName, direction) = _splitStopName(stop.stationName);
     final role = isOrigin
         ? '승차'
         : isDestination
@@ -768,7 +769,8 @@ class _ShuttleJourneyResultViewState extends State<ShuttleJourneyResultView> {
     return Semantics(
       button: stationId != null,
       label:
-          '${stop.stationName}${role == null ? '' : ', $role'}, '
+          '$stopName${direction == null ? '' : ' $direction'}'
+          '${role == null ? '' : ', $role'}, '
           '${_spokenTime(stop.arrivalTime)}',
       excludeSemantics: true,
       child: InkWell(
@@ -831,7 +833,7 @@ class _ShuttleJourneyResultViewState extends State<ShuttleJourneyResultView> {
                   children: [
                     Flexible(
                       child: Text(
-                        stop.stationName,
+                        stopName,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
@@ -843,6 +845,19 @@ class _ShuttleJourneyResultViewState extends State<ShuttleJourneyResultView> {
                         ),
                       ),
                     ),
+                    if (direction != null) ...[
+                      const SizedBox(width: 6),
+                      Text(
+                        direction,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: isJourneyStop
+                              ? FontWeight.w500
+                              : FontWeight.normal,
+                          color: hintColor,
+                        ),
+                      ),
+                    ],
                     if (role != null) ...[
                       const SizedBox(width: 6),
                       _buildStopRoleChip(
@@ -878,6 +893,22 @@ class _ShuttleJourneyResultViewState extends State<ShuttleJourneyResultView> {
           ),
         ),
       ),
+    );
+  }
+
+  // 서버 정류장 이름 끝의 [출발]·[천캠방향] 같은 꼬리표를 떼어 낸다.
+  // [출발]·[도착]은 승차·하차 칩과 뜻이 겹쳐 버리고, 방향은 이름 옆 작은 글자로 쓰도록 따로 돌려준다.
+  (String, String?) _splitStopName(String rawName) {
+    final match = RegExp(r'^(.*?)\s*\[([^\]]+)\]\s*$').firstMatch(rawName);
+    if (match == null) return (rawName, null);
+    final name = match.group(1)!.trim();
+    final tag = match.group(2)!.trim();
+    if (name.isEmpty) return (rawName, null);
+    if (tag == '출발' || tag == '도착') return (name, null);
+    // "천캠방향" → "천캠 방향"
+    return (
+      name,
+      tag.replaceAllMapped(RegExp(r'(\S)방향$'), (m) => '${m[1]} 방향'),
     );
   }
 
