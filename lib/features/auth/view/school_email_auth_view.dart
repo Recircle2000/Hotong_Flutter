@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
+import 'package:hsro/core/services/auth_service.dart';
 import 'package:hsro/features/auth/viewmodel/auth_viewmodel.dart';
 
 class SchoolEmailAuthView extends StatelessWidget {
@@ -68,15 +69,29 @@ class SchoolEmailAuthView extends StatelessWidget {
         TextField(
           controller: emailController,
           enabled: !controller.isLoading.value,
-          keyboardType: TextInputType.emailAddress,
+          keyboardType: TextInputType.number,
           textInputAction: TextInputAction.done,
           autocorrect: false,
           enableSuggestions: false,
-          autofillHints: const [AutofillHints.email],
-          decoration: const InputDecoration(
-            labelText: '학교 이메일',
-            hintText: 'xxxx@vision.hoseo.edu',
-            border: OutlineInputBorder(),
+          autofillHints: const [AutofillHints.username],
+          maxLength: AuthService.studentIdLength,
+          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+          // suffixText는 포커스 전엔 숨겨지므로, 도메인이 늘 보이도록 suffixIcon으로 둔다.
+          decoration: InputDecoration(
+            labelText: '학번',
+            hintText: '20251234',
+            suffixIcon: Padding(
+              padding: const EdgeInsets.only(right: 12),
+              child: Text(
+                '@${AuthService.schoolEmailDomain}',
+                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                      color: Theme.of(context).hintColor,
+                    ),
+              ),
+            ),
+            suffixIconConstraints: const BoxConstraints(minHeight: 0),
+            border: const OutlineInputBorder(),
+            counterText: '',
           ),
           onSubmitted: (_) => controller.sendOtp(emailController.text),
         ),

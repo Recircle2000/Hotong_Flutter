@@ -5,8 +5,15 @@ void main() {
   group('AuthService.normalizeSchoolEmail', () {
     test('normalizes surrounding whitespace and case', () {
       expect(
-        AuthService.normalizeSchoolEmail('  Student@VISION.HOSEO.EDU  '),
-        'student@vision.hoseo.edu',
+        AuthService.normalizeSchoolEmail('  20251234@VISION.HOSEO.EDU  '),
+        '20251234@vision.hoseo.edu',
+      );
+    });
+
+    test('appends the school domain to a bare student id', () {
+      expect(
+        AuthService.normalizeSchoolEmail(' 20251234 '),
+        '20251234@vision.hoseo.edu',
       );
     });
 
@@ -37,6 +44,11 @@ void main() {
       'student@sub.vision.hoseo.edu',
       'student@@vision.hoseo.edu',
       'stu dent@vision.hoseo.edu',
+      'student@vision.hoseo.edu',
+      '2025123',
+      '202512345',
+      '2025123a',
+      '2025123@vision.hoseo.edu',
     ]) {
       test('rejects invalid address: $invalidEmail', () {
         expect(

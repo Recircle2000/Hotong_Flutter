@@ -27,6 +27,8 @@ class AuthService extends GetxService {
         unavailableMessage = message ?? '인증 설정을 불러오지 못했습니다.';
 
   static const schoolEmailDomain = 'vision.hoseo.edu';
+  static const studentIdLength = 8;
+  static final _studentIdPattern = RegExp('^\\d{$studentIdLength}\$');
 
   final SupabaseClient? _client;
   final Set<String> allowedTestEmails;
@@ -64,12 +66,17 @@ class AuthService extends GetxService {
     String rawEmail, {
     Set<String> allowedTestEmails = const {},
   }) {
-    final email = rawEmail.trim().toLowerCase();
+    final input = rawEmail.trim().toLowerCase();
+    // 입력창에는 학번만 받고, 재전송처럼 이미 완성된 주소가 오면 그대로 둔다.
+    final email = input.isEmpty || input.contains('@')
+        ? input
+        : '$input@$schoolEmailDomain';
     final parts = email.split('@');
     if (parts.length != 2 ||
         parts.first.isEmpty ||
-        (parts.last != schoolEmailDomain &&
-            !allowedTestEmails.contains(email)) ||
+        (parts.last == schoolEmailDomain
+            ? !_studentIdPattern.hasMatch(parts.first)
+            : !allowedTestEmails.contains(email)) ||
         email.runes.any(
             (character) => String.fromCharCode(character).trim().isEmpty)) {
       throw InvalidSchoolEmailException();
