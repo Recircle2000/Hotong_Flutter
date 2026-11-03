@@ -278,7 +278,7 @@ class _ShuttleRouteSelectionViewState extends State<ShuttleRouteSelectionView> {
           color: Theme.of(context).scaffoldBackgroundColor,
           border: Border(
             top: BorderSide(
-              color: Theme.of(context).dividerColor.withValues(alpha: 0.45),
+              color: colorScheme.onSurface.withValues(alpha: 0.08),
             ),
           ),
         ),
@@ -346,7 +346,7 @@ class _ShuttleRouteSelectionViewState extends State<ShuttleRouteSelectionView> {
                             textAlign: TextAlign.center,
                             style: TextStyle(
                               fontSize: 17,
-                              fontWeight: FontWeight.w800,
+                              fontWeight: FontWeight.w600,
                               color: foregroundColor,
                             ),
                           ),
@@ -371,10 +371,12 @@ class _ShuttleRouteSelectionViewState extends State<ShuttleRouteSelectionView> {
           preventDuplicates: false,
         ),
         style: TextButton.styleFrom(
-          foregroundColor: _accentForeground(context),
+          foregroundColor: Theme.of(
+            context,
+          ).colorScheme.onSurface.withValues(alpha: 0.72),
           minimumSize: const Size(44, 44),
           padding: const EdgeInsets.symmetric(horizontal: 12),
-          textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+          textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
         ),
         child: const Row(
           mainAxisSize: MainAxisSize.min,
@@ -401,7 +403,7 @@ class _ShuttleRouteSelectionViewState extends State<ShuttleRouteSelectionView> {
         header: true,
         child: Text(
           title,
-          style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
+          style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
         ),
       ),
     );
@@ -491,12 +493,12 @@ class _ShuttleRouteSelectionViewState extends State<ShuttleRouteSelectionView> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _buildSectionTitle('정류장 선택'),
-        const SizedBox(height: 10),
+        const SizedBox(height: 8),
         Container(
           padding: const EdgeInsets.only(right: 12),
           decoration: BoxDecoration(
             color: Theme.of(context).cardColor,
-            borderRadius: BorderRadius.circular(18),
+            borderRadius: BorderRadius.circular(16),
           ),
           child: Row(
             children: [
@@ -516,10 +518,10 @@ class _ShuttleRouteSelectionViewState extends State<ShuttleRouteSelectionView> {
                     ),
                     Divider(
                       height: 1,
-                      indent: 18,
+                      indent: 16,
                       color: Theme.of(
                         context,
-                      ).dividerColor.withValues(alpha: 0.45),
+                      ).colorScheme.onSurface.withValues(alpha: 0.08),
                     ),
                     Container(
                       key: _destinationFieldKey,
@@ -549,12 +551,16 @@ class _ShuttleRouteSelectionViewState extends State<ShuttleRouteSelectionView> {
                     width: 44,
                     height: 44,
                     decoration: BoxDecoration(
-                      color: shuttleColor,
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.onSurface.withValues(alpha: 0.06),
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(
+                    child: Icon(
                       Icons.swap_vert_rounded,
-                      color: Colors.white,
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.onSurface.withValues(alpha: 0.72),
                     ),
                   ),
                 ),
@@ -596,7 +602,7 @@ class _ShuttleRouteSelectionViewState extends State<ShuttleRouteSelectionView> {
                       ? Container(
                           key: const ValueKey('journey_unavailable_notice'),
                           width: double.infinity,
-                          margin: const EdgeInsets.fromLTRB(0, 6, 0, 2),
+                          margin: const EdgeInsets.only(top: 8),
                           padding: const EdgeInsets.symmetric(
                             horizontal: 12,
                             vertical: 10,
@@ -619,7 +625,7 @@ class _ShuttleRouteSelectionViewState extends State<ShuttleRouteSelectionView> {
                               const SizedBox(width: 8),
                               const Expanded(
                                 child: Text(
-                                  '선택한 탑승일에 운행하는 셔틀버스가 없습니다.',
+                                  '선택한 탑승일에 운행하는 셔틀버스가 없습니다',
                                   style: TextStyle(fontSize: 12),
                                 ),
                               ),
@@ -629,9 +635,9 @@ class _ShuttleRouteSelectionViewState extends State<ShuttleRouteSelectionView> {
                       : !viewModel.isCampusStationName(origin.name)
                       ? Padding(
                           key: const ValueKey('journey_campus_only_notice'),
-                          padding: const EdgeInsets.fromLTRB(12, 4, 12, 0),
+                          padding: const EdgeInsets.fromLTRB(4, 8, 4, 0),
                           child: Text(
-                            '중간 정류장에서는 캠퍼스행 셔틀만 이용할 수 있어요.',
+                            '중간 정류장에서는 캠퍼스행 셔틀만 이용할 수 있어요',
                             style: TextStyle(
                               color: Theme.of(context).hintColor,
                               fontSize: 12,
@@ -717,9 +723,9 @@ class _ShuttleRouteSelectionViewState extends State<ShuttleRouteSelectionView> {
       child: ScaleButton(
         onTap: onTap,
         child: SizedBox(
-          height: 58,
+          height: 56,
           child: Padding(
-            padding: const EdgeInsets.only(left: 18, right: 8),
+            padding: const EdgeInsets.only(left: 16, right: 8),
             child: Row(
               children: [
                 SizedBox(
@@ -731,7 +737,7 @@ class _ShuttleRouteSelectionViewState extends State<ShuttleRouteSelectionView> {
                     style: TextStyle(fontSize: 13, color: hintColor),
                   ),
                 ),
-                const SizedBox(width: 14),
+                const SizedBox(width: 12),
                 Expanded(
                   child: Text(
                     value ?? '정류장을 선택하세요',
@@ -741,7 +747,7 @@ class _ShuttleRouteSelectionViewState extends State<ShuttleRouteSelectionView> {
                       fontSize: value == null ? 16 : 17,
                       fontWeight: value == null
                           ? FontWeight.normal
-                          : FontWeight.w700,
+                          : FontWeight.w600,
                       color: value == null ? hintColor : null,
                     ),
                   ),
@@ -789,7 +795,7 @@ class _ShuttleRouteSelectionViewState extends State<ShuttleRouteSelectionView> {
                 ),
               ],
             ),
-            const SizedBox(height: 6),
+            const SizedBox(height: 8),
             SizedBox(
               height: 48,
               child: LayoutBuilder(
@@ -820,7 +826,7 @@ class _ShuttleRouteSelectionViewState extends State<ShuttleRouteSelectionView> {
                               padding: const EdgeInsets.fromLTRB(12, 0, 16, 0),
                               decoration: BoxDecoration(
                                 color: Theme.of(context).cardColor,
-                                borderRadius: BorderRadius.circular(22),
+                                borderRadius: BorderRadius.circular(12),
                               ),
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
@@ -828,7 +834,7 @@ class _ShuttleRouteSelectionViewState extends State<ShuttleRouteSelectionView> {
                                   Icon(
                                     Icons.star_rounded,
                                     size: 18,
-                                    color: Colors.amber.shade700,
+                                    color: Theme.of(context).hintColor,
                                   ),
                                   const SizedBox(width: 8),
                                   Flexible(
@@ -1088,7 +1094,7 @@ class _ShuttleRouteSelectionViewState extends State<ShuttleRouteSelectionView> {
         SizedBox(height: 24),
 
         _buildSectionTitle('노선 선택'),
-        const SizedBox(height: 10),
+        const SizedBox(height: 8),
 
         // 노선 목록 로딩/빈 상태/선택 UI 전환
         Obx(
@@ -1388,7 +1394,7 @@ class _ShuttleRouteSelectionViewState extends State<ShuttleRouteSelectionView> {
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
                           fontSize: 17,
-                          fontWeight: FontWeight.w700,
+                          fontWeight: FontWeight.w600,
                           fontFeatures: [FontFeature.tabularFigures()],
                         ),
                       )
@@ -1413,13 +1419,13 @@ class _ShuttleRouteSelectionViewState extends State<ShuttleRouteSelectionView> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _buildSectionTitle('탑승일'),
-        const SizedBox(height: 10),
+        const SizedBox(height: 8),
         Container(
           height: 56,
-          padding: const EdgeInsets.symmetric(horizontal: 6),
+          padding: const EdgeInsets.symmetric(horizontal: 4),
           decoration: BoxDecoration(
             color: Theme.of(context).cardColor,
-            borderRadius: BorderRadius.circular(18),
+            borderRadius: BorderRadius.circular(16),
           ),
           child: Obx(() {
             final selectedDate = _getSelectedDateOrToday();
@@ -1519,7 +1525,7 @@ class _ShuttleRouteSelectionViewState extends State<ShuttleRouteSelectionView> {
       iconSize: 26,
       constraints: const BoxConstraints.tightFor(width: 44, height: 44),
       padding: EdgeInsets.zero,
-      color: _accentForeground(context),
+      color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.72),
       disabledColor: Theme.of(context).disabledColor,
       icon: Icon(icon),
     );

@@ -200,11 +200,11 @@ class _UpcomingDeparturesWidgetState extends State<UpcomingDeparturesWidget>
                 '곧 출발',
                 style: TextStyle(
                   fontSize: 17,
-                  fontWeight: FontWeight.w700,
+                  fontWeight: FontWeight.w600,
                   color: UpcomingDepartureColors.title(context),
                 ),
               ),
-              const SizedBox(width: 6),
+              const SizedBox(width: 8),
               Expanded(
                 child: Obx(
                   () => Text(
@@ -249,13 +249,14 @@ class _UpcomingDeparturesWidgetState extends State<UpcomingDeparturesWidget>
                                       : '-',
                                   style: TextStyle(
                                     fontSize: 13,
+                                    fontFeatures: tabularFigures,
                                     color: UpcomingDepartureColors.secondary(
                                       context,
                                     ),
                                   ),
                                 ),
                         ),
-                        const SizedBox(width: 6),
+                        const SizedBox(width: 4),
                         Icon(
                           Icons.refresh,
                           size: 18,

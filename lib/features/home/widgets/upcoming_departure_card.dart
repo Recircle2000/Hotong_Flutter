@@ -20,15 +20,23 @@ class UpcomingDepartureColors {
   static bool _isDark(BuildContext context) =>
       Theme.of(context).brightness == Brightness.dark;
 
-  static Color card(BuildContext context) =>
-      _isDark(context) ? Colors.grey[800]! : Colors.white;
+  // 공지·교통 메뉴 카드와 같은 면 색을 쓴다.
+  static Color card(BuildContext context) => Theme.of(context).cardColor;
   static Color title(BuildContext context) =>
       _isDark(context) ? Colors.white : const Color(0xFF16181D);
   static Color secondary(BuildContext context) =>
       _isDark(context) ? Colors.grey[400]! : const Color(0xFF5B616E);
   static Color description(BuildContext context) =>
       _isDark(context) ? Colors.grey[300]! : const Color(0xFF3A3F4A);
+  static Color muted(BuildContext context) =>
+      _isDark(context) ? Colors.grey[500]! : const Color(0xFF8A909C);
+  // 카드 안 줄 구분선: 제목 색을 아주 옅게
+  static Color hairline(BuildContext context) =>
+      title(context).withValues(alpha: 0.08);
 }
+
+// 시각·남은 분처럼 자리가 바뀌는 숫자는 고정폭으로 맞춘다.
+const List<FontFeature> tabularFigures = [FontFeature.tabularFigures()];
 
 // 셔틀버스/시내버스 섹션 제목
 class UpcomingDepartureSectionTitle extends StatelessWidget {
@@ -41,7 +49,7 @@ class UpcomingDepartureSectionTitle extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
+      padding: const EdgeInsets.only(bottom: 8),
       child: Text.rich(
         TextSpan(
           text: title,
@@ -108,13 +116,13 @@ class UpcomingDepartureCard extends StatelessWidget {
 
     // 막차 배지 (카드 오른쪽 아래)
     final lastBusBadge = Container(
-      margin: const EdgeInsets.only(left: 6),
-      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+      margin: const EdgeInsets.only(left: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
         color: isDarkMode
             ? const Color(0xFFB42318).withValues(alpha: 0.25)
             : const Color(0xFFFDECEA),
-        borderRadius: BorderRadius.circular(5),
+        borderRadius: BorderRadius.circular(4),
       ),
       child: Text(
         '막차',
@@ -128,11 +136,11 @@ class UpcomingDepartureCard extends StatelessWidget {
     );
 
     return Padding(
-      padding: EdgeInsets.only(bottom: inGroup ? 0 : 6),
+      padding: EdgeInsets.only(bottom: inGroup ? 0 : 8),
       child: ScaleButton(
         onTap: onTap,
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: BoxDecoration(
             // 그룹 안에서는 투명하게 두되, 줄 전체가 눌리도록 색은 채워 둔다.
             color: inGroup
@@ -149,9 +157,10 @@ class UpcomingDepartureCard extends StatelessWidget {
                   Text(
                     primaryText,
                     style: TextStyle(
-                      fontSize: 18,
+                      fontSize: 20,
                       height: 1.2,
-                      fontWeight: FontWeight.w700,
+                      fontWeight: FontWeight.w600,
+                      fontFeatures: tabularFigures,
                       color:
                           primaryColor ??
                           UpcomingDepartureColors.title(context),
@@ -166,13 +175,13 @@ class UpcomingDepartureCard extends StatelessWidget {
                           Container(
                             padding: const EdgeInsets.symmetric(
                               horizontal: 6,
-                              vertical: 1,
+                              vertical: 2,
                             ),
                             decoration: BoxDecoration(
                               color: isDarkMode
                                   ? Colors.white.withValues(alpha: 0.12)
                                   : const Color(0xFFEEF0F3),
-                              borderRadius: BorderRadius.circular(5),
+                              borderRadius: BorderRadius.circular(4),
                             ),
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
@@ -210,6 +219,7 @@ class UpcomingDepartureCard extends StatelessWidget {
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
                                 fontSize: 14,
+                                fontFeatures: tabularFigures,
                                 color: UpcomingDepartureColors.secondary(
                                   context,
                                 ),
@@ -231,7 +241,7 @@ class UpcomingDepartureCard extends StatelessWidget {
                         style: TextStyle(
                           fontSize: 13,
                           height: 1.3,
-                          fontWeight: FontWeight.w700,
+                          fontWeight: FontWeight.w600,
                           color: routeColor,
                         ),
                       ),
@@ -264,7 +274,7 @@ class UpcomingDepartureCard extends StatelessWidget {
                               TextSpan(
                                 text: '$routeLabel ',
                                 style: TextStyle(
-                                  fontWeight: FontWeight.w700,
+                                  fontWeight: FontWeight.w600,
                                   color: routeColor,
                                 ),
                               ),
@@ -306,7 +316,7 @@ class UpcomingDepartureCardGroup extends StatelessWidget {
       thickness: 1,
       indent: 12,
       endIndent: 12,
-      color: Theme.of(context).dividerColor.withValues(alpha: 0.35),
+      color: UpcomingDepartureColors.hairline(context),
     );
     return Container(
       decoration: BoxDecoration(

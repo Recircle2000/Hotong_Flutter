@@ -28,7 +28,7 @@ class HomeCampusToggle extends StatelessWidget {
         child: Center(
           // 알약 모양 트랙 위에 선택된 캠퍼스만 흰 버튼으로 표시
           child: Container(
-            padding: const EdgeInsets.all(3),
+            padding: const EdgeInsets.all(4),
             decoration: BoxDecoration(
               color: isDark
                   ? Colors.white.withValues(alpha: 0.1)
@@ -84,9 +84,9 @@ class _CampusToggleButton extends StatelessWidget {
         // 선택 상태 전환을 부드럽게 표시
         duration: const Duration(milliseconds: 200),
         curve: Curves.easeInOut,
-        height: 38,
+        height: 36,
         alignment: Alignment.center,
-        padding: const EdgeInsets.symmetric(horizontal: 14),
+        padding: const EdgeInsets.symmetric(horizontal: 16),
         decoration: BoxDecoration(
           color: isSelected
               ? selectedColor
