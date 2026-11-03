@@ -101,11 +101,11 @@ class TaxiPartyCreateViewState extends State<TaxiPartyCreateView> {
 
   bool _validateRoute() {
     if (_departureId == null || _destinationId == null) {
-      _showMessage('출발지와 도착지를 모두 선택해주세요.');
+      _showMessage('출발지와 도착지를 모두 선택해주세요');
       return false;
     }
     if (_departureId == _destinationId) {
-      _showMessage('출발지와 도착지는 달라야 합니다.');
+      _showMessage('출발지와 도착지는 서로 달라야 해요');
       return false;
     }
     return true;
@@ -252,7 +252,7 @@ class TaxiPartyCreateViewState extends State<TaxiPartyCreateView> {
       if (error.code == 'ACTIVE_PARTY_EXISTS') await widget.onConflict?.call();
       if (mounted) _showMessage(error.message);
     } catch (_) {
-      if (mounted) _showMessage('택시팟을 만들지 못했습니다. 잠시 후 다시 시도해주세요.');
+      if (mounted) _showMessage('택시팟을 만들지 못했어요. 잠시 후 다시 시도해주세요.');
     } finally {
       if (mounted) {
         setState(() => _saving = false);
@@ -365,7 +365,7 @@ class _StepProgress extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 4, 20, 14),
+      padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -382,20 +382,21 @@ class _StepProgress extends StatelessWidget {
                     color: index <= currentStep
                         ? taxiAccent
                         : theme.colorScheme.onSurface.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(99),
+                    borderRadius: BorderRadius.circular(2),
                   ),
                 ),
               );
             }),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 8),
           Row(
             children: [
               Text(
                 '${currentStep + 1} / ${_titles.length}',
                 style: theme.textTheme.labelMedium?.copyWith(
                   color: taxiAccentText(context),
-                  fontWeight: FontWeight.bold,
+                  fontWeight: FontWeight.w600,
+                  fontFeatures: const [FontFeature.tabularFigures()],
                 ),
               ),
               const SizedBox(width: 8),
@@ -430,8 +431,9 @@ class _StepIntro extends StatelessWidget {
           Text(
             title,
             style: theme.textTheme.headlineSmall?.copyWith(
-              fontWeight: FontWeight.w800,
-              fontSize: 26,
+              fontWeight: FontWeight.w600,
+              fontSize: 24,
+              height: 1.3,
             ),
           ),
           const SizedBox(height: 8),
@@ -497,13 +499,13 @@ class _RouteStep extends StatelessWidget {
     return Form(
       key: formKey,
       child: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(20, 6, 20, 28),
+        padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const _StepIntro(
               title: '어디로, 언제 출발하나요?',
-              description: '같은 방향 사람들이 쉽게 찾을 수 있어요.',
+              description: '같은 방향 사람들이 쉽게 찾을 수 있어요',
             ),
             const SizedBox(height: 24),
             Container(
@@ -515,10 +517,10 @@ class _RouteStep extends StatelessWidget {
                   Text(
                     '경로',
                     style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
-                  const SizedBox(height: 14),
+                  const SizedBox(height: 12),
                   Row(
                     children: [
                       // 출발(빈 원) → 도착(채운 원) 표시
@@ -545,27 +547,27 @@ class _RouteStep extends StatelessWidget {
                           ],
                         ),
                       ),
-                      const SizedBox(width: 10),
+                      const SizedBox(width: 12),
                       IconButton.outlined(
                         tooltip: '출발지와 도착지 바꾸기',
                         onPressed: onSwap,
                         style: IconButton.styleFrom(
-                          fixedSize: const Size(46, 46),
-                          foregroundColor: taxiAccentText(context),
+                          fixedSize: const Size(48, 48),
+                          foregroundColor: theme.colorScheme.onSurfaceVariant,
                           side: BorderSide(
                             color: theme.colorScheme.onSurface.withValues(
                               alpha: 0.12,
                             ),
                           ),
                         ),
-                        icon: const Icon(Icons.swap_vert_rounded),
+                        icon: const Icon(Icons.swap_vert_rounded, size: 20),
                       ),
                     ],
                   ),
                 ],
               ),
             ),
-            const SizedBox(height: 14),
+            const SizedBox(height: 12),
             TaxiDepartureTimeCard(
               departureAt: departureAt,
               now: now,
@@ -595,7 +597,7 @@ class _RouteStep extends StatelessWidget {
                   ),
                   const SizedBox(height: 12),
                   Text(
-                    '오늘과 내일, 5분 단위로 고를 수 있어요.',
+                    '오늘과 내일, 5분 단위로 고를 수 있어요',
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: theme.colorScheme.onSurfaceVariant,
                     ),
@@ -603,7 +605,7 @@ class _RouteStep extends StatelessWidget {
                 ],
               ),
             ),
-            const SizedBox(height: 14),
+            const SizedBox(height: 12),
             Container(
               decoration: taxiCardDecoration(context),
               padding: const EdgeInsets.all(20),
@@ -613,17 +615,17 @@ class _RouteStep extends StatelessWidget {
                   Text(
                     '만남 장소',
                     style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
-                  const SizedBox(height: 6),
+                  const SizedBox(height: 4),
                   Text(
-                    '거점 안에서 정확히 만날 위치를 적어주세요.',
+                    '거점 안에서 정확히 만날 위치를 적어주세요',
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: theme.colorScheme.onSurfaceVariant,
                     ),
                   ),
-                  const SizedBox(height: 14),
+                  const SizedBox(height: 12),
                   TextFormField(
                     key: departureSummaryKey,
                     controller: departureSummary,
@@ -633,7 +635,7 @@ class _RouteStep extends StatelessWidget {
                     textInputAction: TextInputAction.next,
                     decoration: _placeholderDecoration(context, '출발 장소'),
                     validator: (value) => value == null || value.trim().isEmpty
-                        ? '출발 장소를 입력해주세요.'
+                        ? '출발 장소를 입력해주세요'
                         : null,
                   ),
                   const SizedBox(height: 8),
@@ -663,11 +665,26 @@ class _RouteStep extends StatelessWidget {
 
 /// 경로 카드 왼쪽의 출발(빈 원) → 도착(채운 원) 표시.
 class _RouteMarker extends StatelessWidget {
-  const _RouteMarker();
+  const _RouteMarker({this.expand = false});
+
+  /// true면 주어진 높이를 점선으로 채운다.
+  final bool expand;
 
   @override
   Widget build(BuildContext context) {
     final color = taxiAccentText(context);
+    Widget dashes(int count) => Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        for (var i = 0; i < count; i++)
+          Container(
+            width: 2,
+            height: 3,
+            margin: const EdgeInsets.symmetric(vertical: 2),
+            color: color.withValues(alpha: 0.45),
+          ),
+      ],
+    );
     return SizedBox(
       width: 12,
       child: Column(
@@ -681,13 +698,18 @@ class _RouteMarker extends StatelessWidget {
               border: Border.all(color: color, width: 2.5),
             ),
           ),
-          for (var i = 0; i < 7; i++)
-            Container(
-              width: 2,
-              height: 3,
-              margin: const EdgeInsets.symmetric(vertical: 2),
-              color: color.withValues(alpha: 0.45),
-            ),
+          if (expand)
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 2),
+                child: CustomPaint(
+                  size: const Size(2, double.infinity),
+                  painter: _DashPainter(color.withValues(alpha: 0.45)),
+                ),
+              ),
+            )
+          else
+            dashes(7),
           Container(
             width: 10,
             height: 10,
@@ -697,6 +719,25 @@ class _RouteMarker extends StatelessWidget {
       ),
     );
   }
+}
+
+/// 세로 점선. 경로 표시의 고정 점선과 같은 3px 선, 4px 간격.
+class _DashPainter extends CustomPainter {
+  const _DashPainter(this.color);
+
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()..color = color;
+    final left = (size.width - 2) / 2;
+    for (double y = 0; y + 3 <= size.height; y += 7) {
+      canvas.drawRect(Rect.fromLTWH(left, y, 2, 3), paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(_DashPainter oldDelegate) => oldDelegate.color != color;
 }
 
 class _PartyOptionsStep extends StatelessWidget {
@@ -726,15 +767,15 @@ class _PartyOptionsStep extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(20, 6, 20, 28),
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const _StepIntro(
             title: '몇 명을 모집할까요?',
-            description: '방장을 포함한 총 인원과 참여자에게 보여줄 안내를 설정하세요.',
+            description: '총 인원과 참여자에게 보여줄 안내를 정해요',
           ),
-          const SizedBox(height: 28),
+          const SizedBox(height: 24),
           Container(
             decoration: taxiCardDecoration(context),
             padding: const EdgeInsets.all(20),
@@ -744,21 +785,21 @@ class _PartyOptionsStep extends StatelessWidget {
                 Text(
                   '총 인원',
                   style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
-                const SizedBox(height: 6),
+                const SizedBox(height: 4),
                 Text(
-                  '방장인 나를 포함한 인원이에요.',
+                  '방장인 나를 포함한 인원이에요',
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: theme.colorScheme.onSurfaceVariant,
                   ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 12),
                 Row(
                   children: [
                     for (final count in const [2, 3, 4]) ...[
-                      if (count > 2) const SizedBox(width: 10),
+                      if (count > 2) const SizedBox(width: 8),
                       Expanded(
                         child: _MemberCountButton(
                           count: count,
@@ -769,7 +810,7 @@ class _PartyOptionsStep extends StatelessWidget {
                     ],
                   ],
                 ),
-                const SizedBox(height: 22),
+                const SizedBox(height: 20),
                 TextFormField(
                   controller: memberNote,
                   maxLength: 500,
@@ -779,16 +820,16 @@ class _PartyOptionsStep extends StatelessWidget {
                       taxiInputDecoration(
                         context,
                         label: '참여자 안내 (선택)',
-                        hint: '예: 검은색 우산을 들고 있을게요.',
+                        hint: '예: 검은색 우산을 들고 있을게요',
                       ).copyWith(
                         alignLabelWithHint: true,
-                        helperText: '택시팟에 참여한 사용자에게만 보여요.',
+                        helperText: '택시팟에 참여한 사람에게만 보여요',
                       ),
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
           _CreationSummary(
             departure: departure,
             destination: destination,
@@ -798,10 +839,10 @@ class _PartyOptionsStep extends StatelessWidget {
             maxMembers: maxMembers,
             onEdit: onEditRoute,
           ),
-          const SizedBox(height: 18),
+          const SizedBox(height: 16),
           const _InfoNotice(
             icon: Icons.info_outline_rounded,
-            text: '방을 만든 뒤에도 참여자가 없다면 경로와 시간을 수정할 수 있어요.',
+            text: '방을 만든 뒤에도 참여자가 없다면 경로와 시간을 수정할 수 있어요',
           ),
         ],
       ),
@@ -823,34 +864,29 @@ class _MemberCountButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    // 선택한 인원만 옅은 주황 면으로 표시한다
     return Material(
       color: selected
           ? taxiTint(context, 0.18)
           : theme.colorScheme.onSurface.withValues(alpha: 0.04),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(14),
-        side: BorderSide(
-          color: selected
-              ? taxiAccent
-              : theme.colorScheme.onSurface.withValues(alpha: 0.08),
-          width: selected ? 1.5 : 1,
-        ),
-      ),
+      borderRadius: BorderRadius.circular(12),
       child: InkWell(
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(12),
         onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 14),
-          child: Column(
-            children: [
-              Text(
-                '$count명',
-                style: theme.textTheme.titleSmall?.copyWith(
-                  color: selected ? taxiAccentText(context) : null,
-                  fontWeight: FontWeight.bold,
-                ),
+        child: SizedBox(
+          height: 48,
+          child: Center(
+            child: Text(
+              '$count명',
+              style: theme.textTheme.titleSmall?.copyWith(
+                fontSize: 16,
+                color: selected
+                    ? taxiAccentText(context)
+                    : theme.colorScheme.onSurface,
+                fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+                fontFeatures: const [FontFeature.tabularFigures()],
               ),
-            ],
+            ),
           ),
         ),
       ),
@@ -880,17 +916,12 @@ class _CreationSummary extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final meetingPlace = destinationSummary.isEmpty
-        ? '$departureSummary에서 만나요'
-        : '$departureSummary 출발 · $destinationSummary 도착';
+    final hintColor = theme.colorScheme.onSurfaceVariant;
+    const tabular = [FontFeature.tabularFigures()];
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: taxiTint(context),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: taxiAccent.withValues(alpha: 0.25)),
-      ),
+      padding: const EdgeInsets.fromLTRB(20, 12, 12, 20),
+      decoration: taxiCardDecoration(context),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -899,39 +930,102 @@ class _CreationSummary extends StatelessWidget {
               Expanded(
                 child: Text(
                   '만들 방 미리보기',
-                  style: theme.textTheme.titleSmall?.copyWith(
-                    color: taxiAccentText(context),
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: theme.textTheme.bodySmall?.copyWith(color: hintColor),
                 ),
               ),
               TextButton(
                 onPressed: onEdit,
                 style: TextButton.styleFrom(
-                  foregroundColor: taxiAccentText(context),
+                  foregroundColor: theme.colorScheme.onSurface,
                   visualDensity: VisualDensity.compact,
                   padding: const EdgeInsets.symmetric(horizontal: 8),
                 ),
-                child: const Text('수정'),
+                child: const Text(
+                  '수정',
+                  style: TextStyle(fontWeight: FontWeight.w500),
+                ),
               ),
             ],
           ),
-          const SizedBox(height: 8),
-          _SummaryLine(
-            icon: Icons.route_rounded,
-            text: '${departure?.name ?? '-'} → ${destination?.name ?? '-'}',
-          ),
-          const SizedBox(height: 10),
-          _SummaryLine(icon: Icons.place_outlined, text: meetingPlace),
-          const SizedBox(height: 10),
-          _SummaryLine(
-            icon: Icons.schedule_rounded,
-            text: DateFormat('M월 d일 (E) HH:mm', 'ko').format(departureAt),
-          ),
-          const SizedBox(height: 10),
-          _SummaryLine(
-            icon: Icons.people_outline_rounded,
-            text: '나 포함 1/$maxMembers명',
+          // 팟 검색 목록과 같은 순서: 출발 시각, 경로, 인원
+          Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.baseline,
+                  textBaseline: TextBaseline.alphabetic,
+                  children: [
+                    Text(
+                      '${DateFormat('HH:mm').format(departureAt)} 출발',
+                      style: theme.textTheme.titleLarge?.copyWith(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w600,
+                        fontFeatures: tabular,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      DateFormat('M월 d일 (E)', 'ko').format(departureAt),
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: hintColor,
+                        fontFeatures: tabular,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                IntrinsicHeight(
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 5),
+                        child: _RouteMarker(expand: true),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _SummaryStop(
+                              name: departure?.name ?? '-',
+                              detail: departureSummary,
+                            ),
+                            const SizedBox(height: 12),
+                            _SummaryStop(
+                              name: destination?.name ?? '-',
+                              detail: destinationSummary,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Divider(
+                  height: 1,
+                  thickness: 1,
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.06),
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Icon(Icons.people_outline_rounded,
+                        size: 18, color: hintColor),
+                    const SizedBox(width: 8),
+                    Text(
+                      '나 포함 1/$maxMembers명',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        fontFeatures: tabular,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -939,26 +1033,35 @@ class _CreationSummary extends StatelessWidget {
   }
 }
 
-class _SummaryLine extends StatelessWidget {
-  const _SummaryLine({required this.icon, required this.text});
+/// 미리보기 경로의 거점 이름과 만날 위치.
+class _SummaryStop extends StatelessWidget {
+  const _SummaryStop({required this.name, required this.detail});
 
-  final IconData icon;
-  final String text;
+  final String name;
+  final String detail;
 
   @override
   Widget build(BuildContext context) {
-    return Row(
+    final theme = Theme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(icon, size: 18, color: taxiAccentText(context)),
-        const SizedBox(width: 9),
-        Expanded(
-          child: Text(
-            text,
-            style: Theme.of(
-              context,
-            ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+        Text(
+          name,
+          style: theme.textTheme.bodyLarge?.copyWith(
+            fontSize: 15,
+            fontWeight: FontWeight.w500,
           ),
         ),
+        if (detail.isNotEmpty) ...[
+          const SizedBox(height: 2),
+          Text(
+            detail,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
       ],
     );
   }
@@ -976,7 +1079,7 @@ class _InfoNotice extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(icon, size: 17, color: theme.colorScheme.onSurfaceVariant),
+        Icon(icon, size: 16, color: theme.colorScheme.onSurfaceVariant),
         const SizedBox(width: 8),
         Expanded(
           child: Text(
@@ -1011,7 +1114,7 @@ class _BottomActions extends StatelessWidget {
       child: SafeArea(
         top: false,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 10, 20, 12),
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
           child: Row(
             children: [
               Expanded(
@@ -1030,10 +1133,10 @@ class _BottomActions extends StatelessWidget {
                           ),
                           textStyle: theme.textTheme.labelLarge?.copyWith(
                             fontSize: 16,
-                            fontWeight: FontWeight.bold,
+                            fontWeight: FontWeight.w600,
                           ),
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(18),
+                            borderRadius: BorderRadius.circular(16),
                           ),
                         ),
                         child: saving

@@ -86,7 +86,7 @@ class TaxiDepartureTimeCard extends StatelessWidget {
               Text(
                 '출발 시각',
                 style: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
               const Spacer(),
@@ -94,20 +94,21 @@ class TaxiDepartureTimeCard extends StatelessWidget {
                 _relativeDepartureLabel(departureAt, now),
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: taxiAccentText(context),
-                  fontWeight: FontWeight.bold,
+                  fontWeight: FontWeight.w600,
+                  fontFeatures: const [FontFeature.tabularFigures()],
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 12),
           Row(
             children: [
               Expanded(
                 child: Container(
                   height: 60,
-                  padding: const EdgeInsets.all(3),
+                  padding: const EdgeInsets.all(4),
                   decoration: BoxDecoration(
-                    color: theme.colorScheme.onSurface.withValues(alpha: 0.06),
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.05),
                     borderRadius: BorderRadius.circular(16),
                   ),
                   child: Row(
@@ -133,14 +134,16 @@ class TaxiDepartureTimeCard extends StatelessWidget {
                   ),
                 ),
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: 12),
               Container(
                 width: 116,
                 height: 60,
                 decoration: BoxDecoration(
                   color: theme.cardColor,
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: taxiAccent, width: 1.5),
+                  border: Border.all(
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.12),
+                  ),
                 ),
                 child: isIOS
                     ? IOSCompactTimePickerField(
@@ -204,23 +207,25 @@ class _DaySegment extends StatelessWidget {
         duration: const Duration(milliseconds: 180),
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: selected
-              ? theme.cardColor
-              : theme.cardColor.withValues(alpha: 0),
-          borderRadius: BorderRadius.circular(13),
+          color: !selected
+              ? theme.cardColor.withValues(alpha: 0)
+              : theme.brightness == Brightness.dark
+              ? onSurface.withValues(alpha: 0.12)
+              : theme.cardColor,
+          borderRadius: BorderRadius.circular(12),
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Text(label, style: TextStyle(fontSize: 12, color: color)),
-            const SizedBox(height: 1),
             Text(
               date,
               maxLines: 1,
               style: TextStyle(
                 fontSize: 15,
-                fontWeight: selected ? FontWeight.bold : FontWeight.w600,
+                fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
                 color: color,
+                fontFeatures: const [FontFeature.tabularFigures()],
               ),
             ),
           ],
@@ -310,9 +315,11 @@ class _MaterialTimeButton extends StatelessWidget {
         child: Center(
           child: Text(
             DateFormat('HH:mm').format(departureAt),
-            style: Theme.of(
-              context,
-            ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+              fontSize: 24,
+              fontWeight: FontWeight.w600,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
           ),
         ),
       ),
@@ -336,29 +343,34 @@ class TaxiQuickTimeChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    // 선택한 칩만 옅은 주황 면으로 두고, 나머지는 테두리만 남긴다
     return Material(
-      color: selected ? taxiTint(context, 0.18) : theme.cardColor,
+      color: selected ? taxiTint(context, 0.18) : Colors.transparent,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(12),
         side: BorderSide(
           color: selected
-              ? taxiAccent
-              : theme.colorScheme.onSurface.withValues(alpha: 0.12),
-          width: selected ? 1.5 : 1,
+              ? Colors.transparent
+              : theme.colorScheme.onSurface.withValues(alpha: 0.1),
         ),
       ),
       child: InkWell(
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(12),
         onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 11),
-          child: Text(
-            label,
-            textAlign: TextAlign.center,
-            maxLines: 1,
-            style: theme.textTheme.labelLarge?.copyWith(
-              color: selected ? taxiAccentText(context) : null,
-              fontWeight: FontWeight.bold,
+        child: SizedBox(
+          height: 44,
+          child: Center(
+            child: Text(
+              label,
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              style: theme.textTheme.labelLarge?.copyWith(
+                fontSize: 14,
+                color: selected
+                    ? taxiAccentText(context)
+                    : theme.colorScheme.onSurface,
+                fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+              ),
             ),
           ),
         ),
