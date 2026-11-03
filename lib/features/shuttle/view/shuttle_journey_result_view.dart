@@ -26,7 +26,7 @@ class ShuttleJourneyResultView extends StatefulWidget {
 
 class _ShuttleJourneyResultViewState extends State<ShuttleJourneyResultView> {
   static const Color _shuttleColor = Color(0xFFB83227);
-  static const double _journeyCardExtent = 104;
+  static const double _journeyCardExtent = 108;
   static const double _headerTransitionHeight = 12;
   final ShuttleViewModel _viewModel = Get.find<ShuttleViewModel>();
   late ShuttleJourneySearchResult _result;
@@ -95,7 +95,7 @@ class _ShuttleJourneyResultViewState extends State<ShuttleJourneyResultView> {
             ),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
           ),
         ),
         actions: [
@@ -237,9 +237,9 @@ class _ShuttleJourneyResultViewState extends State<ShuttleJourneyResultView> {
   // 실제 시간 카드와 같은 크기·배치로 막대만 그려, 불러온 뒤 자리가 흔들리지 않게 한다.
   Widget _buildSkeletonCard(BuildContext context) {
     return Container(
-      height: _journeyCardExtent - 10,
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.fromLTRB(16, 10, 12, 10),
+      height: _journeyCardExtent - 12,
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.fromLTRB(16, 12, 12, 12),
       decoration: BoxDecoration(
         color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(16),
@@ -296,7 +296,7 @@ class _ShuttleJourneyResultViewState extends State<ShuttleJourneyResultView> {
 
   Widget _buildJourneyHeader(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 2, 16, 4),
+      padding: const EdgeInsets.fromLTRB(12, 4, 16, 4),
       child: Row(
         children: [
           Expanded(
@@ -412,7 +412,7 @@ class _ShuttleJourneyResultViewState extends State<ShuttleJourneyResultView> {
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
                   fontSize: 16,
-                  fontWeight: FontWeight.w700,
+                  fontWeight: FontWeight.w600,
                   fontFeatures: [FontFeature.tabularFigures()],
                 ),
               ),
@@ -444,7 +444,7 @@ class _ShuttleJourneyResultViewState extends State<ShuttleJourneyResultView> {
           curve: Curves.easeOutCubic,
           alignment: Alignment.topCenter,
           child: Container(
-            margin: const EdgeInsets.only(bottom: 10),
+            margin: const EdgeInsets.only(bottom: 12),
             decoration: BoxDecoration(
               color: Theme.of(context).cardColor,
               borderRadius: BorderRadius.circular(16),
@@ -473,10 +473,10 @@ class _ShuttleJourneyResultViewState extends State<ShuttleJourneyResultView> {
                     onTap: () => _toggleJourneyExpansion(journey),
                     child: ConstrainedBox(
                       constraints: const BoxConstraints(
-                        minHeight: _journeyCardExtent - 10,
+                        minHeight: _journeyCardExtent - 12,
                       ),
                       child: Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 10, 12, 10),
+                        padding: const EdgeInsets.fromLTRB(16, 12, 12, 12),
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -492,7 +492,11 @@ class _ShuttleJourneyResultViewState extends State<ShuttleJourneyResultView> {
                                       if (isNext)
                                         _buildStatusChip(
                                           '다음 셔틀',
-                                          _shuttleColor,
+                                          // 다크 모드에서는 셔틀 색이 어두워 밝은 빨강을 쓴다.
+                                          Theme.of(context).brightness ==
+                                                  Brightness.dark
+                                              ? Colors.redAccent
+                                              : _shuttleColor,
                                         ),
                                       if (departed)
                                         _buildStatusChip('운행 종료', Colors.grey),
@@ -517,13 +521,13 @@ class _ShuttleJourneyResultViewState extends State<ShuttleJourneyResultView> {
                                   time: journey.originArrivalTime,
                                   stationName: _result.originStationName,
                                 ),
-                                const SizedBox(
+                                SizedBox(
                                   width: 30,
                                   height: 30,
                                   child: Center(
                                     child: Icon(
                                       Icons.arrow_forward_rounded,
-                                      color: _shuttleColor,
+                                      color: hintColor,
                                       size: 17,
                                     ),
                                   ),
@@ -586,7 +590,7 @@ class _ShuttleJourneyResultViewState extends State<ShuttleJourneyResultView> {
       ),
       decoration: BoxDecoration(
         color: isRegularRoute ? _shuttleColor : Theme.of(context).cardColor,
-        borderRadius: BorderRadius.circular(6),
+        borderRadius: BorderRadius.circular(4),
         border: isRegularRoute
             ? null
             : Border.all(color: outlineColor, width: 1.5),
@@ -598,7 +602,7 @@ class _ShuttleJourneyResultViewState extends State<ShuttleJourneyResultView> {
         style: TextStyle(
           color: isRegularRoute ? Colors.white : outlineColor,
           fontSize: 12,
-          fontWeight: FontWeight.bold,
+          fontWeight: FontWeight.w600,
         ),
       ),
     );
@@ -612,7 +616,7 @@ class _ShuttleJourneyResultViewState extends State<ShuttleJourneyResultView> {
     const timeStyle = TextStyle(
       fontSize: 26,
       height: 1.15,
-      fontWeight: FontWeight.w800,
+      fontWeight: FontWeight.w600,
       fontFeatures: [FontFeature.tabularFigures()],
     );
     final formattedTime = _shortTime(time);
@@ -664,7 +668,7 @@ class _ShuttleJourneyResultViewState extends State<ShuttleJourneyResultView> {
       body = Padding(
         padding: const EdgeInsets.symmetric(vertical: 10),
         child: Text(
-          '정류장별 시간표가 없습니다.',
+          '정류장별 시간표가 없습니다',
           style: TextStyle(color: Theme.of(context).hintColor),
         ),
       );
@@ -695,7 +699,9 @@ class _ShuttleJourneyResultViewState extends State<ShuttleJourneyResultView> {
           padding: const EdgeInsets.only(left: 16, right: 12),
           child: Divider(
             height: 1,
-            color: Theme.of(context).dividerColor.withValues(alpha: 0.45),
+            color: Theme.of(
+              context,
+            ).colorScheme.onSurface.withValues(alpha: 0.08),
           ),
         ),
         Padding(padding: const EdgeInsets.fromLTRB(16, 4, 12, 12), child: body),
@@ -845,7 +851,7 @@ class _ShuttleJourneyResultViewState extends State<ShuttleJourneyResultView> {
                         style: TextStyle(
                           fontSize: isJourneyStop ? 16 : 15,
                           fontWeight: isJourneyStop
-                              ? FontWeight.w700
+                              ? FontWeight.w600
                               : FontWeight.normal,
                           color: isJourneyStop ? null : hintColor,
                         ),
@@ -880,8 +886,12 @@ class _ShuttleJourneyResultViewState extends State<ShuttleJourneyResultView> {
                 time,
                 style: TextStyle(
                   fontSize: isJourneyStop ? 16 : 15,
-                  fontWeight: isJourneyStop ? FontWeight.w800 : FontWeight.w700,
-                  color: isJourneyStop ? _shuttleColor : hintColor,
+                  fontWeight: isJourneyStop ? FontWeight.w600 : FontWeight.w500,
+                  color: isJourneyStop
+                      ? (Theme.of(context).brightness == Brightness.dark
+                            ? Colors.redAccent
+                            : _shuttleColor)
+                      : hintColor,
                   fontFeatures: const [FontFeature.tabularFigures()],
                 ),
               ),
@@ -925,18 +935,18 @@ class _ShuttleJourneyResultViewState extends State<ShuttleJourneyResultView> {
   }) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
         color: emphasized
             ? _shuttleColor.withValues(alpha: isDark ? 0.25 : 0.1)
             : Theme.of(context).scaffoldBackgroundColor,
-        borderRadius: BorderRadius.circular(5),
+        borderRadius: BorderRadius.circular(4),
       ),
       child: Text(
         label,
         style: TextStyle(
           fontSize: 12,
-          fontWeight: FontWeight.w700,
+          fontWeight: FontWeight.w600,
           color: emphasized
               ? (isDark ? Colors.redAccent : _shuttleColor)
               : Theme.of(context).hintColor,
@@ -990,18 +1000,18 @@ class _ShuttleJourneyResultViewState extends State<ShuttleJourneyResultView> {
 
   Widget _buildStatusChip(String label, Color color) {
     return Container(
-      margin: const EdgeInsets.only(left: 6),
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      margin: const EdgeInsets.only(left: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(12),
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(4),
       ),
       child: Text(
         label,
         style: TextStyle(
           color: color,
-          fontSize: 11,
-          fontWeight: FontWeight.bold,
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
         ),
       ),
     );
@@ -1012,17 +1022,17 @@ class _ShuttleJourneyResultViewState extends State<ShuttleJourneyResultView> {
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 48),
       decoration: BoxDecoration(
         color: Theme.of(context).cardColor,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(16),
       ),
       child: Column(
         children: [
           Icon(Icons.event_busy, size: 44, color: Theme.of(context).hintColor),
           const SizedBox(height: 12),
-          const Text('선택한 날짜에 운행하는 셔틀이 없습니다.', textAlign: TextAlign.center),
+          const Text('선택한 날짜에 운행하는 셔틀이 없습니다', textAlign: TextAlign.center),
           const SizedBox(height: 12),
           if (Platform.isIOS)
             Text(
-              '상단에서 다른 날짜를 선택해주세요.',
+              '상단에서 다른 날짜를 선택해주세요',
               style: TextStyle(
                 color: Theme.of(context).hintColor,
                 fontSize: 12,
@@ -1037,7 +1047,7 @@ class _ShuttleJourneyResultViewState extends State<ShuttleJourneyResultView> {
 
   Widget _buildAllJourneysEnded(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 18, 16, 8),
+      padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
       child: Column(
         children: [
           Text(
