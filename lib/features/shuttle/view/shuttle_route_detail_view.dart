@@ -5,7 +5,6 @@ import 'dart:io' show Platform;
 import 'package:get/get.dart';
 import 'package:hsro/features/shuttle/view/naver_map_station_detail_view.dart';
 import 'package:hsro/features/shuttle/viewmodel/shuttle_viewmodel.dart';
-import 'package:hsro/shared/widgets/auto_scroll_text.dart';
 
 class ShuttleRouteDetailView extends StatefulWidget {
   final int scheduleId;
@@ -49,7 +48,7 @@ class _ShuttleRouteDetailViewState extends State<ShuttleRouteDetailView> {
         context: context,
         builder: (context) => CupertinoAlertDialog(
           title: Text('알림'),
-          content: Text('해당 스케줄의 정류장 정보가 없습니다.'),
+          content: Text('해당 스케줄의 정류장 정보가 없어요'),
           actions: [
             CupertinoDialogAction(
               child: Text('확인'),
@@ -66,7 +65,7 @@ class _ShuttleRouteDetailViewState extends State<ShuttleRouteDetailView> {
         context: context,
         builder: (context) => AlertDialog(
           title: Text('알림'),
-          content: Text('해당 스케줄의 정류장 정보가 없습니다.'),
+          content: Text('해당 스케줄의 정류장 정보가 없어요'),
           actions: [
             TextButton(
               child: Text('확인'),
@@ -81,311 +80,286 @@ class _ShuttleRouteDetailViewState extends State<ShuttleRouteDetailView> {
     }
   }
 
+  static const Color _shuttleColor = Color(0xFFB83227);
+  static const List<FontFeature> _tabular = [FontFeature.tabularFigures()];
+
+  // 다크 모드에서는 셔틀 빨강을 밝은 톤으로 바꿔 대비를 맞춘다
+  Color get _accentColor => Theme.of(context).brightness == Brightness.dark
+      ? Colors.redAccent
+      : _shuttleColor;
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('노선 상세 정보'),
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // 노선명과 출발 시간 요약
-            _buildHeaderInfo(),
-
-            SizedBox(height: 20),
-
-            // 정류장 경유 목록
-            Expanded(
-              child: _buildStopsList(),
-            ),
-          ],
+        title: const Text(
+          '노선 상세 정보',
+          style: TextStyle(fontWeight: FontWeight.w600),
         ),
       ),
-    );
-  }
-
-  Widget _buildHeaderInfo() {
-    const shuttleColor = Color(0xFFB83227);
-    final brightness = Theme.of(context).brightness;
-    final backgroundColor = brightness == Brightness.dark
-        ? shuttleColor.withOpacity(0.2)
-        : shuttleColor.withOpacity(0.1);
-    final primaryTextColor =
-        brightness == Brightness.dark ? Colors.redAccent : shuttleColor;
-    final secondaryTextColor = primaryTextColor.withOpacity(0.78);
-
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: backgroundColor,
-        borderRadius: BorderRadius.circular(25),
-      ),
-      child: Obx(() {
-        // stop_order가 1인 정류장 기준 출발 시각 계산
-        String departureTime = '';
-        if (viewModel.scheduleStops.isNotEmpty) {
-          try {
-            // 첫 정류장을 출발 시각 기준으로 사용
-            final firstStop = viewModel.scheduleStops.firstWhere(
-              (stop) => stop.stopOrder == 1,
-              orElse: () => viewModel.scheduleStops.first,
-            );
-
-            // HH:mm:ss 형식을 HH:mm으로 축약
-            if (firstStop.arrivalTime.length >= 5) {
-              departureTime = firstStop.arrivalTime.substring(0, 5);
-            } else {
-              departureTime = firstStop.arrivalTime;
-            }
-          } catch (e) {
-            departureTime = widget.startTime;
-          }
-        } else {
-          departureTime = widget.startTime;
+      body: Obx(() {
+        // 로딩/빈 상태/목록 상태 전환
+        if (viewModel.isLoadingStops.value) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildHeaderInfo(),
+              const Expanded(
+                child: Center(child: CircularProgressIndicator.adaptive()),
+              ),
+            ],
+          );
         }
-
-        final departureLabel = '$departureTime 출발';
-
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                const Icon(
-                  Icons.directions_bus_rounded,
-                  color: shuttleColor,
-                  size: 22,
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: AutoScrollText(
-                    text: widget.routeName,
-                    style: TextStyle(
-                      fontWeight: FontWeight.w800,
-                      fontSize: 22,
-                      height: 1.1,
-                      color: primaryTextColor,
-                    ),
-                    height: 28,
+        if (viewModel.scheduleStops.isEmpty) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildHeaderInfo(),
+              Expanded(
+                child: Center(
+                  child: Text(
+                    '정류장 정보를 불러올 수 없어요',
+                    style: TextStyle(color: Theme.of(context).hintColor),
                   ),
                 ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Padding(
-              padding: const EdgeInsets.only(left: 30),
-              child: Text(
-                departureLabel,
-                style: TextStyle(
-                  fontWeight: FontWeight.w600,
-                  fontSize: 13,
-                  color: secondaryTextColor,
-                ),
-                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          );
+        }
+
+        final stops = viewModel.scheduleStops;
+        final list = ListView(
+          padding: const EdgeInsets.only(bottom: 24),
+          children: [
+            _buildHeaderInfo(),
+            // 정류장 경유 목록을 노선도로 표시
+            Container(
+              margin: const EdgeInsets.symmetric(horizontal: 20),
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              decoration: BoxDecoration(
+                color: Theme.of(context).cardColor,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: Column(
+                children: [
+                  for (var index = 0; index < stops.length; index++)
+                    _buildStopItem(context, index),
+                ],
               ),
             ),
           ],
         );
+        return Platform.isIOS ? list : Scrollbar(child: list);
       }),
     );
   }
 
-  Widget _buildStopsList() {
-    return Obx(
-      // 로딩/빈 상태/목록 상태 전환
-      () => viewModel.isLoadingStops.value
-          ? Center(child: CircularProgressIndicator.adaptive())
-          : viewModel.scheduleStops.isEmpty
-              ? Center(child: Text('정류장 정보를 불러올 수 없습니다'))
-              : Container(
-                  decoration: BoxDecoration(
-                    // border: Border.all(
-                    //   color: Colors.grey.withOpacity(0.3),
-                    //   width: 1,
-                    // ),
-                    color: Theme.of(context).cardColor,
-                    borderRadius: BorderRadius.circular(25),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.all(16.0),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              '정류장 정보',
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 16,
-                              ),
-                            ),
-                            Text(
-                              '총 ${viewModel.scheduleStops.length}개 정류장',
-                              style: TextStyle(
-                                color: Theme.of(context).hintColor,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Divider(
-                        height: 1,
-                        thickness: 1,
-                        color: Colors.grey.withOpacity(0.3),
-                      ),
-                      // 표 헤더 행
-                      Container(
-                        padding:
-                            EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-                        decoration: BoxDecoration(
-                          color: Theme.of(context).brightness == Brightness.dark
-                              ? Theme.of(context).cardColor.withOpacity(0.5)
-                              : Theme.of(context)
-                                  .scaffoldBackgroundColor
-                                  .withOpacity(0.8),
-                        ),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              flex: 1,
-                              child: Text('순서',
-                                  style: TextStyle(fontWeight: FontWeight.bold),
-                                  textAlign: TextAlign.left), // 순서 번호 가운데 정렬
-                            ),
-                            Expanded(
-                              flex: 2,
-                              child: Text(
-                                '정류장',
-                                style: TextStyle(fontWeight: FontWeight.bold),
-                                textAlign: TextAlign.center, // 정류장 이름 가운데 정렬
-                              ),
-                            ),
-                            Expanded(
-                              flex: 2,
-                              child: Text('도착(경유) 시간',
-                                  style: TextStyle(fontWeight: FontWeight.bold),
-                                  textAlign: TextAlign.right), // 도착 시간 가운데 정렬
-                            ),
-                          ],
-                        ),
-                      ),
+  String _shortTime(String time) =>
+      time.length > 5 ? time.substring(0, 5) : time;
 
-                      // 정류장 데이터 행
-                      Expanded(
-                        child: Platform.isIOS
-                            ? ListView.builder(
-                                itemCount: viewModel.scheduleStops.length,
-                                itemBuilder: _buildStopItem,
-                              )
-                            : Scrollbar(
-                                // Android 기본 스크롤바
-                                interactive: true,
-                                thumbVisibility: true,
-                                child: ListView.builder(
-                                  itemCount: viewModel.scheduleStops.length,
-                                  itemBuilder: _buildStopItem,
-                                ),
-                              ),
-                      ),
-                    ],
-                  ),
-                ),
+  int? _minutesOf(String time) {
+    final parts = time.split(':');
+    if (parts.length < 2) return null;
+    final hour = int.tryParse(parts[0]);
+    final minute = int.tryParse(parts[1]);
+    if (hour == null || minute == null) return null;
+    return hour * 60 + minute;
+  }
+
+  // 첫 정류장과 마지막 정류장 시각 차이로 소요 시간 계산
+  String? _durationLabel() {
+    final stops = viewModel.scheduleStops;
+    if (stops.length < 2) return null;
+    final start = _minutesOf(stops.first.arrivalTime);
+    final end = _minutesOf(stops.last.arrivalTime);
+    if (start == null || end == null) return null;
+    var minutes = end - start;
+    if (minutes < 0) minutes += 24 * 60;
+    if (minutes == 0) return null;
+    if (minutes < 60) return '$minutes분';
+    final rest = minutes % 60;
+    return rest == 0 ? '${minutes ~/ 60}시간' : '${minutes ~/ 60}시간 $rest분';
+  }
+
+  Widget _buildHeaderInfo() {
+    // stop_order가 1인 정류장 기준 출발 시각 계산
+    var departureTime = widget.startTime;
+    if (viewModel.scheduleStops.isNotEmpty) {
+      final firstStop = viewModel.scheduleStops.firstWhere(
+        (stop) => stop.stopOrder == 1,
+        orElse: () => viewModel.scheduleStops.first,
+      );
+      departureTime = _shortTime(firstStop.arrivalTime);
+    }
+
+    final duration = _durationLabel();
+    final summary = [
+      '$departureTime 출발',
+      if (viewModel.scheduleStops.isNotEmpty)
+        '정류장 ${viewModel.scheduleStops.length}곳',
+      ?duration,
+    ].join(' · ');
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 8, 24, 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            widget.routeName,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.w600,
+              height: 1.25,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            summary,
+            style: TextStyle(
+              fontSize: 14,
+              color: Theme.of(context).hintColor,
+              fontFeatures: _tabular,
+            ),
+          ),
+        ],
+      ),
     );
+  }
+
+  // "천안아산역 [천캠방향]"을 이름과 보조 설명으로 나눈다
+  (String, String?) _splitStationName(String raw) {
+    final match = RegExp(r'^(.*?)\s*\[(.+)\]$').firstMatch(raw.trim());
+    if (match == null) return (raw, null);
+    final tag = match.group(2)!.replaceAllMapped(
+          RegExp(r'(\S)방향$'),
+          (m) => '${m.group(1)} 방향',
+        );
+    return (match.group(1)!, tag);
   }
 
   // 정류장 행 빌더
   Widget _buildStopItem(BuildContext context, int index) {
-    final stop = viewModel.scheduleStops[index];
-    return Container(
-      decoration: BoxDecoration(
-        border: Border(
-          bottom: BorderSide(
-            color: Colors.grey.withOpacity(0.3),
-            width: 1,
-          ),
-        ),
-      ),
-      padding: EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-      child: Row(
-        children: [
-          SizedBox(
-            width: 10,
-            child: Text(
-              '${stop.stopOrder}',
-              style: TextStyle(
-                color: Theme.of(context).colorScheme.primary,
-                fontWeight: FontWeight.bold,
-                fontSize: 16,
-              ),
-            ),
-          ),
-          SizedBox(width: 50),
-          Expanded(
-            flex: 2,
-            // 정류장명 탭 시 정류장 상세 지도 화면으로 이동
-            child: InkWell(
-              onTap: () {
-                HapticFeedback.lightImpact();
-                if (stop.stationId != null) {
-                  Get.to(() =>
-                      NaverMapStationDetailView(stationId: stop.stationId!));
-                } else {
-                  _showNoStationDetailAlert(context);
-                }
-              },
-              child: Text(
-                stop.stationName,
-                style: TextStyle(fontWeight: FontWeight.w500),
-                overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.left, // 텍스트 가운데 정렬
-              ),
-            ),
-          ),
-          SizedBox(width: 8),
-          // 도착 시각 옆 정보 아이콘도 동일하게 상세 화면 연결
-          InkWell(
-            onTap: () {
-              HapticFeedback.lightImpact();
-              if (stop.stationId != null) {
-                Get.to(() =>
-                    NaverMapStationDetailView(stationId: stop.stationId!));
-              } else {
-                _showNoStationDetailAlert(context);
-              }
-            },
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  alignment: Alignment.topLeft, // 경유 시간 왼쪽 정렬
-                  child: Text(
-                    stop.arrivalTime.length > 5
-                        ? stop.arrivalTime.substring(0, 5)
-                        : stop.arrivalTime,
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: Theme.of(context).colorScheme.primary,
-                    ),
+    final stops = viewModel.scheduleStops;
+    final stop = stops[index];
+    final isFirst = index == 0;
+    final isLast = index == stops.length - 1;
+    final isEndpoint = isFirst || isLast;
+    final theme = Theme.of(context);
+    final accent = _accentColor;
+    final (name, tag) = _splitStationName(stop.stationName);
+
+    return InkWell(
+      // 정류장 탭 시 정류장 상세 지도 화면으로 이동
+      onTap: () {
+        HapticFeedback.lightImpact();
+        if (stop.stationId != null) {
+          Get.to(() => NaverMapStationDetailView(stationId: stop.stationId!));
+        } else {
+          _showNoStationDetailAlert(context);
+        }
+      },
+      child: SizedBox(
+        height: 60,
+        child: Padding(
+          padding: const EdgeInsets.only(left: 16, right: 8),
+          child: Row(
+            children: [
+              SizedBox(
+                width: 48,
+                child: Text(
+                  _shortTime(stop.arrivalTime),
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: isEndpoint ? FontWeight.w600 : FontWeight.w400,
+                    color: isEndpoint
+                        ? theme.colorScheme.onSurface
+                        : theme.colorScheme.onSurface.withValues(alpha: 0.72),
+                    fontFeatures: _tabular,
                   ),
                 ),
-                SizedBox(width: 4),
-                Icon(
-                  Platform.isIOS
-                      ? CupertinoIcons.info_circle_fill
-                      : Icons.info_outline,
-                  size: 14,
-                  color: Colors.grey.shade400,
+              ),
+              const SizedBox(width: 12),
+              // 노선 줄과 정류장 점
+              SizedBox(
+                width: 16,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    Column(
+                      children: [
+                        Expanded(
+                          child: Container(
+                            width: 2,
+                            color: isFirst
+                                ? Colors.transparent
+                                : accent.withValues(alpha: 0.32),
+                          ),
+                        ),
+                        Expanded(
+                          child: Container(
+                            width: 2,
+                            color: isLast
+                                ? Colors.transparent
+                                : accent.withValues(alpha: 0.32),
+                          ),
+                        ),
+                      ],
+                    ),
+                    Container(
+                      width: isEndpoint ? 12 : 10,
+                      height: isEndpoint ? 12 : 10,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: isEndpoint ? accent : theme.cardColor,
+                        border: isEndpoint
+                            ? null
+                            : Border.all(color: accent, width: 2),
+                      ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight:
+                            isEndpoint ? FontWeight.w600 : FontWeight.w400,
+                      ),
+                    ),
+                    if (tag != null) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        tag,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: theme.hintColor,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              Icon(
+                Icons.chevron_right_rounded,
+                size: 20,
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.24),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -397,7 +371,7 @@ class _ShuttleRouteDetailViewState extends State<ShuttleRouteDetailView> {
         context: context,
         builder: (context) => CupertinoAlertDialog(
           title: Text('정보 없음'),
-          content: Text('이 정류장의 상세 정보가 없습니다.'),
+          content: Text('이 정류장의 상세 정보가 없어요'),
           actions: [
             CupertinoDialogAction(
               child: Text('확인'),
@@ -411,7 +385,7 @@ class _ShuttleRouteDetailViewState extends State<ShuttleRouteDetailView> {
         context: context,
         builder: (context) => AlertDialog(
           title: Text('정보 없음'),
-          content: Text('이 정류장의 상세 정보가 없습니다.'),
+          content: Text('이 정류장의 상세 정보가 없어요'),
           actions: [
             TextButton(
               child: Text('확인'),
