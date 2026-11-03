@@ -9,7 +9,6 @@ import 'package:hsro/features/notice/models/emergency_notice_model.dart';
 import 'package:hsro/features/notice/widgets/emergency_notice_banner.dart';
 import 'package:hsro/features/settings/viewmodel/settings_viewmodel.dart';
 import 'package:hsro/shared/widgets/auto_scroll_text.dart';
-import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 
 class CityBusGroupedView extends StatefulWidget {
   final String? forcedCampus;
@@ -254,7 +253,7 @@ class _CityBusGroupedViewState extends State<CityBusGroupedView> {
               builder: (context, controller) => _buildExperienceContent(
                 controller: controller,
                 title: '노선 선택',
-                description: '원하는 노선 항목을 눌러 실시간 상세 화면으로 이동할 수 있습니다.',
+                description: '노선을 누르면 실시간 버스 위치를 볼 수 있어요',
                 isLast: true,
               ),
             ),
@@ -297,7 +296,7 @@ class _CityBusGroupedViewState extends State<CityBusGroupedView> {
           Text(
             title,
             style: const TextStyle(
-              fontWeight: FontWeight.bold,
+              fontWeight: FontWeight.w600,
               color: Colors.white,
               fontSize: 20,
             ),
@@ -311,7 +310,7 @@ class _CityBusGroupedViewState extends State<CityBusGroupedView> {
               height: 1.4,
             ),
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 16),
           Row(
             children: [
               TextButton(
@@ -350,9 +349,9 @@ class _CityBusGroupedViewState extends State<CityBusGroupedView> {
 
       if (buses.isNotEmpty) {
         if (buses.length == 1) {
-          return '${buses.first.stationName}';
+          return buses.first.stationName;
         } else {
-          return '운행중 ${buses.length}대 (${buses.first.stationName} 외)';
+          return '${buses.first.stationName} 외 ${buses.length - 1}대';
         }
       }
     }
@@ -363,7 +362,7 @@ class _CityBusGroupedViewState extends State<CityBusGroupedView> {
   /// 특정 노선의 다음 출발시간 정보를 가져오는 함수
   String _getNextDepartureTime(String routeKey) {
     // 미리 계산한 다음 출발 시각 사용
-    return allNextDepartureTimes[routeKey] ?? '로딩...';
+    return allNextDepartureTimes[routeKey] ?? '불러오는 중';
   }
 
   EmergencyNoticeCategory _getCityBusNoticeCategory(String campus) {
@@ -395,7 +394,7 @@ class _CityBusGroupedViewState extends State<CityBusGroupedView> {
       appBar: AppBar(
         title: const Text(
           '시내버스 노선 정보',
-          style: TextStyle(fontWeight: FontWeight.bold),
+          style: TextStyle(fontWeight: FontWeight.w600),
         ),
         centerTitle: true,
         backgroundColor: backgroundColor,
@@ -412,282 +411,283 @@ class _CityBusGroupedViewState extends State<CityBusGroupedView> {
     );
   }
 
+  // 시내버스 파랑: 라이트는 흰 배경 대비를 맞춘 진한 톤, 다크는 밝은 톤
+  Color _cityBusColor(BuildContext context) =>
+      Theme.of(context).brightness == Brightness.dark
+          ? const Color(0xFF6EA8FF)
+          : const Color(0xFF1F5FD1);
+
   Widget _buildRouteList(String campus) {
     // 캠퍼스에 맞는 노선 그룹 선택
     final groupedRoutes =
         campus == '천안' ? groupedRoutesCheonan : groupedRoutesAsan;
 
     return ListView.separated(
-      padding: const EdgeInsets.fromLTRB(20, 2, 20, 16),
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
       itemCount: groupedRoutes.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 12),
+      separatorBuilder: (_, __) => const SizedBox(height: 24),
       itemBuilder: (context, groupIdx) {
         final group = groupedRoutes[groupIdx];
+        final subGroups = group['subGroups'] as List;
+
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // 메인 그룹 타이틀 영역
             Padding(
-              padding: const EdgeInsets.only(left: 4, bottom: 8),
-              child: Row(
-                children: [
-                  const Icon(PhosphorIconsFill.bus,
-                      color: Colors.blue, size: 26),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          group['title'],
-                          style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          group['subtitle'],
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: Colors.grey[600],
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
-                    ),
+              padding: const EdgeInsets.fromLTRB(4, 0, 4, 12),
+              child: Text(
+                group['title'],
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+
+            // 출발/도착은 카드를 나누고 방향 제목을 위에 둔다
+            for (var subGroupIdx = 0;
+                subGroupIdx < subGroups.length;
+                subGroupIdx++) ...[
+              if (subGroupIdx > 0) const SizedBox(height: 16),
+              _buildSubGroupHeader(
+                context,
+                subGroups[subGroupIdx],
+                route: _directionLabel(
+                  group['subtitle'] as String,
+                  reversed: subGroupIdx > 0,
+                ),
+              ),
+              Container(
+                decoration: BoxDecoration(
+                  color: Theme.of(context).cardColor,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                clipBehavior: Clip.antiAlias,
+                child: Column(
+                  children: _buildRouteRows(
+                    context,
+                    subGroups[subGroupIdx]['routes'] as List,
+                    isFirstBlock: groupIdx == 0 && subGroupIdx == 0,
                   ),
-                ],
+                ),
               ),
-            ),
-
-            // 출발/도착 서브 그룹 카드
-            Container(
-              decoration: BoxDecoration(
-                color: Theme.of(context).cardColor,
-                borderRadius: BorderRadius.circular(25),
-              ),
-              child: Column(
-                children:
-                    List.generate(group['subGroups'].length, (subGroupIdx) {
-                  final subGroup = group['subGroups'][subGroupIdx];
-                  final isLastSubGroup =
-                      subGroupIdx == group['subGroups'].length - 1;
-
-                  return Column(
-                    children: [
-                      // 서브 그룹 헤더 (아캠 출발 / 도착)
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 20, vertical: 10),
-                        decoration: BoxDecoration(
-                          color: subGroupIdx == 0
-                              ? Colors.blue.withOpacity(0.05)
-                              : Colors.orange.withOpacity(0.05),
-                          borderRadius: subGroupIdx == 0
-                              ? const BorderRadius.vertical(
-                                  top: Radius.circular(25))
-                              : (isLastSubGroup && subGroup['routes'].isEmpty
-                                  ? const BorderRadius.vertical(
-                                      bottom: Radius.circular(25))
-                                  : BorderRadius.zero),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(
-                              subGroup['icon'],
-                              size: 16,
-                              color: subGroupIdx == 0
-                                  ? Colors.blue
-                                  : Colors.orange,
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              subGroup['title'],
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.bold,
-                                color: subGroupIdx == 0
-                                    ? Colors.blue
-                                    : Colors.orange,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-
-                      // 노선 리스트
-                      ListView.separated(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        padding: EdgeInsets.zero,
-                        itemCount: subGroup['routes'].length,
-                        separatorBuilder: (_, __) => Divider(
-                          height: 1,
-                          thickness: 1,
-                          color: Colors.grey.withOpacity(0.1),
-                          indent: 20,
-                          endIndent: 20,
-                        ),
-                        itemBuilder: (context, routeIdx) {
-                          final route = subGroup['routes'][routeIdx];
-                          final routeKey = route['routeKey'];
-                          // label에서 번호만 추출
-                          final fullLabel = route['label'] as String;
-                          final splitIndex = fullLabel.indexOf(' (');
-                          final busNumber = splitIndex != -1
-                              ? fullLabel.substring(0, splitIndex)
-                              : fullLabel;
-                          final direction = splitIndex != -1
-                              ? fullLabel.substring(
-                                  splitIndex + 2, fullLabel.length - 1)
-                              : '';
-                          final isFirstExperienceRoute = groupIdx == 0 &&
-                              subGroupIdx == 0 &&
-                              routeIdx == 0;
-
-                          return Obx(() {
-                            final busLocationStatus =
-                                _getBusLocationStatus(routeKey);
-                            final nextDepartureTime =
-                                _getNextDepartureTime(routeKey);
-                            final isOperating = nextDepartureTime != '운행 종료' &&
-                                nextDepartureTime != '로딩...';
-
-                            return InkWell(
-                              key: isFirstExperienceRoute
-                                  ? _firstRouteKey
-                                  : null,
-                              onTap: () {
-                                HapticFeedback.lightImpact();
-                                Get.to(
-                                    () => BusMapView(initialRoute: routeKey));
-                              },
-                              borderRadius: isLastSubGroup &&
-                                      routeIdx == subGroup['routes'].length - 1
-                                  ? const BorderRadius.vertical(
-                                      bottom: Radius.circular(25))
-                                  : BorderRadius.zero,
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 20, vertical: 8),
-                                child: Row(
-                                  children: [
-                                    // 버스 번호 및 방면
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Row(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.baseline,
-                                            textBaseline:
-                                                TextBaseline.alphabetic,
-                                            children: [
-                                              Text(
-                                                busNumber,
-                                                style: const TextStyle(
-                                                  fontSize: 20,
-                                                  fontWeight: FontWeight.bold,
-                                                ),
-                                              ),
-                                              const SizedBox(width: 4),
-                                              if (direction.isNotEmpty)
-                                                Expanded(
-                                                  child: Text(
-                                                    direction,
-                                                    style: TextStyle(
-                                                      fontSize: 13,
-                                                      color: Colors.grey[600],
-                                                      overflow:
-                                                          TextOverflow.ellipsis,
-                                                    ),
-                                                  ),
-                                                ),
-                                            ],
-                                          ),
-                                          const SizedBox(height: 4),
-                                          Row(
-                                            children: [
-                                              // 버스 위치 상태
-                                              if (busLocationStatus !=
-                                                  '현재 운행 없음') ...[
-                                                const Icon(Icons.location_on,
-                                                    size: 12,
-                                                    color: Colors.blue),
-                                                const SizedBox(width: 4),
-                                                Flexible(
-                                                  child: AutoScrollText(
-                                                    text: busLocationStatus,
-                                                    style: const TextStyle(
-                                                      fontSize: 12,
-                                                      color: Colors.blue,
-                                                      fontWeight:
-                                                          FontWeight.w600,
-                                                    ),
-                                                    height: 16,
-                                                  ),
-                                                ),
-                                                const SizedBox(width: 8),
-                                                Container(
-                                                  width: 1,
-                                                  height: 10,
-                                                  color: Colors.grey[300],
-                                                ),
-                                                const SizedBox(width: 8),
-                                              ],
-                                              // 다음 출발 시간
-                                              Text(
-                                                nextDepartureTime.replaceAll(
-                                                    '출발: ', ''),
-                                                style: TextStyle(
-                                                  fontSize: 13,
-                                                  color: isOperating
-                                                      ? const Color(0xFFE65100)
-                                                      : Colors.grey,
-                                                  fontWeight: isOperating
-                                                      ? FontWeight.bold
-                                                      : FontWeight.normal,
-                                                ),
-                                              ),
-                                              if (isOperating) ...[
-                                                const SizedBox(width: 4),
-                                                const Text(
-                                                  '출발',
-                                                  style: TextStyle(
-                                                      fontSize: 12,
-                                                      color: Colors.grey),
-                                                ),
-                                              ],
-                                            ],
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-
-                                    // 화살표 아이콘
-                                    Icon(
-                                      Icons.arrow_forward_ios,
-                                      size: 16,
-                                      color: Colors.grey[300],
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            );
-                          });
-                        },
-                      ),
-                    ],
-                  );
-                }),
-              ),
-            ),
+            ],
           ],
         );
       },
     );
+  }
+
+  // "아산캠퍼스 ↔ 천안아산역"을 진행 방향 화살표로 바꾼다
+  String _directionLabel(String subtitle, {required bool reversed}) {
+    final parts = subtitle.split(' ↔ ');
+    if (parts.length != 2) return subtitle;
+    return reversed ? '${parts[1]} → ${parts[0]}' : '${parts[0]} → ${parts[1]}';
+  }
+
+  // 서브 그룹 헤더 (아캠 출발 / 도착)
+  Widget _buildSubGroupHeader(
+    BuildContext context,
+    Map subGroup, {
+    required String route,
+  }) {
+    final hintColor = Theme.of(context).hintColor;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(4, 0, 4, 8),
+      child: Row(
+        children: [
+          Icon(subGroup['icon'], size: 18, color: hintColor),
+          const SizedBox(width: 8),
+          Text(
+            subGroup['title'],
+            style: const TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              route,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(fontSize: 13, color: hintColor),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  List<Widget> _buildRouteRows(
+    BuildContext context,
+    List routes, {
+    required bool isFirstBlock,
+  }) {
+    final hairline =
+        Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.06);
+    return [
+      for (var routeIdx = 0; routeIdx < routes.length; routeIdx++) ...[
+        if (routeIdx > 0)
+          Divider(
+            height: 1,
+            thickness: 1,
+            indent: 16,
+            endIndent: 16,
+            color: hairline,
+          ),
+        _buildRouteRow(
+          context,
+          routes[routeIdx],
+          isFirstExperienceRoute: isFirstBlock && routeIdx == 0,
+        ),
+      ],
+    ];
+  }
+
+  Widget _buildRouteRow(
+    BuildContext context,
+    Map route, {
+    required bool isFirstExperienceRoute,
+  }) {
+    final routeKey = route['routeKey'] as String;
+    // label에서 번호와 방면 분리
+    final fullLabel = route['label'] as String;
+    final splitIndex = fullLabel.indexOf(' (');
+    final busNumber =
+        splitIndex != -1 ? fullLabel.substring(0, splitIndex) : fullLabel;
+    final direction = splitIndex != -1
+        ? fullLabel.substring(splitIndex + 2, fullLabel.length - 1)
+        : '';
+    final theme = Theme.of(context);
+    final hintColor = theme.hintColor;
+    final busColor = _cityBusColor(context);
+    const tabular = [FontFeature.tabularFigures()];
+
+    return Obx(() {
+      final busLocationStatus = _getBusLocationStatus(routeKey);
+      final hasLiveBus = busLocationStatus != '현재 운행 없음';
+      final nextDepartureTime = _getNextDepartureTime(routeKey);
+      final isOperating = nextDepartureTime.startsWith('출발: ');
+
+      return InkWell(
+        key: isFirstExperienceRoute ? _firstRouteKey : null,
+        onTap: () {
+          HapticFeedback.lightImpact();
+          Get.to(() => BusMapView(initialRoute: routeKey));
+        },
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 8, 12),
+          child: Row(
+            children: [
+              // 버스 번호·방면과 실시간 위치
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.baseline,
+                      textBaseline: TextBaseline.alphabetic,
+                      children: [
+                        Text(
+                          busNumber,
+                          style: const TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w600,
+                            fontFeatures: tabular,
+                          ),
+                        ),
+                        if (direction.isNotEmpty) ...[
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              direction,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(fontSize: 13, color: hintColor),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    SizedBox(
+                      height: 16,
+                      child: Row(
+                        children: [
+                          if (hasLiveBus) ...[
+                            // 실시간 위치 표시 점
+                            Container(
+                              width: 6,
+                              height: 6,
+                              decoration: BoxDecoration(
+                                color: busColor,
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            Flexible(
+                              child: AutoScrollText(
+                                text: busLocationStatus,
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: busColor,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                                height: 16,
+                              ),
+                            ),
+                          ] else
+                            Text(
+                              '운행 중인 버스 없음',
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: hintColor,
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+
+              // 다음 출발 시각은 오른쪽 한 열에 맞춘다
+              if (isOperating)
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      nextDepartureTime.replaceAll('출발: ', ''),
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                        fontFeatures: tabular,
+                      ),
+                    ),
+                    Text(
+                      '다음 출발',
+                      style: TextStyle(fontSize: 12, color: hintColor),
+                    ),
+                  ],
+                )
+              else
+                Text(
+                  nextDepartureTime,
+                  style: TextStyle(fontSize: 13, color: hintColor),
+                ),
+              const SizedBox(width: 4),
+              Icon(
+                Icons.chevron_right_rounded,
+                size: 20,
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.24),
+              ),
+            ],
+          ),
+        ),
+      );
+    });
   }
 }
