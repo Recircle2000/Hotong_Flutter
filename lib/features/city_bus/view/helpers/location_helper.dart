@@ -18,7 +18,7 @@ class LocationHelper {
           _processNearestStation(context, controller, scrollController);
         } else {
           Fluttertoast.showToast(
-            msg: "위치 정보를 가져올 수 없습니다. 다시 시도해주세요.",
+            msg: "위치 정보를 가져오지 못했어요",
             toastLength: Toast.LENGTH_SHORT,
             gravity: ToastGravity.BOTTOM,
           );
@@ -36,7 +36,7 @@ class LocationHelper {
 
     if (nearestStationIndex == null) {
       Fluttertoast.showToast(
-        msg: "가까운 정류장을 찾을 수 없습니다.",
+        msg: "가까운 정류장을 찾지 못했어요",
         toastLength: Toast.LENGTH_SHORT,
         gravity: ToastGravity.BOTTOM,
       );

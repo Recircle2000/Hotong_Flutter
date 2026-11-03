@@ -31,7 +31,7 @@ class StationList extends StatelessWidget {
               const CircularProgressIndicator.adaptive(),
               const SizedBox(height: 16),
               Text(
-                '${routeDisplayNames[controller.selectedRoute.value] ?? controller.selectedRoute.value}\n정류장 정보를 불러오는 중입니다...',
+                '정류장 정보를 불러오는 중',
                 textAlign: TextAlign.center,
               ),
             ],
@@ -40,7 +40,7 @@ class StationList extends StatelessWidget {
       }
 
       if (controller.stationNames.isEmpty) {
-        return const Center(child: Text('정류장 정보가 없습니다.'));
+        return const Center(child: Text('정류장 정보가 없어요'));
       }
 
       // 정류장 목록과 현재 버스 위치를 함께 렌더링
