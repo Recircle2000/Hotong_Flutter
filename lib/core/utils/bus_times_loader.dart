@@ -47,38 +47,56 @@ class BusTimesLoader {
         print('[BusTimesLoader] assets 파싱 오류: $e');
       }
     }
-    // 서버에서 최신 버전 정보 조회
-    print(
-      '[BusTimesLoader] 서버에서 버전 정보 조회: ${BusTimesRepository.versionApiUrl}',
-    );
+    // 서버에서 최신 버전 정보 조회 (app-config 우선, 없으면 예전 버전 API)
     try {
-      final serverVersion = await _busTimesRepository.fetchServerVersion();
-      if (serverVersion != null) {
-        print('[BusTimesLoader] 서버 버전: $serverVersion');
-        if (localVersion != serverVersion) {
-          print(
-            '[BusTimesLoader] 버전 다름 → 파일 다운로드 시도: ${BusTimesRepository.downloadUrl}',
-          );
-          try {
-            final downloadedJson =
-                await _busTimesRepository.downloadBusTimesJson();
-            if (downloadedJson != null) {
-              await file.writeAsString(downloadedJson);
-              print('[BusTimesLoader] bus_times.json 파일 다운로드 및 저장 완료');
-            } else {
-              print('[BusTimesLoader] bus_times.json 다운로드 실패');
-            }
-          } catch (e) {
-            print('[BusTimesLoader] bus_times.json 다운로드 중 오류: $e');
-          }
-        } else {
-          print('[BusTimesLoader] 버전 동일, 다운로드 생략');
-        }
-      } else {
+      final remote = await _busTimesRepository.fetchRemoteInfo();
+      if (remote == null) {
         print('[BusTimesLoader] 서버 버전 정보 조회 실패');
+        return;
       }
+      print('[BusTimesLoader] 서버 버전: ${remote.version}');
+      if (localVersion == remote.version) {
+        print('[BusTimesLoader] 버전 동일, 다운로드 생략');
+        return;
+      }
+      print('[BusTimesLoader] 버전 다름 → 파일 다운로드 시도: ${remote.downloadUrl}');
+      final downloadedJson =
+          await _busTimesRepository.downloadBusTimesJson(remote.downloadUrl);
+      if (downloadedJson == null) {
+        print('[BusTimesLoader] bus_times.json 다운로드 실패');
+        return;
+      }
+      // 받은 파일이 서버가 알려준 버전과 다르면(깃허브 갱신 전 등) 저장하지 않는다.
+      final downloadedVersion = _versionOf(downloadedJson);
+      if (downloadedVersion != remote.version) {
+        print(
+          '[BusTimesLoader] 다운로드 버전 불일치(${downloadedVersion ?? '파싱 실패'}), 저장 생략',
+        );
+        return;
+      }
+      await _replaceFile(file, downloadedJson);
+      print('[BusTimesLoader] bus_times.json 파일 다운로드 및 저장 완료');
     } catch (e) {
-      print('[BusTimesLoader] 서버 연결/버전 조회 오류: $e');
+      print('[BusTimesLoader] 서버 연결/다운로드 오류: $e');
     }
+  }
+
+  static String? _versionOf(String jsonString) {
+    try {
+      final decoded = json.decode(jsonString);
+      return decoded is Map<String, dynamic> ? decoded['version']?.toString() : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  // 쓰는 도중 앱이 꺼져도 깨진 파일이 남지 않게 임시 파일을 거쳐 바꾼다.
+  static Future<void> _replaceFile(File file, String contents) async {
+    final tempFile = File('${file.path}.tmp');
+    await tempFile.writeAsString(contents, encoding: utf8, flush: true);
+    if (await file.exists()) {
+      await file.delete();
+    }
+    await tempFile.rename(file.path);
   }
 }

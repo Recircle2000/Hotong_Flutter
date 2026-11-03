@@ -4,9 +4,11 @@ import 'package:get/get.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:hsro/core/constants/app_links.dart';
+import 'package:hsro/core/repository/bus_data_history_repository.dart';
 import 'package:hsro/core/utils/bus_static_data_loader.dart';
 import 'package:hsro/core/utils/bus_times_loader.dart';
 import 'package:hsro/features/guide/view/guide_selection_view.dart';
+import 'package:hsro/features/settings/view/bus_data_history_view.dart';
 import 'package:hsro/features/settings/viewmodel/settings_viewmodel.dart';
 import 'package:hsro/shared/widgets/scale_button.dart';
 
@@ -381,7 +383,15 @@ class SettingsView extends StatelessWidget {
                 return const SizedBox.shrink();
               }
               final version = snapshot.data!['version'] ?? '-';
-              return _buildInfoRow(context, '시내버스 시간표', '$version');
+              return _buildInfoRow(
+                context,
+                '시내버스 시간표',
+                '$version',
+                onTap: () => Get.to(() => BusDataHistoryView(
+                      kind: BusDataHistoryKind.timetable,
+                      currentVersion: '$version',
+                    )),
+              );
             },
           ),
           FutureBuilder<String?>(
@@ -391,7 +401,15 @@ class SettingsView extends StatelessWidget {
                 return const SizedBox.shrink();
               }
               final version = snapshot.data ?? '-';
-              return _buildInfoRow(context, '시내버스 노선', version);
+              return _buildInfoRow(
+                context,
+                '시내버스 노선',
+                version,
+                onTap: () => Get.to(() => BusDataHistoryView(
+                      kind: BusDataHistoryKind.route,
+                      currentVersion: version,
+                    )),
+              );
             },
           ),
           Padding(
@@ -448,12 +466,17 @@ class SettingsView extends StatelessWidget {
     );
   }
 
-  // 버전 정보 한 줄: 왼쪽 이름, 오른쪽 고정폭 값
-  Widget _buildInfoRow(BuildContext context, String label, String value) {
+  // 버전 정보 한 줄: 왼쪽 이름, 오른쪽 고정폭 값. onTap이 있으면 변경이력으로 이동한다.
+  Widget _buildInfoRow(
+    BuildContext context,
+    String label,
+    String value, {
+    VoidCallback? onTap,
+  }) {
     final theme = Theme.of(context);
     final style = theme.textTheme.bodySmall;
 
-    return Padding(
+    final row = Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
         children: [
@@ -470,9 +493,16 @@ class SettingsView extends StatelessWidget {
               fontFeatures: const [FontFeature.tabularFigures()],
             ),
           ),
+          if (onTap != null)
+            Icon(
+              Icons.chevron_right_rounded,
+              size: 16,
+              color: theme.hintColor,
+            ),
         ],
       ),
     );
+    return onTap == null ? row : ScaleButton(onTap: onTap, child: row);
   }
 
   // 설정 하단 링크 한 줄

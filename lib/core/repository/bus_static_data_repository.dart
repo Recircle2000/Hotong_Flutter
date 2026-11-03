@@ -2,6 +2,8 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
+import 'package:hsro/core/repository/app_config_repository.dart';
+
 class BusStaticDataManifest {
   const BusStaticDataManifest({
     required this.version,
@@ -46,18 +48,37 @@ abstract class BusStaticDataRemoteSource {
 }
 
 class BusStaticDataRepository implements BusStaticDataRemoteSource {
-  BusStaticDataRepository({http.Client? client})
-      : _client = client ?? http.Client();
+  BusStaticDataRepository({
+    http.Client? client,
+    AppConfigRepository? appConfig,
+  })  : _client = client ?? http.Client(),
+        _appConfig = appConfig ?? AppConfigRepository.shared;
 
+  // 서버가 app-config에 노선도 버전을 담기 전(구버전 서버)에 쓰던 깃허브 경로
   static const String manifestUrl =
       'https://recircle2000.github.io/hotong_station_image/bus_static_manifest.json';
   static const String defaultDownloadUrl =
       'https://recircle2000.github.io/hotong_station_image/bus_static_data.json';
 
   final http.Client _client;
+  final AppConfigRepository _appConfig;
 
+  /// app-config에 담긴 노선도 버전을 우선 쓰고, 없으면 깃허브 매니페스트를 읽는다.
   @override
   Future<BusStaticDataManifest?> fetchRemoteManifest() async {
+    final config = await _appConfig.fetch();
+    final release = config?.busStatic;
+    if (release != null) {
+      return BusStaticDataManifest(
+        version: release.version,
+        downloadUrl: _appConfig.resolveUrl(release.downloadUrl),
+        effectiveFrom: release.effectiveFrom,
+      );
+    }
+    return _fetchLegacyManifest();
+  }
+
+  Future<BusStaticDataManifest?> _fetchLegacyManifest() async {
     final response = await _client
         .get(Uri.parse(manifestUrl))
         .timeout(const Duration(seconds: 5));
@@ -87,6 +108,7 @@ class BusStaticDataRepository implements BusStaticDataRemoteSource {
       return null;
     }
 
-    return response.body;
+    // Storage는 charset 없이 JSON을 주므로 한글이 깨지지 않게 바이트에서 직접 읽는다.
+    return utf8.decode(response.bodyBytes);
   }
 }

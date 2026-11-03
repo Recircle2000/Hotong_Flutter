@@ -2,51 +2,73 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
-import 'package:hsro/core/utils/env_config.dart';
+import 'package:hsro/core/repository/app_config_repository.dart';
+
+/// 서버에 게시된 시간표의 버전과 내려받을 주소.
+class BusTimesRemoteInfo {
+  const BusTimesRemoteInfo({required this.version, required this.downloadUrl});
+
+  final String version;
+  final String downloadUrl;
+}
 
 class BusTimesRepository {
-  BusTimesRepository({http.Client? client}) : _client = client ?? http.Client();
+  BusTimesRepository({http.Client? client, AppConfigRepository? appConfig})
+      : _client = client ?? http.Client(),
+        _appConfig = appConfig ?? AppConfigRepository.shared;
 
-  // 서버에 저장된 현재 시간표 버전 정보 조회용 API 주소
-  static String get versionApiUrl =>
-      '${EnvConfig.baseUrl.replaceFirst(RegExp(r'/$'), '')}/bus-timetable/version';
-  // 실제 시간표 JSON 파일 내려받음용 고정 주소
-  static const String downloadUrl =
+  // 서버가 app-config에 시간표 버전을 담기 전(구버전 서버)에 쓰던 경로
+  static const String legacyVersionPath = '/bus-timetable/version';
+  static const String legacyDownloadUrl =
       'https://recircle2000.github.io/hotong_station_image/bus_times.json';
 
   final http.Client _client;
+  final AppConfigRepository _appConfig;
 
-  Future<String?> fetchServerVersion() async {
-    // 서버에서 최신 시간표 버전 가져옴
-    final response = await _client
-        .get(Uri.parse(versionApiUrl))
-        .timeout(const Duration(seconds: 5));
-
-    // 정상 응답이 아니면 버전 확인 실패로 처리
-    if (response.statusCode != 200) {
-      return null;
+  /// app-config에 담긴 시간표 버전을 우선 쓰고, 없으면 예전 버전 API와 깃허브 주소를 쓴다.
+  Future<BusTimesRemoteInfo?> fetchRemoteInfo() async {
+    final config = await _appConfig.fetch();
+    final timetable = config?.busTimetable;
+    if (timetable != null) {
+      return BusTimesRemoteInfo(
+        version: timetable.version,
+        downloadUrl: _appConfig.resolveUrl(timetable.downloadUrl),
+      );
     }
 
+    final legacyVersion = await _fetchLegacyVersion();
+    if (legacyVersion == null || legacyVersion.isEmpty) {
+      return null;
+    }
+    return BusTimesRemoteInfo(
+      version: legacyVersion,
+      downloadUrl: legacyDownloadUrl,
+    );
+  }
+
+  Future<String?> _fetchLegacyVersion() async {
     try {
-      // JSON 형식 응답이면 version 필드만 추출
+      final response = await _client
+          .get(Uri.parse(_appConfig.resolveUrl(legacyVersionPath)))
+          .timeout(const Duration(seconds: 5));
+      if (response.statusCode != 200) {
+        return null;
+      }
       final decoded = json.decode(response.body) as Map<String, dynamic>;
-      return decoded['version']?.toString() ?? response.body.trim();
+      return decoded['version']?.toString();
     } catch (_) {
-      // 단순 문자열 응답도 허용하기 위해 본문 전체 사용
-      return response.body.trim();
+      return null;
     }
   }
 
-  Future<String?> downloadBusTimesJson() async {
-    // 원격 저장소에서 최신 버스 시간표 파일 내려받음
+  Future<String?> downloadBusTimesJson(String downloadUrl) async {
     final response = await _client
         .get(Uri.parse(downloadUrl))
         .timeout(const Duration(seconds: 10));
-    // 다운로드 실패 시 null 반환
     if (response.statusCode != 200) {
       return null;
     }
-    // 성공 시 JSON 문자열 원문 반환
-    return response.body;
+    // 서버가 charset 없이 JSON을 줘도 한글이 깨지지 않게 바이트에서 직접 읽는다.
+    return utf8.decode(response.bodyBytes);
   }
 }
