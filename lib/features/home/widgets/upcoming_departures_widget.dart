@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:get/get.dart';
-import 'dart:async';
 import 'dart:io' show Platform;
 import 'package:hsro/features/city_bus/view/bus_map_view.dart';
 import 'package:hsro/features/city_bus/viewmodel/busmap_viewmodel.dart';
@@ -33,9 +32,6 @@ class UpcomingDeparturesWidget extends StatefulWidget {
 class _UpcomingDeparturesWidgetState extends State<UpcomingDeparturesWidget>
     with RouteAware {
   late final UpcomingDepartureViewModel viewModel;
-  // 자동 새로고침까지 남은 시간
-  int _remainingSeconds = 30;
-  Timer? _refreshCountdownTimer;
 
   final RouteObserver<PageRoute> _routeObserver =
       Get.find<RouteObserver<PageRoute>>();
@@ -67,14 +63,6 @@ class _UpcomingDeparturesWidgetState extends State<UpcomingDeparturesWidget>
               ),
             );
     }
-
-    // ViewModel 새로고침 시 카운트다운도 함께 리셋
-    viewModel.setRefreshCallback(() {
-      _startRefreshCountdown();
-    });
-
-    // 첫 카운트다운 시작
-    _startRefreshCountdown();
   }
 
   @override
@@ -88,15 +76,13 @@ class _UpcomingDeparturesWidgetState extends State<UpcomingDeparturesWidget>
   void didPush() {
     // 홈 카드가 다시 보이면 활성 상태로 전환
     viewModel.setHomePageState(true);
-    _resetTimerDisplay();
     super.didPush();
   }
 
   @override
   void didPopNext() {
-    // 다른 화면에서 돌아오면 카운트다운 리셋
+    // 다른 화면에서 돌아오면 다시 활성화 (뷰모델이 즉시 다시 계산)
     viewModel.setHomePageState(true);
-    _resetTimerDisplay();
     super.didPopNext();
   }
 
@@ -116,10 +102,8 @@ class _UpcomingDeparturesWidgetState extends State<UpcomingDeparturesWidget>
 
   @override
   void dispose() {
-    _refreshCountdownTimer?.cancel();
     viewModel.setHomePageState(false);
     viewModel.setWidgetEnabled(false);
-    viewModel.clearRefreshCallback();
     // 라우트 옵저버 해제 및 태그 기반 컨트롤러 정리
     _routeObserver.unsubscribe(this);
     if (widget.controllerTag != null &&
@@ -131,61 +115,6 @@ class _UpcomingDeparturesWidgetState extends State<UpcomingDeparturesWidget>
     super.dispose();
   }
 
-  void _startRefreshCountdown() {
-    // 기존 카운트다운 취소
-    _refreshCountdownTimer?.cancel();
-
-    if (!widget.enableAutoRefresh) {
-      _remainingSeconds = 0;
-      return;
-    }
-
-    // 캠퍼스별 자동 새로고침 주기 반영
-    final countdownSeconds = viewModel.currentCampus == '천안' ? 5 : 30;
-
-    _remainingSeconds = countdownSeconds;
-
-    // 1초마다 표시만 감소
-    _refreshCountdownTimer = Timer.periodic(Duration(seconds: 1), (timer) {
-      if (!mounted) {
-        timer.cancel();
-        return;
-      }
-
-      setState(() {
-        if (_remainingSeconds > 0) {
-          _remainingSeconds--;
-        } else {
-          // 0이 되면 다음 주기로 다시 표시
-          final newCountdownSeconds = viewModel.currentCampus == '천안' ? 5 : 30;
-          _remainingSeconds = newCountdownSeconds;
-        }
-      });
-    });
-  }
-
-  // 수동 새로고침
-  void _manualRefresh() {
-    viewModel.loadData();
-    if (widget.enableAutoRefresh) {
-      _startRefreshCountdown();
-    }
-  }
-
-  // 카운트다운 표시 리셋
-  void _resetTimerDisplay() {
-    if (!mounted) {
-      return;
-    }
-
-    setState(() {
-      final countdownSeconds = widget.enableAutoRefresh
-          ? (viewModel.currentCampus == '천안' ? 5 : 30)
-          : 0;
-      _remainingSeconds = countdownSeconds;
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -193,81 +122,44 @@ class _UpcomingDeparturesWidgetState extends State<UpcomingDeparturesWidget>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // 헤더와 새로고침 상태 표시
-          Row(
-            children: [
-              Text(
-                '곧 출발',
-                style: TextStyle(
-                  fontSize: 17,
-                  fontWeight: FontWeight.w600,
-                  color: UpcomingDepartureColors.title(context),
+          // 헤더. 아캠은 시간표뿐이라 분 정각에 알아서 다시 계산하고,
+          // 천캠은 24·81번 실시간 위치를 받는 중임만 알린다.
+          SizedBox(
+            height: 44,
+            child: Row(
+              children: [
+                Text(
+                  '곧 출발',
+                  style: TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w600,
+                    color: UpcomingDepartureColors.title(context),
+                  ),
                 ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Obx(
-                  () => Text(
-                    // 천안 시내버스 기준은 시내버스 섹션 제목 옆에 표시
-                    viewModel.currentCampus == '천안' ? '' : '아캠 출발 기준',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w500,
-                      color: UpcomingDepartureColors.secondary(context),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Obx(
+                    () => Text(
+                      // 천안 시내버스 기준은 시내버스 섹션 제목 옆에 표시
+                      viewModel.currentCampus == '천안' ? '' : '아캠 출발 기준',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
+                        color: UpcomingDepartureColors.secondary(context),
+                      ),
                     ),
                   ),
                 ),
-              ),
-              ScaleButton(
-                onTap: _manualRefresh,
-                child: SizedBox(
-                  height: 44,
-                  child: Padding(
-                    padding: const EdgeInsets.only(left: 8, right: 4),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Obx(
-                          () => viewModel.isRefreshing.value
-                              ? SizedBox(
-                                  width: 12,
-                                  height: 12,
-                                  child: CircularProgressIndicator.adaptive(
-                                    strokeWidth: 2,
-                                    valueColor: AlwaysStoppedAnimation<Color>(
-                                      UpcomingDepartureColors.secondary(
-                                        context,
-                                      ),
-                                    ),
-                                  ),
-                                )
-                              : Text(
-                                  widget.enableAutoRefresh
-                                      ? '$_remainingSeconds초'
-                                      : '-',
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    fontFeatures: tabularFigures,
-                                    color: UpcomingDepartureColors.secondary(
-                                      context,
-                                    ),
-                                  ),
-                                ),
-                        ),
-                        const SizedBox(width: 4),
-                        Icon(
-                          Icons.refresh,
-                          size: 18,
-                          color: UpcomingDepartureColors.secondary(context),
-                        ),
-                      ],
-                    ),
-                  ),
+                Obx(
+                  () => viewModel.currentCampus == '천안' &&
+                          widget.enableAutoRefresh
+                      ? _buildLiveLabel(context)
+                      : const SizedBox.shrink(),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
 
           //const SizedBox(height: 8),
@@ -288,18 +180,22 @@ class _UpcomingDeparturesWidgetState extends State<UpcomingDeparturesWidget>
             }
 
             if (viewModel.error.isNotEmpty) {
-              return Container(
-                height: upcomingDepartureBodyHeight, // 에러 상태에서의 고정된 높이
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: Colors.red.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Center(
-                  child: Text(
-                    viewModel.error.value,
-                    style: TextStyle(color: Colors.red, fontSize: 12),
-                    textAlign: TextAlign.center,
+              // 새로고침 버튼이 없으므로 오류 상자를 눌러 다시 시도한다.
+              return ScaleButton(
+                onTap: () => viewModel.loadData(),
+                child: Container(
+                  height: upcomingDepartureBodyHeight, // 에러 상태에서의 고정된 높이
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: Colors.red.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Center(
+                    child: Text(
+                      '${viewModel.error.value}\n눌러서 다시 시도',
+                      style: TextStyle(color: Colors.red, fontSize: 12),
+                      textAlign: TextAlign.center,
+                    ),
                   ),
                 ),
               );
@@ -456,6 +352,30 @@ class _UpcomingDeparturesWidgetState extends State<UpcomingDeparturesWidget>
           }),
         ],
       ),
+    );
+  }
+
+  // 천캠 헤더 오른쪽 표시. 5초마다 받는 중에도 글자를 바꾸지 않아 깜박이지 않는다.
+  Widget _buildLiveLabel(BuildContext context) {
+    final color = UpcomingDepartureColors.secondary(context);
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 6,
+          height: 6,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
+        const SizedBox(width: 5),
+        Text(
+          '실시간',
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
+            color: color,
+          ),
+        ),
+      ],
     );
   }
 

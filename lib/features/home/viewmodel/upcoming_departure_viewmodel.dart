@@ -88,9 +88,6 @@ class UpcomingDepartureViewModel extends GetxController
   // 자동 새로고침 타이머
   Timer? _refreshTimer;
 
-  // 위젯의 카운트다운 UI와 동기화할 콜백
-  Function? _onRefreshCallback;
-
   // 앱/페이지 활성 상태 추적
   final isActive = true.obs;
   final isOnHomePage = true.obs;
@@ -134,14 +131,6 @@ class UpcomingDepartureViewModel extends GetxController
   Worker? _activeWorker;
   Worker? _homePageWorker;
   bool _isDisposed = false;
-
-  void setRefreshCallback(Function callback) {
-    _onRefreshCallback = callback;
-  }
-
-  void clearRefreshCallback() {
-    _onRefreshCallback = null;
-  }
 
   @override
   void onInit() {
@@ -224,7 +213,6 @@ class UpcomingDepartureViewModel extends GetxController
     _homePageWorker?.dispose();
     isActive.value = false;
     isOnHomePage.value = false;
-    _onRefreshCallback = null;
     // 생명주기 옵저버 해제 및 타이머 정리
     WidgetsBinding.instance.removeObserver(this);
     _stopRefreshTimer();
@@ -256,9 +244,11 @@ class UpcomingDepartureViewModel extends GetxController
     // 기존 타이머 취소 후 새로 예약
     _stopRefreshTimer();
 
-    // 천안은 더 짧은 주기로 갱신
-    final refreshInterval =
-        currentCampus == '천안' ? Duration(seconds: 5) : Duration(seconds: 30);
+    // 천안은 24·81번 실시간 위치 때문에 5초마다 받는다.
+    // 아산은 셔틀(하루 캐시)·시내버스(기기 파일) 모두 시간표라 남은 분이 바뀌는 분 정각에만 다시 계산한다.
+    final refreshInterval = currentCampus == '천안'
+        ? const Duration(seconds: 5)
+        : _durationUntilNextMinute();
 
     // loadData 완료 후 다시 예약하는 단발성 타이머 구조
     _refreshTimer = Timer(refreshInterval, () {
@@ -270,6 +260,14 @@ class UpcomingDepartureViewModel extends GetxController
   void _stopRefreshTimer() {
     _refreshTimer?.cancel();
     _refreshTimer = null;
+  }
+
+  // 정각 직전에 깨어나 같은 분으로 계산하지 않도록 조금 늦게 예약한다.
+  Duration _durationUntilNextMinute() {
+    final now = DateTime.now();
+    final nextMinute =
+        DateTime(now.year, now.month, now.day, now.hour, now.minute + 1);
+    return nextMinute.difference(now) + const Duration(milliseconds: 200);
   }
 
   Future<void> loadData({bool silent = false}) async {
@@ -358,9 +356,6 @@ class UpcomingDepartureViewModel extends GetxController
       if (!_isDisposed) {
         isLoading.value = false;
         isRefreshing.value = false; // 로딩 종료
-
-        // 로딩 완료 후 UI 카운트다운 리셋
-        _onRefreshCallback?.call();
 
         // 활성 상태일 때만 다음 자동 새로고침 예약
         if (enableAutoRefresh && isActive.value && isOnHomePage.value) {
