@@ -1,15 +1,11 @@
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'dart:io' show Platform;
-import 'dart:ui';
 import 'package:flutter_naver_map/flutter_naver_map.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:get/get.dart';
 import 'package:hsro/features/shuttle/models/shuttle_models.dart';
 import 'package:hsro/features/shuttle/viewmodel/shuttle_viewmodel.dart';
 import 'package:hsro/shared/widgets/scale_button.dart';
-import 'package:modal_bottom_sheet/modal_bottom_sheet.dart';
 
 class NaverMapStationDetailView extends StatefulWidget {
   final int stationId;
@@ -25,6 +21,8 @@ class NaverMapStationDetailView extends StatefulWidget {
 }
 
 class _NaverMapStationDetailViewState extends State<NaverMapStationDetailView> {
+  static const Color _shuttleColor = Color(0xFFB83227);
+
   final ShuttleViewModel viewModel = Get.find<ShuttleViewModel>();
   final RxBool isLoading = true.obs;
   final Rx<ShuttleStation?> station = Rx<ShuttleStation?>(null);
@@ -54,14 +52,7 @@ class _NaverMapStationDetailViewState extends State<NaverMapStationDetailView> {
       // 위치 서비스 활성화 여부 확인
       final serviceEnabled = await Geolocator.isLocationServiceEnabled();
       if (!serviceEnabled) {
-        Get.snackbar(
-          '위치 서비스 비활성화',
-          '위치 서비스를 활성화해주세요',
-          snackPosition: SnackPosition.BOTTOM,
-          backgroundColor: Colors.orange.withOpacity(0.1),
-          colorText: Colors.orange,
-          duration: Duration(seconds: 3),
-        );
+        _showLocationMessage('위치 서비스가 꺼져 있어요', '켜면 내 위치를 지도에 표시할 수 있어요');
         return;
       }
 
@@ -70,29 +61,13 @@ class _NaverMapStationDetailViewState extends State<NaverMapStationDetailView> {
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
         if (permission == LocationPermission.denied) {
-          // 권한이 거부된 경우
-          Get.snackbar(
-            '권한 거부',
-            '위치 권한이 거부되었습니다. 내 위치 기능을 사용할 수 없습니다.',
-            snackPosition: SnackPosition.BOTTOM,
-            backgroundColor: Colors.red.withOpacity(0.1),
-            colorText: Colors.red,
-            duration: Duration(seconds: 3),
-          );
+          _showLocationMessage('위치 권한이 없어요', '내 위치 기능을 사용할 수 없어요');
           return;
         }
       }
 
       if (permission == LocationPermission.deniedForever) {
-        // 권한이 영구적으로 거부된 경우
-        Get.snackbar(
-          '권한 설정 필요',
-          '위치 권한이 영구적으로 거부되었습니다. 설정에서 권한을 허용해주세요.',
-          snackPosition: SnackPosition.BOTTOM,
-          backgroundColor: Colors.red.withOpacity(0.1),
-          colorText: Colors.red,
-          duration: Duration(seconds: 5),
-        );
+        _showLocationMessage('위치 권한이 꺼져 있어요', '설정에서 위치 권한을 허용해주세요');
         return;
       }
 
@@ -101,6 +76,15 @@ class _NaverMapStationDetailViewState extends State<NaverMapStationDetailView> {
     } catch (e) {
       print('위치 권한 확인 중 오류 발생: $e');
     }
+  }
+
+  void _showLocationMessage(String title, String message) {
+    Get.snackbar(
+      title,
+      message,
+      snackPosition: SnackPosition.BOTTOM,
+      duration: const Duration(seconds: 3),
+    );
   }
 
   // 현재 위치 가져오기
@@ -113,14 +97,7 @@ class _NaverMapStationDetailViewState extends State<NaverMapStationDetailView> {
       currentPosition.value = position;
     } catch (e) {
       print('현재 위치를 가져오는데 실패했습니다: $e');
-      Get.snackbar(
-        '위치 오류',
-        '현재 위치를 가져오는데 실패했습니다',
-        snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: Colors.red.withOpacity(0.1),
-        colorText: Colors.red,
-        duration: Duration(seconds: 3),
-      );
+      _showLocationMessage('위치를 찾지 못했어요', '잠시 후 다시 시도해주세요');
     } finally {
       isLoadingLocation.value = false;
     }
@@ -136,603 +113,464 @@ class _NaverMapStationDetailViewState extends State<NaverMapStationDetailView> {
 
   @override
   Widget build(BuildContext context) {
-    final brightness = Theme.of(context).brightness;
-
     return Scaffold(
       appBar: AppBar(
-        title: Text('정류장 정보'),
+        title: const Text('정류장 정보'),
       ),
       body: Obx(() {
         if (isLoading.value) {
           // 정류장 상세 로딩 상태
-          return Center(
+          return const Center(
             child: CircularProgressIndicator.adaptive(),
           );
         }
 
-        if (station.value == null) {
-          // 정류장 상세 조회 실패 상태
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  Icons.error_outline,
-                  size: 64,
-                  color: Colors.grey,
-                ),
-                SizedBox(height: 16),
-                Text('정류장 정보를 불러올 수 없습니다.'),
-                SizedBox(height: 16),
-                _buildRetryButton(),
-              ],
-            ),
-          );
+        final stationInfo = station.value;
+        if (stationInfo == null) {
+          return _buildErrorState(context);
         }
 
-        return SingleChildScrollView(
-          padding: EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // 정류장 이름과 설명
-              _buildStationHeader(),
-              SizedBox(height: 16),
-              // _buildStationDescription(),
-              // SizedBox(height: 24),
-              // 지도 영역
-              _buildMapSection(),
-              SizedBox(height: 16),
-              // 정류장 사진 보기 버튼
-              _buildImageButton(),
-            ],
-          ),
+        // 지도가 화면 위를 채우고, 아래 패널에 정류장 이름·방향·사진을 둔다.
+        return Column(
+          children: [
+            Expanded(child: _buildMapSection(context, stationInfo)),
+            _buildStationPanel(context, stationInfo),
+          ],
         );
       }),
     );
   }
 
-  Widget _buildRetryButton() {
-    // 플랫폼별 재시도 버튼
-    if (Platform.isIOS) {
-      return CupertinoButton(
-        padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        color: Colors.blue,
-        child: Text('다시 시도'),
-        onPressed: _loadStationDetail,
-      );
-    } else {
-      return ElevatedButton(
-        style: ElevatedButton.styleFrom(
-          padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+  Widget _buildErrorState(BuildContext context) {
+    final theme = Theme.of(context);
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.wrong_location_outlined, size: 48, color: theme.hintColor),
+            const SizedBox(height: 16),
+            const Text('정류장 정보를 불러오지 못했어요'),
+            const SizedBox(height: 8),
+            TextButton(
+              onPressed: _loadStationDetail,
+              child: const Text('다시 시도'),
+            ),
+          ],
         ),
-        child: Text('다시 시도'),
-        onPressed: _loadStationDetail,
-      );
-    }
-  }
-
-  Widget _buildStationHeader() {
-    final stationInfo = station.value!;
-    final description = stationInfo.description ?? '정류장 설명이 없습니다.';
-
-    // 정류장명과 설명 표시
-    return Container(
-      width: double.infinity,
-      padding: EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(25),
-        // boxShadow: [
-        //   BoxShadow(
-        //     color: Colors.black.withOpacity(0.1),
-        //     blurRadius: 10,
-        //     offset: const Offset(0, 0),
-        //   ),
-        // ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            stationInfo.name,
-            style: TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.bold,
-              color: Theme.of(context).colorScheme.primary,
-            ),
-          ),
-          Text(
-            description,
-            style: TextStyle(
-              fontSize: 15,
-              height: 1.5,
-            ),
-          ),
-        ],
       ),
     );
   }
 
-  // Widget _buildStationDescription() {
-  //   final stationInfo = station.value!;
-  //   final description = stationInfo.description ?? '정류장 설명이 없습니다.';
-  //
-  //   return Container(
-  //     width: double.infinity,
-  //     padding: EdgeInsets.all(16),
-  //     decoration: BoxDecoration(
-  //       color: Theme.of(context).colorScheme.surface,
-  //       borderRadius: BorderRadius.circular(12),
-  //       border: Border.all(
-  //         color: Colors.grey.withOpacity(0.3),
-  //         width: 1,
-  //       ),
-  //     ),
-  //     child: Column(
-  //       crossAxisAlignment: CrossAxisAlignment.start,
-  //       children: [
-  //         Text(
-  //           '정류장 설명',
-  //           style: TextStyle(
-  //             fontSize: 16,
-  //             fontWeight: FontWeight.bold,
-  //           ),
-  //         ),
-  //         SizedBox(height: 8),
-  //         Text(
-  //           description,
-  //           style: TextStyle(
-  //             fontSize: 15,
-  //             height: 1.5,
-  //           ),
-  //         ),
-  //       ],
-  //     ),
-  //   );
-  // }
-
-  Widget _buildMapSection() {
-    final stationInfo = station.value!;
+  Widget _buildMapSection(BuildContext context, ShuttleStation stationInfo) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final stationPosition = NLatLng(stationInfo.latitude, stationInfo.longitude);
 
     // 정류장 위치를 네이버 지도에 표시
+    return Stack(
+      children: [
+        Positioned.fill(
+          child: NaverMap(
+            key: ValueKey(isDark),
+            options: NaverMapViewOptions(
+              initialCameraPosition: NCameraPosition(
+                target: stationPosition,
+                zoom: 16,
+              ),
+              mapType: NMapType.basic,
+              nightModeEnable: isDark,
+              maxZoom: 18,
+              minZoom: 10,
+              contentPadding: EdgeInsets.zero,
+              rotationGesturesEnable: false, // 회전 제스처 비활성화
+            ),
+            onMapReady: (controller) async {
+              mapController = controller;
+
+              // 지도 준비 후 정류장 마커 추가. 셔틀 노선선의 승차 점처럼 흰 테두리의 빨간 점으로 그린다.
+              final markerIcon = await NOverlayImage.fromWidget(
+                widget: Container(
+                  width: 24,
+                  height: 24,
+                  decoration: BoxDecoration(
+                    color: _shuttleColor,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white, width: 4),
+                  ),
+                ),
+                size: const Size(24, 24),
+                context: context,
+              );
+              if (!mounted || mapController != controller) return;
+              controller.addOverlay(
+                NMarker(
+                  id: 'station_marker',
+                  position: stationPosition,
+                  isFlat: false,
+                  icon: markerIcon,
+                  anchor: const NPoint(0.5, 0.5), // 점의 가운데가 정류장 위치를 가리키도록 설정
+                  caption: NOverlayCaption(
+                    text: stationInfo.name,
+                    textSize: 13,
+                    color: isDark ? Colors.white : const Color(0xFF16181D),
+                    haloColor: isDark ? Colors.black : Colors.white,
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+        // 내 위치/정류장 위치 빠른 이동 버튼
+        Positioned(
+          right: 16,
+          bottom: 16,
+          child: Column(
+            children: [
+              _buildMapButton(
+                context,
+                icon: Icons.my_location_rounded,
+                tooltip: '내 위치 보기',
+                onTap: () {
+                  mapController?.setLocationTrackingMode(
+                    NLocationTrackingMode.follow,
+                  );
+                },
+              ),
+              const SizedBox(height: 8),
+              _buildMapButton(
+                context,
+                icon: Icons.place_outlined,
+                tooltip: '정류장 위치 보기',
+                onTap: () {
+                  mapController?.setLocationTrackingMode(
+                    NLocationTrackingMode.none,
+                  );
+                  mapController?.updateCamera(
+                    NCameraUpdate.withParams(target: stationPosition, zoom: 16)
+                      ..setAnimation(duration: const Duration(milliseconds: 300)),
+                  );
+                },
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMapButton(
+    BuildContext context, {
+    required IconData icon,
+    required String tooltip,
+    required VoidCallback onTap,
+  }) {
+    final theme = Theme.of(context);
+    return Tooltip(
+      message: tooltip,
+      child: Semantics(
+        button: true,
+        label: tooltip,
+        excludeSemantics: true,
+        child: ScaleButton(
+          onTap: () {
+            HapticFeedback.lightImpact();
+            onTap();
+          },
+          child: Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: theme.cardColor,
+              borderRadius: BorderRadius.circular(12),
+              // 지도 위에 떠 있는 버튼이라 옅은 중립 그림자만 둔다.
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.12),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Icon(
+              icon,
+              size: 22,
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.72),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStationPanel(BuildContext context, ShuttleStation stationInfo) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final (kind, direction) = _splitDescription(stationInfo.description);
+    final meta = [?kind, ?direction].join(' · ');
+    final imageUrl = stationInfo.imageUrl;
+
     return Container(
       width: double.infinity,
-      height: 450,
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(25),
+        color: theme.cardColor,
+        border: Border(
+          top: BorderSide(
+            color: theme.colorScheme.onSurface.withValues(alpha: 0.08),
+          ),
+        ),
       ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(25),
-        child: Stack(
-          children: [
-            NaverMap(
-              key: ValueKey(Theme.of(context).brightness),
-              options: NaverMapViewOptions(
-                initialCameraPosition: NCameraPosition(
-                  target: NLatLng(stationInfo.latitude, stationInfo.longitude),
-                  zoom: 16,
-                ),
-                mapType: NMapType.basic,
-                nightModeEnable:
-                    Theme.of(context).brightness == Brightness.dark,
-                maxZoom: 18,
-                minZoom: 10,
-                contentPadding: EdgeInsets.zero,
-                rotationGesturesEnable: false, // 회전 제스처 비활성화
-                // locationButtonEnable: false, // Deprecated in 1.4.0: Use NMyLocationButtonWidget or omit if not needed
-              ),
-              onMapReady: (controller) {
-                mapController = controller;
-
-                // 지도 준비 후 정류장 마커 추가
-                controller.addOverlay(
-                  NMarker(
-                    id: 'station_marker',
-                    position:
-                        NLatLng(stationInfo.latitude, stationInfo.longitude),
-                    isFlat: false,
-                    anchor: NPoint(0.5, 1.0), // 마커의 하단 중앙이 위치를 가리키도록 설정
-                  ),
-                );
-              },
-            ),
-            // 내 위치/정류장 위치 빠른 이동 버튼
-            Positioned(
-              right: 10,
-              bottom: 42,
-              child: Column(
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // 정류장 이름: 노선선의 승차 점과 같은 빨간 점을 앞에 둔다.
+              Row(
                 children: [
                   Container(
+                    width: 12,
+                    height: 12,
                     decoration: BoxDecoration(
-                      color: Theme.of(context).cardColor.withOpacity(1),
-                      borderRadius: BorderRadius.circular(3),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.2),
-                          blurRadius: 4,
-                          offset: Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: IconButton(
-                      icon: Icon(
-                        Icons.my_location,
-                        color: Theme.of(context).colorScheme.primary,
-                        size: 24,
-                      ),
-                      onPressed: () {
-                        if (mapController != null) {
-                          mapController!.setLocationTrackingMode(
-                              NLocationTrackingMode.follow);
-                        }
-                      },
-                      tooltip: '내 위치 보기',
+                      color: isDark ? Colors.redAccent : _shuttleColor,
+                      shape: BoxShape.circle,
                     ),
                   ),
-                  SizedBox(height: 8),
-                  Container(
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).cardColor.withOpacity(1),
-                      borderRadius: BorderRadius.circular(3),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.2),
-                          blurRadius: 4,
-                          offset: Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: IconButton(
-                      icon: Icon(
-                        Icons.directions_bus,
-                        color: Theme.of(context).colorScheme.primary,
-                        size: 24,
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      stationInfo.name,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 22,
+                        height: 1.25,
+                        fontWeight: FontWeight.w600,
                       ),
-                      onPressed: () {
-                        if (mapController != null && station.value != null) {
-                          // 정류장 위치로 지도 이동
-                          mapController!.updateCamera(
-                            NCameraUpdate.withParams(
-                              target: NLatLng(
-                                station.value!.latitude,
-                                station.value!.longitude,
-                              ),
-                            ),
-                          );
-                        }
-                      },
-                      tooltip: '정류장 위치 보기',
                     ),
                   ),
                 ],
               ),
-            ),
-          ],
+              if (meta.isNotEmpty) ...[
+                const SizedBox(height: 4),
+                Padding(
+                  padding: const EdgeInsets.only(left: 24),
+                  child: Text(
+                    meta,
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: theme.colorScheme.onSurface.withValues(
+                        alpha: 0.72,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+              Obx(() {
+                final distance = _distanceLabel(stationInfo);
+                if (distance == null) return const SizedBox.shrink();
+                return Padding(
+                  padding: const EdgeInsets.only(left: 24, top: 4),
+                  child: Text(
+                    distance,
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: theme.hintColor,
+                      fontFeatures: const [FontFeature.tabularFigures()],
+                    ),
+                  ),
+                );
+              }),
+              const SizedBox(height: 16),
+              if (imageUrl != null)
+                _buildPhotoPreview(context, imageUrl)
+              else
+                Text(
+                  '등록된 정류장 사진이 없어요',
+                  style: TextStyle(fontSize: 13, color: theme.hintColor),
+                ),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildImageButton() {
-    final stationInfo = station.value!;
-    final hasImage = stationInfo.imageUrl != null;
-    final brightness = Theme.of(context).brightness;
-
-    // 이미지가 있으면 뷰어 열기, 없으면 안내 팝업 표시
-    if (Platform.isIOS) {
-      return ScaleButton(
-        onTap: hasImage
-            ? () {
-                _showImageViewer(stationInfo.imageUrl!);
-              }
-            : () {
-                _showNoImageAlert();
-              },
-        child: Container(
-          width: double.infinity,
-          padding: EdgeInsets.symmetric(vertical: 14),
-          decoration: BoxDecoration(
-            color: hasImage
-                ? (brightness == Brightness.dark
-                    ? Colors.blue.withOpacity(0.3)
-                    : Colors.blue.withOpacity(0.1))
-                : (brightness == Brightness.dark
-                    ? Colors.grey.withOpacity(0.3)
-                    : Colors.grey.withOpacity(0.1)),
-            borderRadius: BorderRadius.circular(25),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                hasImage
-                    ? CupertinoIcons.photo
-                    : CupertinoIcons.photo_fill_on_rectangle_fill,
-                color: hasImage
-                    ? (brightness == Brightness.dark
-                        ? Colors.blue
-                        : Colors.blue.shade700)
-                    : Colors.grey,
-              ),
-              SizedBox(width: 8),
-              Text(
-                '정류장 사진 보기',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: hasImage
-                      ? (brightness == Brightness.dark
-                          ? Colors.blue
-                          : Colors.blue.shade700)
-                      : Colors.grey,
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-    } else {
-      return ScaleButton(
-        onTap: hasImage
-            ? () => _showImageViewer(stationInfo.imageUrl!)
-            : _showNoImageAlert,
-        child: Container(
-          width: double.infinity,
-          padding: EdgeInsets.symmetric(vertical: 14),
-          decoration: BoxDecoration(
-            color: hasImage
-                ? (brightness == Brightness.dark
-                    ? Colors.blue.withOpacity(0.3)
-                    : Colors.blue.withOpacity(0.1))
-                : (brightness == Brightness.dark
-                    ? Colors.grey.withOpacity(0.3)
-                    : Colors.grey.withOpacity(0.1)),
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                hasImage ? Icons.photo : Icons.photo_library_outlined,
-                color: hasImage
-                    ? (brightness == Brightness.dark
-                        ? Colors.blue
-                        : Colors.blue.shade700)
-                    : Colors.grey,
-              ),
-              SizedBox(width: 8),
-              Text(
-                '정류장 사진 보기',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: hasImage
-                      ? (brightness == Brightness.dark
-                          ? Colors.blue
-                          : Colors.blue.shade700)
-                      : Colors.grey,
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
+  // "시내버스정류장[천캠방향]" → ("시내버스정류장", "천캠 방향")
+  (String?, String?) _splitDescription(String? raw) {
+    final text = raw?.trim();
+    if (text == null || text.isEmpty) return (null, null);
+    final match = RegExp(r'^(.*?)\s*\[([^\]]+)\]\s*$').firstMatch(text);
+    if (match == null) return (text, null);
+    final kind = match.group(1)!.trim();
+    final direction = match
+        .group(2)!
+        .trim()
+        .replaceAllMapped(RegExp(r'(\S)방향$'), (m) => '${m[1]} 방향');
+    return (kind.isEmpty ? null : kind, direction);
   }
 
-  void _showNoImageAlert() {
-    // 정류장 사진이 없을 때 안내 팝업
-    if (Platform.isIOS) {
-      showCupertinoDialog(
-        context: context,
-        builder: (context) => CupertinoAlertDialog(
-          title: Text('알림'),
-          content: Text('이 정류장에 등록된 사진이 없습니다.'),
-          actions: [
-            CupertinoDialogAction(
-              child: Text('확인'),
-              onPressed: () => Navigator.pop(context),
-            ),
-          ],
-        ),
-      );
-    } else {
-      showDialog(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: Text('알림'),
-          content: Text('이 정류장에 등록된 사진이 없습니다.'),
-          actions: [
-            TextButton(
-              child: Text('확인'),
-              onPressed: () => Navigator.pop(context),
-            ),
-          ],
-        ),
-      );
+  // 내 위치에서 정류장까지 직선거리
+  String? _distanceLabel(ShuttleStation stationInfo) {
+    final position = currentPosition.value;
+    if (position == null) return null;
+    final meters = Geolocator.distanceBetween(
+      position.latitude,
+      position.longitude,
+      stationInfo.latitude,
+      stationInfo.longitude,
+    );
+    if (meters >= 1000) {
+      return '내 위치에서 ${(meters / 1000).toStringAsFixed(1)}km';
     }
+    return '내 위치에서 ${(meters / 10).round() * 10}m';
+  }
+
+  Widget _buildPhotoPreview(BuildContext context, String imageUrl) {
+    final theme = Theme.of(context);
+    final placeholderColor = theme.colorScheme.onSurface.withValues(
+      alpha: 0.06,
+    );
+
+    return Semantics(
+      button: true,
+      label: '정류장 사진 크게 보기',
+      excludeSemantics: true,
+      child: ScaleButton(
+        onTap: () => _showImageViewer(imageUrl),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: AspectRatio(
+            aspectRatio: 16 / 9,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                Image.network(
+                  imageUrl,
+                  fit: BoxFit.cover,
+                  // 사진 위쪽(정류장 표지판·건물)이 잘리지 않게 위에 맞춘다.
+                  alignment: Alignment.topCenter,
+                  loadingBuilder: (context, child, progress) {
+                    if (progress == null) return child;
+                    return ColoredBox(
+                      color: placeholderColor,
+                      child: const Center(
+                        child: SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator.adaptive(
+                            strokeWidth: 2,
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                  errorBuilder: (context, error, stackTrace) => ColoredBox(
+                    color: placeholderColor,
+                    child: Center(
+                      child: Text(
+                        '사진을 불러오지 못했어요',
+                        style: TextStyle(fontSize: 13, color: theme.hintColor),
+                      ),
+                    ),
+                  ),
+                ),
+                Positioned(
+                  right: 8,
+                  bottom: 8,
+                  child: Container(
+                    width: 32,
+                    height: 32,
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.5),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(
+                      Icons.open_in_full_rounded,
+                      size: 16,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   void _showImageViewer(String imageUrl) {
-    final brightness = Theme.of(context).brightness;
-
-    // 플랫폼별 사진 뷰어 표시
-    if (Platform.isIOS) {
-      showCupertinoModalBottomSheet(
-        context: context,
-        expand: true,
-        useRootNavigator: true,
-        backgroundColor: Colors.transparent,
-        barrierColor: CupertinoColors.black.withOpacity(0.5),
-        duration: const Duration(milliseconds: 300),
-        builder: (context) => CupertinoPageScaffold(
-          backgroundColor: Colors.transparent,
-          child: Material(
-            color: brightness == Brightness.dark
-                ? CupertinoColors.systemBackground.darkColor
-                : CupertinoColors.systemBackground.color,
-            borderRadius: const BorderRadius.only(
-              topLeft: Radius.circular(12),
-              topRight: Radius.circular(12),
-            ),
-            clipBehavior: Clip.antiAlias,
-            child: SafeArea(
-              bottom: false,
-              child: Column(
-                children: [
-                  // 드래그 핸들
-                  Container(
-                    margin: const EdgeInsets.symmetric(vertical: 10),
-                    width: 40,
-                    height: 5,
-                    decoration: BoxDecoration(
-                      color: CupertinoColors.systemGrey3.resolveFrom(context),
-                      borderRadius: BorderRadius.circular(2.5),
-                    ),
-                  ),
-                  Padding(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          '정류장 사진',
-                          style: CupertinoTheme.of(context)
-                              .textTheme
-                              .navTitleTextStyle,
-                        ),
-                        CupertinoButton(
-                          padding: EdgeInsets.zero,
-                          child: Icon(CupertinoIcons.xmark_circle_fill,
-                              color: CupertinoColors.systemGrey
-                                  .resolveFrom(context)),
-                          onPressed: () => Navigator.pop(context),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Expanded(
-                    child: InteractiveViewer(
-                      child: Center(
-                        child: Image.network(
-                          imageUrl,
-                          fit: BoxFit.contain,
-                          loadingBuilder: (context, child, loadingProgress) {
-                            if (loadingProgress == null) return child;
-                            return const Center(
-                              child: CupertinoActivityIndicator(),
-                            );
-                          },
-                          errorBuilder: (context, error, stackTrace) {
-                            return Center(
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(
-                                    CupertinoIcons.exclamationmark_circle,
-                                    size: 50,
-                                    color: CupertinoColors.destructiveRed,
-                                  ),
-                                  const SizedBox(height: 16),
-                                  Text(
-                                    '이미지를 불러올 수 없습니다.',
-                                    style: CupertinoTheme.of(context)
-                                        .textTheme
-                                        .textStyle,
-                                  ),
-                                ],
-                              ),
-                            );
-                          },
-                        ),
+    // 사진은 검은 배경 전체 화면에서 확대해 본다.
+    showGeneralDialog<void>(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: '닫기',
+      barrierColor: Colors.black,
+      transitionDuration: const Duration(milliseconds: 200),
+      transitionBuilder: (context, animation, _, child) => FadeTransition(
+        opacity: CurvedAnimation(parent: animation, curve: Curves.easeOut),
+        child: child,
+      ),
+      pageBuilder: (context, _, __) => Material(
+        color: Colors.black,
+        child: SafeArea(
+          child: Stack(
+            children: [
+              Positioned.fill(
+                child: InteractiveViewer(
+                  maxScale: 4,
+                  child: Center(
+                    child: Image.network(
+                      imageUrl,
+                      fit: BoxFit.contain,
+                      loadingBuilder: (context, child, progress) {
+                        if (progress == null) return child;
+                        return const CircularProgressIndicator.adaptive(
+                          strokeWidth: 2,
+                        );
+                      },
+                      errorBuilder: (context, error, stackTrace) => const Text(
+                        '사진을 불러오지 못했어요',
+                        style: TextStyle(color: Colors.white70),
                       ),
                     ),
                   ),
-                ],
+                ),
               ),
-            ),
-          ),
-        ),
-      );
-    } else {
-      showDialog(
-        context: context,
-        builder: (context) => Dialog(
-          backgroundColor:
-              brightness == Brightness.dark ? Colors.black : Colors.white,
-          insetPadding: EdgeInsets.all(16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Padding(
-                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              Positioned(
+                top: 8,
+                left: 16,
+                right: 8,
                 child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      '정류장 사진',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
+                    Expanded(
+                      child: Text(
+                        station.value?.name ?? '정류장 사진',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 17,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ),
                     IconButton(
-                      icon: Icon(Icons.close),
-                      onPressed: () => Navigator.pop(context),
+                      tooltip: '닫기',
+                      icon: const Icon(Icons.close_rounded, color: Colors.white),
+                      onPressed: () => Navigator.of(context).pop(),
                     ),
                   ],
                 ),
               ),
-              Container(
-                constraints: BoxConstraints(
-                  maxHeight: MediaQuery.of(context).size.height * 0.7,
-                ),
-                child: InteractiveViewer(
-                  child: Image.network(
-                    imageUrl,
-                    fit: BoxFit.contain,
-                    loadingBuilder: (context, child, loadingProgress) {
-                      if (loadingProgress == null) return child;
-                      return Container(
-                        height: 300,
-                        child: Center(
-                          child: CircularProgressIndicator.adaptive(
-                            value: loadingProgress.expectedTotalBytes != null
-                                ? loadingProgress.cumulativeBytesLoaded /
-                                    loadingProgress.expectedTotalBytes!
-                                : null,
-                          ),
-                        ),
-                      );
-                    },
-                    errorBuilder: (context, error, stackTrace) {
-                      return Container(
-                        height: 300,
-                        child: Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.error_outline,
-                                size: 50,
-                                color: Colors.red,
-                              ),
-                              SizedBox(height: 16),
-                              Text('이미지를 불러올 수 없습니다.'),
-                            ],
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-              ),
             ],
           ),
         ),
-      );
-    }
+      ),
+    );
   }
 }
