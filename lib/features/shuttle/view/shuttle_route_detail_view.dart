@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dart:io' show Platform;
 import 'package:get/get.dart';
+import 'package:hsro/features/shuttle/models/shuttle_models.dart';
+import 'package:hsro/shared/widgets/scale_button.dart';
 import 'package:hsro/features/shuttle/view/naver_map_station_detail_view.dart';
 import 'package:hsro/features/shuttle/viewmodel/shuttle_viewmodel.dart';
 
@@ -132,22 +134,9 @@ class _ShuttleRouteDetailViewState extends State<ShuttleRouteDetailView> {
           padding: const EdgeInsets.only(bottom: 24),
           children: [
             _buildHeaderInfo(),
-            // 정류장 경유 목록을 노선도로 표시
-            Container(
-              margin: const EdgeInsets.symmetric(horizontal: 20),
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              decoration: BoxDecoration(
-                color: Theme.of(context).cardColor,
-                borderRadius: BorderRadius.circular(16),
-              ),
-              clipBehavior: Clip.antiAlias,
-              child: Column(
-                children: [
-                  for (var index = 0; index < stops.length; index++)
-                    _buildStopItem(context, index),
-                ],
-              ),
-            ),
+            // 정류장 경유 목록을 노선도로 표시. 화면에 목록 하나뿐이라 카드로 감싸지 않는다.
+            for (var index = 0; index < stops.length; index++)
+              _buildStopItem(context, index),
           ],
         );
         return Platform.isIOS ? list : Scrollbar(child: list);
@@ -247,25 +236,74 @@ class _ShuttleRouteDetailViewState extends State<ShuttleRouteDetailView> {
     final stop = stops[index];
     final isFirst = index == 0;
     final isLast = index == stops.length - 1;
-    final isEndpoint = isFirst || isLast;
     final theme = Theme.of(context);
-    final accent = _accentColor;
     final (name, tag) = _splitStationName(stop.stationName);
 
-    return InkWell(
-      // 정류장 탭 시 정류장 상세 지도 화면으로 이동
+    // 정류장 탭 시 정류장 상세 지도 화면으로 이동
+    void openStation() {
+      if (stop.stationId != null) {
+        Get.to(() => NaverMapStationDetailView(stationId: stop.stationId!));
+      } else {
+        _showNoStationDetailAlert(context);
+      }
+    }
+
+    // 줄 어디를 눌러도 이동한다. 누름 효과는 이름·화살표 부분(ScaleButton)에만 줘서
+    // 시각과 노선 줄은 움직이지 않는다.
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
       onTap: () {
         HapticFeedback.lightImpact();
-        if (stop.stationId != null) {
-          Get.to(() => NaverMapStationDetailView(stationId: stop.stationId!));
-        } else {
-          _showNoStationDetailAlert(context);
-        }
+        openStation();
       },
       child: SizedBox(
         height: 60,
-        child: Padding(
-          padding: const EdgeInsets.only(left: 16, right: 8),
+        child: Stack(
+          children: [
+            // 정류장 이름과 오른쪽 화살표가 같은 줄로 읽히도록 줄 사이에 옅은 선을 둔다.
+            // 노선 줄을 끊지 않게 이름이 시작하는 곳(24 + 시각 48 + 12 + 점 16 + 12)부터 긋는다.
+            if (!isLast)
+              Positioned(
+                left: _stopTextStart,
+                right: 16,
+                bottom: 0,
+                child: Container(
+                  height: 1,
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.08),
+                ),
+              ),
+            _buildStopRow(
+              context,
+              stop,
+              isFirst,
+              isLast,
+              name,
+              tag,
+              openStation,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  static const double _stopTextStart = 24 + 48 + 12 + 16 + 12;
+
+  Widget _buildStopRow(
+    BuildContext context,
+    ScheduleStop stop,
+    bool isFirst,
+    bool isLast,
+    String name,
+    String? tag,
+    VoidCallback onTap,
+  ) {
+    final theme = Theme.of(context);
+    final accent = _accentColor;
+    final isEndpoint = isFirst || isLast;
+    return Padding(
+          // 시각이 위 노선 제목과 같은 선(24)에서 시작한다.
+          padding: const EdgeInsets.only(left: 24, right: 16),
           child: Row(
             children: [
               SizedBox(
@@ -314,7 +352,10 @@ class _ShuttleRouteDetailViewState extends State<ShuttleRouteDetailView> {
                       height: isEndpoint ? 12 : 10,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        color: isEndpoint ? accent : theme.cardColor,
+                        // 빈 점 안쪽은 화면 바탕색으로 채워 노선 줄만 가린다.
+                        color: isEndpoint
+                            ? accent
+                            : theme.scaffoldBackgroundColor,
                         border: isEndpoint
                             ? null
                             : Border.all(color: accent, width: 2),
@@ -325,7 +366,17 @@ class _ShuttleRouteDetailViewState extends State<ShuttleRouteDetailView> {
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: Column(
+                // 앱 공통 누름 효과(살짝 작아짐 + 햅틱)
+                child: ScaleButton(
+                  onTap: onTap,
+                  child: Container(
+                    // 글자 사이 빈 곳을 눌러도 효과가 나도록 투명 바탕을 깐다.
+                    color: Colors.transparent,
+                    height: 60,
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -350,17 +401,22 @@ class _ShuttleRouteDetailViewState extends State<ShuttleRouteDetailView> {
                       ),
                     ],
                   ],
+                          ),
+                        ),
+                        Icon(
+                          Icons.chevron_right_rounded,
+                          size: 20,
+                          color: theme.colorScheme.onSurface.withValues(
+                            alpha: 0.24,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
-              ),
-              Icon(
-                Icons.chevron_right_rounded,
-                size: 20,
-                color: theme.colorScheme.onSurface.withValues(alpha: 0.24),
               ),
             ],
           ),
-        ),
-      ),
     );
   }
 
