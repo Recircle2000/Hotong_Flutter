@@ -1,12 +1,16 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:hsro/core/utils/bus_static_data_loader.dart';
 import 'package:hsro/core/utils/bus_times_loader.dart';
+import 'package:hsro/core/utils/env_config.dart';
 import 'package:hsro/features/notice/viewmodel/notice_viewmodel.dart';
 import 'package:hsro/features/settings/viewmodel/settings_viewmodel.dart';
 import 'package:hsro/features/shuttle/repository/shuttle_repository.dart';
 import 'package:intl/intl.dart';
+import 'package:web_socket_channel/web_socket_channel.dart';
 
 // 곧 출발 카드에 사용하는 공통 출발 정보 모델
 class BusDeparture {
@@ -46,6 +50,45 @@ class NextDepartureHint {
   final bool isFirstOfDay;
   // 시내버스 노선 번호처럼 시각 앞에 붙일 이름
   final String? routeLabel;
+}
+
+/// 천캠 실시간 웹소켓 메시지(`{노선: [버스...]}`)를 홈 카드 목록으로 바꾼다.
+///
+/// [stops24]·[stops81]은 각원사~호서대(천안) 구간의 정류장 순번(nodeord)이다.
+/// 구간 밖이거나 이미 호서대에 도착한 버스는 빼고, 남은 정거장이 적은 순으로 정렬한다.
+List<BusDeparture> buildCeanRealtimeBuses(
+  Map<String, dynamic> payload,
+  List<String> stops24,
+  List<String> stops81,
+) {
+  final list = <BusDeparture>[];
+  for (final (routeKey, routeName, stops) in [
+    ('24_DOWN', '24', stops24),
+    ('81_DOWN', '81', stops81),
+  ]) {
+    final buses = payload[routeKey];
+    if (buses is! List) {
+      continue; // 지금 운행 중인 차가 없는 노선은 키가 빠져 있다.
+    }
+    for (final bus in buses) {
+      if (bus is! Map) {
+        continue;
+      }
+      final idx = stops.indexOf(bus['nodeord'].toString());
+      if (idx == -1 || idx >= stops.length - 1) {
+        continue;
+      }
+      list.add(BusDeparture(
+        routeName: routeName,
+        destination: '호서대천캠',
+        departureTime: bus['nodenm'],
+        minutesLeft: stops.length - 1 - idx,
+        routeKey: routeKey,
+      ));
+    }
+  }
+  list.sort((a, b) => a.minutesLeft.compareTo(b.minutesLeft));
+  return list;
 }
 
 class UpcomingDepartureViewModel extends GetxController
@@ -122,11 +165,19 @@ class UpcomingDepartureViewModel extends GetxController
   // 천안 캠퍼스 실시간 버스 표시 목록
   final RxList<BusDeparture> ceRealtimeBuses = <BusDeparture>[].obs;
 
-  // 천안 캠퍼스용 임시 시내버스 데이터 저장 (깜박임 방지)
-  List<BusDeparture>? _tempCityBuses;
-  bool? _tempCityBusServiceEnded;
-  List<NextDepartureHint>? _tempNextCityBuses;
-  List<BusDeparture>? _tempRealtimeBuses;
+  // 천안 캠퍼스 실시간 위치 웹소켓. 서버가 5초마다 보내고, 접속하면 데워 둔 위치를 바로 보낸다.
+  static const String _ceanBusWebSocketPath = '/ws/bus/cheonan/down';
+  // 끊긴 뒤 다시 연결할 때 기다리는 시간: 3초부터 두 배씩, 최대 30초
+  static const int _ceanReconnectBaseSeconds = 3;
+  static const int _ceanReconnectMaxSeconds = 30;
+  WebSocketChannel? _ceanChannel;
+  StreamSubscription<dynamic>? _ceanSubscription;
+  Timer? _ceanReconnectTimer;
+  int _ceanReconnectAttempts = 0;
+  Map<String, dynamic>? _latestCeanPayload;
+  // 헤더의 "● 실시간" 점 표시용. 메시지를 받고 있으면 true
+  final isRealtimeConnected = false.obs;
+
   Worker? _campusWorker;
   Worker? _activeWorker;
   Worker? _homePageWorker;
@@ -168,6 +219,7 @@ class UpcomingDepartureViewModel extends GetxController
       } else {
         print('앱이 비활성화됨 -> 타이머 중지');
         _stopRefreshTimer();
+        _syncCeanRealtimeConnection();
       }
     });
 
@@ -184,6 +236,7 @@ class UpcomingDepartureViewModel extends GetxController
       } else {
         print('다른 페이지로 이동 -> 타이머 중지');
         _stopRefreshTimer();
+        _syncCeanRealtimeConnection();
       }
     });
 
@@ -213,9 +266,10 @@ class UpcomingDepartureViewModel extends GetxController
     _homePageWorker?.dispose();
     isActive.value = false;
     isOnHomePage.value = false;
-    // 생명주기 옵저버 해제 및 타이머 정리
+    // 생명주기 옵저버 해제 및 타이머·웹소켓 정리
     WidgetsBinding.instance.removeObserver(this);
     _stopRefreshTimer();
+    _disconnectCeanRealtime();
     super.onClose();
   }
 
@@ -244,14 +298,10 @@ class UpcomingDepartureViewModel extends GetxController
     // 기존 타이머 취소 후 새로 예약
     _stopRefreshTimer();
 
-    // 천안은 24·81번 실시간 위치 때문에 5초마다 받는다.
-    // 아산은 셔틀(하루 캐시)·시내버스(기기 파일) 모두 시간표라 남은 분이 바뀌는 분 정각에만 다시 계산한다.
-    final refreshInterval = currentCampus == '천안'
-        ? const Duration(seconds: 5)
-        : _durationUntilNextMinute();
-
+    // 셔틀(하루 캐시)·시내버스(기기 파일)는 시간표라 남은 분이 바뀌는 분 정각에만 다시 계산한다.
+    // 천안 24·81번 실시간 위치는 웹소켓이 따로 갱신한다.
     // loadData 완료 후 다시 예약하는 단발성 타이머 구조
-    _refreshTimer = Timer(refreshInterval, () {
+    _refreshTimer = Timer(_durationUntilNextMinute(), () {
       print('자동 새로고침 시작');
       loadData(silent: true);
     });
@@ -287,62 +337,24 @@ class UpcomingDepartureViewModel extends GetxController
     error.value = '';
 
     try {
-      final isCean = currentCampus == '천안';
+      // 천안은 실시간 위치의 남은 정거장 계산에 정류장 순서가 필요하다.
+      if (currentCampus == '천안' &&
+          (_ce24DownStops.isEmpty || _ce81DownStops.isEmpty)) {
+        await loadCeanStopSequences();
+        if (_isDisposed) {
+          return;
+        }
+        // 정류장 순서보다 웹소켓 메시지가 먼저 왔으면 지금 반영한다.
+        _applyCeanRealtime();
+      }
 
-      // 천안은 실시간 버스와 시간표 버스를 함께 준비 후 한 번에 반영
-      if (isCean) {
-        // 정류장 순서 캐시가 없으면 먼저 로드
-        if (_ce24DownStops.isEmpty || _ce81DownStops.isEmpty) {
-          await loadCeanStopSequences();
-          if (_isDisposed) {
-            return;
-          }
-          print(
-              '[DEBUG] 정류장 시퀀스 로드 완료 - 24_DOWN: ${_ce24DownStops.length}개, 81_DOWN: ${_ce81DownStops.length}개');
-        }
-
-        // UI 깜박임 방지를 위해 임시 버퍼에 먼저 적재
-        await loadCityBusData(updateUI: false);
-        if (_isDisposed) {
-          return;
-        }
-        await loadShuttleData();
-        if (_isDisposed) {
-          return;
-        }
-        await fetchCeanRealtimeBuses(updateUI: false);
-        if (_isDisposed) {
-          return;
-        }
-
-        // 준비 완료 후 한 번에 UI 반영
-        if (_tempRealtimeBuses != null) {
-          ceRealtimeBuses.clear();
-          ceRealtimeBuses.assignAll(_tempRealtimeBuses!);
-          _tempRealtimeBuses = null;
-        }
-        if (_tempCityBuses != null) {
-          upcomingCityBuses.value = _tempCityBuses!.take(3).toList();
-          if (_tempCityBusServiceEnded != null) {
-            isCityBusServiceEnded.value = _tempCityBusServiceEnded!;
-          }
-          if (_tempNextCityBuses != null) {
-            nextCityBusDepartures.assignAll(_tempNextCityBuses!);
-          }
-          _tempCityBuses = null;
-          _tempCityBusServiceEnded = null;
-          _tempNextCityBuses = null;
-        }
-      } else {
-        // 아산은 순차 갱신으로 충분
-        await loadCityBusData();
-        if (_isDisposed) {
-          return;
-        }
-        await loadShuttleData();
-        if (_isDisposed) {
-          return;
-        }
+      await loadCityBusData();
+      if (_isDisposed) {
+        return;
+      }
+      await loadShuttleData();
+      if (_isDisposed) {
+        return;
       }
 
       print('데이터 로드 완료');
@@ -361,6 +373,8 @@ class UpcomingDepartureViewModel extends GetxController
         if (enableAutoRefresh && isActive.value && isOnHomePage.value) {
           _startRefreshTimer();
         }
+        // 캠퍼스·활성 상태에 맞춰 천캠 실시간 연결을 맺거나 끊는다.
+        _syncCeanRealtimeConnection();
       }
     }
   }
@@ -376,10 +390,11 @@ class UpcomingDepartureViewModel extends GetxController
       loadData();
     } else {
       _stopRefreshTimer();
+      _syncCeanRealtimeConnection();
     }
   }
 
-  Future<void> loadCityBusData({bool updateUI = true}) async {
+  Future<void> loadCityBusData() async {
     try {
       // 현재 캠퍼스 기준 출발지 필터 결정
       final currentCampus = this.currentCampus;
@@ -498,23 +513,14 @@ class UpcomingDepartureViewModel extends GetxController
           ),
         );
       }
-      // 천안은 임시 버퍼, 그 외는 즉시 UI 갱신
-      if (updateUI) {
-        upcomingCityBuses.value = upcomingBuses.take(3).toList();
-        isCityBusServiceEnded.value = lastBusDeparted;
-        nextCityBusDepartures.assignAll(nextBuses);
-      } else {
-        _tempCityBuses = upcomingBuses;
-        _tempCityBusServiceEnded = lastBusDeparted;
-        _tempNextCityBuses = nextBuses;
-      }
+      upcomingCityBuses.value = upcomingBuses.take(3).toList();
+      isCityBusServiceEnded.value = lastBusDeparted;
+      nextCityBusDepartures.assignAll(nextBuses);
     } catch (e) {
       print('시내버스 데이터 로드 중 오류: $e');
-      if (updateUI) {
-        upcomingCityBuses.clear();
-        isCityBusServiceEnded.value = false; // 오류 시 false로 초기화
-        nextCityBusDepartures.clear();
-      }
+      upcomingCityBuses.clear();
+      isCityBusServiceEnded.value = false; // 오류 시 false로 초기화
+      nextCityBusDepartures.clear();
     }
   }
 
@@ -708,68 +714,114 @@ class UpcomingDepartureViewModel extends GetxController
     _ce81DownStops = stops81.sublist(idx81Start, idx81End + 1);
   }
 
-  Future<void> fetchCeanRealtimeBuses({bool updateUI = true}) async {
-    // 실시간 위치 불러오기
-    final data = await _shuttleRepository.fetchRealtimeBuses();
-    if (data == null) {
-      if (updateUI) {
-        ceRealtimeBuses.clear();
-      } else {
-        _tempRealtimeBuses = [];
-      }
+  // --- 천캠 실시간 위치 웹소켓 ---------------------------------------------
+
+  bool get _shouldConnectCeanRealtime =>
+      !_isDisposed &&
+      enableAutoRefresh &&
+      currentCampus == '천안' &&
+      isActive.value &&
+      isOnHomePage.value;
+
+  // 홈 천캠을 보고 있을 때만 연결을 유지한다.
+  void _syncCeanRealtimeConnection() {
+    if (_shouldConnectCeanRealtime) {
+      _connectCeanRealtime();
       return;
     }
-    var list = <BusDeparture>[];
-    // 24_DOWN
-    if (data['buses']['24_DOWN'] is List) {
-      for (var bus in data['buses']['24_DOWN']) {
-        final cur = bus['nodeord'].toString();
-        final idx = _ce24DownStops.indexOf(cur);
-        if (idx == -1) {
-          continue; // 각원사~호서대(천안) 범위 밖
-        }
-        if (idx < _ce24DownStops.length - 1) {
-          int left = _ce24DownStops.length - 1 - idx;
-          list.add(BusDeparture(
-            routeName: '24',
-            destination: '호서대천캠',
-            departureTime: bus['nodenm'],
-            minutesLeft: left,
-            routeKey: '24_DOWN',
-            isLastBus: false,
-          ));
-        }
-      }
-    }
-    // 81_DOWN
-    if (data['buses']['81_DOWN'] is List) {
-      for (var bus in data['buses']['81_DOWN']) {
-        final cur = bus['nodeord'].toString();
-        final idx = _ce81DownStops.indexOf(cur);
-        if (idx == -1) {
-          continue; // 각원사~호서대(천안) 범위 밖
-        }
-        if (idx < _ce81DownStops.length - 1) {
-          int left = _ce81DownStops.length - 1 - idx;
-          list.add(BusDeparture(
-            routeName: '81',
-            destination: '호서대천캠',
-            departureTime: bus['nodenm'],
-            minutesLeft: left,
-            routeKey: '81_DOWN',
-            isLastBus: false,
-          ));
-        }
-      }
-    }
-    // updateUI에 따라 즉시 업데이트 또는 임시 저장
-    // 정류장 위치가 '전', '전전', 'n전'일수록 더 위에 오도록 정렬 (남은 정거장 수 오름차순)
-    list.sort((a, b) => a.minutesLeft.compareTo(b.minutesLeft));
-    if (updateUI) {
+    _disconnectCeanRealtime();
+    if (currentCampus != '천안') {
+      _latestCeanPayload = null;
       ceRealtimeBuses.clear();
-      ceRealtimeBuses.assignAll(list);
-    } else {
-      _tempRealtimeBuses = list;
     }
+  }
+
+  void _connectCeanRealtime() {
+    // 이미 연결됐거나 다시 연결을 기다리는 중이면 그대로 둔다.
+    if (_ceanChannel != null || _ceanReconnectTimer != null) {
+      return;
+    }
+    final channel = WebSocketChannel.connect(_buildCeanWebSocketUri());
+    // 연결 실패는 아래 stream의 onError에서 처리한다. ready를 그냥 두면 처리 안 된 예외로 남는다.
+    channel.ready.ignore();
+    _ceanChannel = channel;
+    _ceanSubscription = channel.stream.listen(
+      (dynamic event) {
+        final Map<String, dynamic> payload;
+        try {
+          payload =
+              Map<String, dynamic>.from(jsonDecode(event.toString()) as Map);
+        } catch (_) {
+          return; // pong 같은 다른 메시지
+        }
+        _ceanReconnectAttempts = 0;
+        isRealtimeConnected.value = true;
+        _latestCeanPayload = payload;
+        _applyCeanRealtime();
+      },
+      onError: (_) => _handleCeanRealtimeClosed(channel),
+      onDone: () => _handleCeanRealtimeClosed(channel),
+      cancelOnError: true,
+    );
+  }
+
+  void _handleCeanRealtimeClosed(WebSocketChannel channel) {
+    if (!identical(channel, _ceanChannel)) {
+      return; // 이미 정리한 예전 연결
+    }
+    _closeCeanChannel();
+    if (!_shouldConnectCeanRealtime) {
+      return;
+    }
+    final seconds = math.min(
+      _ceanReconnectBaseSeconds * (1 << _ceanReconnectAttempts),
+      _ceanReconnectMaxSeconds,
+    );
+    _ceanReconnectAttempts = math.min(_ceanReconnectAttempts + 1, 4);
+    print('천캠 실시간 연결 끊김 -> $seconds초 뒤 다시 연결');
+    _ceanReconnectTimer = Timer(Duration(seconds: seconds), () {
+      _ceanReconnectTimer = null;
+      if (_shouldConnectCeanRealtime) {
+        _connectCeanRealtime();
+      }
+    });
+  }
+
+  void _closeCeanChannel() {
+    _ceanSubscription?.cancel();
+    _ceanSubscription = null;
+    _ceanChannel?.sink.close();
+    _ceanChannel = null;
+    isRealtimeConnected.value = false;
+  }
+
+  void _disconnectCeanRealtime() {
+    _ceanReconnectTimer?.cancel();
+    _ceanReconnectTimer = null;
+    _ceanReconnectAttempts = 0;
+    _closeCeanChannel();
+  }
+
+  void _applyCeanRealtime() {
+    final payload = _latestCeanPayload;
+    if (payload == null ||
+        _ce24DownStops.isEmpty ||
+        _ce81DownStops.isEmpty) {
+      return;
+    }
+    ceRealtimeBuses.assignAll(
+      buildCeanRealtimeBuses(payload, _ce24DownStops, _ce81DownStops),
+    );
+  }
+
+  Uri _buildCeanWebSocketUri() {
+    final Uri baseUri = Uri.parse(EnvConfig.baseUrl);
+    final String scheme = baseUri.scheme == 'https' ? 'wss' : 'ws';
+    return baseUri.replace(
+      scheme: scheme,
+      path: _ceanBusWebSocketPath,
+      queryParameters: null,
+      fragment: null,
+    );
   }
 }

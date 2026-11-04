@@ -245,17 +245,6 @@ class ShuttleRepository {
         .toList();
   }
 
-  Future<Map<String, dynamic>?> fetchRealtimeBuses() async {
-    // 셔틀 실시간 버스 목록 조회
-    final response = await _get('/buses', headers: _utf8Headers);
-
-    if (response.statusCode != 200) {
-      return null;
-    }
-
-    return _decodeMap(response.bodyBytes);
-  }
-
   Future<String?> fetchRouteName(int routeId) async {
     // 노선 ID로 노선명 1건 조회
     final routeList = await fetchRoutes(routeId: routeId);

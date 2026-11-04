@@ -355,16 +355,21 @@ class _UpcomingDeparturesWidgetState extends State<UpcomingDeparturesWidget>
     );
   }
 
-  // 천캠 헤더 오른쪽 표시. 5초마다 받는 중에도 글자를 바꾸지 않아 깜박이지 않는다.
+  // 천캠 헤더 오른쪽 표시. 실시간 연결이 끊겨 다시 연결하는 동안에는 점만 흐리게 한다.
   Widget _buildLiveLabel(BuildContext context) {
     final color = UpcomingDepartureColors.secondary(context);
+    final connected = viewModel.isRealtimeConnected.value;
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Container(
-          width: 6,
-          height: 6,
-          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        AnimatedOpacity(
+          opacity: connected ? 1 : 0.3,
+          duration: const Duration(milliseconds: 200),
+          child: Container(
+            width: 6,
+            height: 6,
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+          ),
         ),
         const SizedBox(width: 5),
         Text(
