@@ -6,6 +6,7 @@ import 'package:get/get.dart';
 import 'package:hsro/features/shuttle/models/shuttle_models.dart';
 import 'package:hsro/features/shuttle/view/naver_map_station_detail_view.dart';
 import 'package:hsro/features/shuttle/view/shuttle_station_map_view.dart';
+import 'package:hsro/shared/widgets/scale_button.dart';
 
 Future<ShuttleStation?> showShuttleStationPicker({
   required BuildContext context,
@@ -305,14 +306,16 @@ class _ShuttleStationPickerState extends State<_ShuttleStationPicker> {
     final foreground =
         selected ? _accentColor : onSurface.withValues(alpha: 0.8);
 
-    return Material(
-      color: selected
-          ? _accentColor.withValues(alpha: 0.1)
-          : onSurface.withValues(alpha: 0.05),
-      borderRadius: BorderRadius.circular(8),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(8),
+    // 앱 공통 누름 효과(살짝 작아짐 + 햅틱). onTap이 null이면 비활성으로 그대로 그린다.
+    return ScaleButton(
+      onTap: onTap,
+      child: Container(
+        decoration: BoxDecoration(
+          color: selected
+              ? _accentColor.withValues(alpha: 0.1)
+              : onSurface.withValues(alpha: 0.05),
+          borderRadius: BorderRadius.circular(8),
+        ),
         child: SizedBox(
           height: 36,
           child: Padding(
@@ -419,9 +422,12 @@ class _ShuttleStationPickerState extends State<_ShuttleStationPicker> {
     final theme = Theme.of(context);
     final isFavorite = widget.isStationFavorite(station);
 
-    return InkWell(
+    // 앱 공통 누름 효과(살짝 작아짐 + 햅틱)
+    return ScaleButton(
       onTap: () => Navigator.pop(context, station),
-      child: SizedBox(
+      child: Container(
+        // 글자 사이 빈 곳을 눌러도 반응하도록 투명 바탕을 깐다.
+        color: Colors.transparent,
         height: 56,
         child: Padding(
           padding: EdgeInsets.only(left: inset, right: inset - 8),

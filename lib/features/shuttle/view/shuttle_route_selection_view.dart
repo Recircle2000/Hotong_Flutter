@@ -722,7 +722,9 @@ class _ShuttleRouteSelectionViewState extends State<ShuttleRouteSelectionView> {
       excludeSemantics: true,
       child: ScaleButton(
         onTap: onTap,
-        child: SizedBox(
+        child: Container(
+          // 정류장 이름과 화살표 사이 빈 곳을 눌러도 반응하도록 투명 바탕을 깐다.
+          color: Colors.transparent,
           height: 56,
           child: Padding(
             padding: const EdgeInsets.only(left: 16, right: 8),
