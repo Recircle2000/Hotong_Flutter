@@ -6,26 +6,26 @@ void main() {
   DateTime at(int milliseconds) =>
       DateTime.fromMillisecondsSinceEpoch(milliseconds);
 
-  test('시각 3초, 막차 1.5초씩 번갈아 보여 준다', () {
+  test('시각 6초, 막차 1.5초씩 번갈아 보여 준다', () {
     expect(LastBusTimeLabel.phaseAt(at(0)), (
       true,
-      const Duration(milliseconds: 3000),
+      const Duration(milliseconds: 6000),
     ));
-    expect(LastBusTimeLabel.phaseAt(at(2999)), (
+    expect(LastBusTimeLabel.phaseAt(at(5999)), (
       true,
       const Duration(milliseconds: 1),
     ));
-    expect(LastBusTimeLabel.phaseAt(at(3000)), (
+    expect(LastBusTimeLabel.phaseAt(at(6000)), (
       false,
       const Duration(milliseconds: 1500),
     ));
-    expect(LastBusTimeLabel.phaseAt(at(4499)), (
+    expect(LastBusTimeLabel.phaseAt(at(7499)), (
       false,
       const Duration(milliseconds: 1),
     ));
-    expect(LastBusTimeLabel.phaseAt(at(4500)), (
+    expect(LastBusTimeLabel.phaseAt(at(7500)), (
       true,
-      const Duration(milliseconds: 3000),
+      const Duration(milliseconds: 6000),
     ));
   });
 

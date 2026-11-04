@@ -78,17 +78,56 @@ List<BusDeparture> buildCeanRealtimeBuses(
       if (idx == -1 || idx >= stops.length - 1) {
         continue;
       }
-      list.add(BusDeparture(
-        routeName: routeName,
-        destination: '호서대천캠',
-        departureTime: bus['nodenm'],
-        minutesLeft: stops.length - 1 - idx,
-        routeKey: routeKey,
-      ));
+      list.add(
+        BusDeparture(
+          routeName: routeName,
+          destination: '호서대천캠',
+          departureTime: bus['nodenm'],
+          minutesLeft: stops.length - 1 - idx,
+          routeKey: routeKey,
+        ),
+      );
     }
   }
   list.sort((a, b) => a.minutesLeft.compareTo(b.minutesLeft));
   return list;
+}
+
+/// 노선별로 막차로 표시할 출발 시각(오늘 [day] 기준)을 구한다.
+///
+/// 출발지와 종점이 같은 노선은 사용자에게 같은 버스이므로 묶어서 가장 늦은 한 대만 막차로 본다.
+/// 예: 810·820·821·822번 하행은 모두 호서대학교 기점 → 아산고속버스터미널이라
+/// 그날 마지막으로 터미널에 가는 한 대만 막차가 된다.
+Map<String, DateTime> lastBusTimeByRoute(
+  Map<String, dynamic> busData,
+  DateTime day,
+) {
+  final groupOf = <String, String>{};
+  final lastPerGroup = <String, DateTime>{};
+  busData.forEach((routeKey, routeData) {
+    if (routeKey == 'version' || routeData is! Map) return;
+    final List<dynamic> timeList = routeData['시간표'] ?? const [];
+    if (timeList.isEmpty) return;
+    final group = '${routeData['출발지']}→${routeData['종점']}';
+    groupOf[routeKey] = group;
+    for (final time in timeList) {
+      final parts = time.toString().split(':');
+      final departure = DateTime(
+        day.year,
+        day.month,
+        day.day,
+        int.parse(parts[0]),
+        int.parse(parts[1]),
+      );
+      final last = lastPerGroup[group];
+      if (last == null || departure.isAfter(last)) {
+        lastPerGroup[group] = departure;
+      }
+    }
+  });
+  return {
+    for (final entry in groupOf.entries) entry.key: lastPerGroup[entry.value]!,
+  };
 }
 
 class UpcomingDepartureViewModel extends GetxController
@@ -105,9 +144,10 @@ class UpcomingDepartureViewModel extends GetxController
   final settingsViewModel = Get.find<SettingsViewModel>();
   final RxString currentCampusRx = ''.obs;
 
-  String get currentCampus => campusOverride == null
-      ? settingsViewModel.selectedCampus.value
-      : currentCampusRx.value;
+  String get currentCampus =>
+      campusOverride == null
+          ? settingsViewModel.selectedCampus.value
+          : currentCampusRx.value;
 
   // 홈 공지 새로고침 연동용 NoticeViewModel 지연 조회
   NoticeViewModel? get noticeViewModel {
@@ -315,8 +355,13 @@ class UpcomingDepartureViewModel extends GetxController
   // 정각 직전에 깨어나 같은 분으로 계산하지 않도록 조금 늦게 예약한다.
   Duration _durationUntilNextMinute() {
     final now = DateTime.now();
-    final nextMinute =
-        DateTime(now.year, now.month, now.day, now.hour, now.minute + 1);
+    final nextMinute = DateTime(
+      now.year,
+      now.month,
+      now.day,
+      now.hour,
+      now.minute + 1,
+    );
     return nextMinute.difference(now) + const Duration(milliseconds: 200);
   }
 
@@ -399,9 +444,9 @@ class UpcomingDepartureViewModel extends GetxController
       // 현재 캠퍼스 기준 출발지 필터 결정
       final currentCampus = this.currentCampus;
       final Map<String, dynamic> busData = await BusTimesLoader.loadBusTimes();
-      final Map<String, DateTime> realLastBusTimePerRoute = {};
       final now = DateTime.now();
       final today = DateTime(now.year, now.month, now.day);
+      final realLastBusTimePerRoute = lastBusTimeByRoute(busData, today);
       final upcomingBuses = <BusDeparture>[];
       final String departurePlace =
           currentCampus == '천안' ? '각원사 회차지' : '호서대학교 기점';
@@ -411,18 +456,6 @@ class UpcomingDepartureViewModel extends GetxController
       String? nextBusRoute;
       // 노선 번호별 오늘 남은 가장 이른 출발
       final Map<String, DateTime> nextBusPerRoute = {};
-      // 노선별 실제 막차 시각 먼저 계산
-      busData.forEach((routeKey, routeData) {
-        if (routeKey == 'version') return; // version 필드는 무시
-        final List<dynamic> timeList = routeData['시간표'];
-        if (timeList.isEmpty) return;
-        final lastTimeStr = timeList.last;
-        final parts = lastTimeStr.split(':');
-        final hour = int.parse(parts[0]);
-        final minute = int.parse(parts[1]);
-        final lastDt = DateTime(now.year, now.month, now.day, hour, minute, 0);
-        realLastBusTimePerRoute[routeKey] = lastDt;
-      });
       // 90분 이내 출발 버스만 추출
       busData.forEach((routeKey, routeData) {
         if (routeKey == 'version') return;
@@ -434,8 +467,14 @@ class UpcomingDepartureViewModel extends GetxController
             final hour = int.parse(parts[0]);
             final minute = int.parse(parts[1]);
             final second = 0;
-            final departureTime =
-                DateTime(now.year, now.month, now.day, hour, minute, second);
+            final departureTime = DateTime(
+              now.year,
+              now.month,
+              now.day,
+              hour,
+              minute,
+              second,
+            );
             if (departureTime.year == today.year &&
                 departureTime.month == today.month &&
                 departureTime.day == today.day) {
@@ -492,9 +531,8 @@ class UpcomingDepartureViewModel extends GetxController
       }
       // 주요 노선(아캠 순환5·1000, 천캠 24·81)은 노선마다 다음 출발을 보여주고,
       // 주요 노선이 모두 끝났으면 남은 노선 중 가장 이른 한 대를 보여준다.
-      final mainRoutes = currentCampus == '천안'
-          ? const ['24', '81']
-          : const ['순환5', '1000'];
+      final mainRoutes =
+          currentCampus == '천안' ? const ['24', '81'] : const ['순환5', '1000'];
       final nextBuses = [
         for (final route in mainRoutes)
           if (nextBusPerRoute[route] != null)
@@ -558,7 +596,8 @@ class UpcomingDepartureViewModel extends GetxController
       } else {
         responseData = _cachedShuttleData!;
       }
-      scheduleTypeName.value = responseData['schedule_type_name'] ??
+      scheduleTypeName.value =
+          responseData['schedule_type_name'] ??
           responseData['schedule_type'] ??
           '';
       final List<dynamic> schedulesData = responseData['schedules'] ?? [];
@@ -616,8 +655,14 @@ class UpcomingDepartureViewModel extends GetxController
         final hour = int.parse(timeParts[0]);
         final minute = int.parse(timeParts[1]);
         final second = timeParts.length > 2 ? int.parse(timeParts[2]) : 0;
-        final departureTime =
-            DateTime(now.year, now.month, now.day, hour, minute, second);
+        final departureTime = DateTime(
+          now.year,
+          now.month,
+          now.day,
+          hour,
+          minute,
+          second,
+        );
         // 오늘 날짜의 셔틀만 체크
         if (departureTime.year == today.year &&
             departureTime.month == today.month &&
@@ -630,15 +675,17 @@ class UpcomingDepartureViewModel extends GetxController
                 lastShuttleTimePerRoute[routeId]!.isBefore(departureTime)) {
               lastShuttleTimePerRoute[routeId] = departureTime;
             }
-            upcomingShuttleList.add(BusDeparture(
-              routeName: '셔틀',
-              destination: routeNames[routeId] ?? '알 수 없음',
-              departureTime: departureTime,
-              minutesLeft: minutesLeft == 0 ? 1 : minutesLeft,
-              scheduleId: scheduleId,
-              isLastBus: false,
-              routeKey: 'shuttle_route_ $routeId',
-            ));
+            upcomingShuttleList.add(
+              BusDeparture(
+                routeName: '셔틀',
+                destination: routeNames[routeId] ?? '알 수 없음',
+                departureTime: departureTime,
+                minutesLeft: minutesLeft == 0 ? 1 : minutesLeft,
+                scheduleId: scheduleId,
+                isLastBus: false,
+                routeKey: 'shuttle_route_ $routeId',
+              ),
+            );
             lastShuttleDeparted = false;
           }
           if (difference.inSeconds > 0) {
@@ -655,9 +702,11 @@ class UpcomingDepartureViewModel extends GetxController
       // 각 노선의 마지막 스케줄이면 막차 표시
       for (int i = 0; i < upcomingShuttleList.length; i++) {
         final s = upcomingShuttleList[i];
-        final routeId = schedulesData.firstWhere(
-            (e) => e['schedule_id'] == s.scheduleId,
-            orElse: () => null)?['route_id'];
+        final routeId =
+            schedulesData.firstWhere(
+              (e) => e['schedule_id'] == s.scheduleId,
+              orElse: () => null,
+            )?['route_id'];
         if (routeId != null &&
             lastShuttleTimePerRoute[routeId] == s.departureTime) {
           upcomingShuttleList[i] = BusDeparture(
@@ -672,16 +721,18 @@ class UpcomingDepartureViewModel extends GetxController
         }
       }
       // 출발 임박 순으로 최대 3개 표시
-      upcomingShuttleList
-          .sort((a, b) => a.minutesLeft.compareTo(b.minutesLeft));
+      upcomingShuttleList.sort(
+        (a, b) => a.minutesLeft.compareTo(b.minutesLeft),
+      );
       upcomingShuttles.value = upcomingShuttleList.take(3).toList();
       isShuttleServiceEnded.value = lastShuttleDeparted;
-      nextShuttleDeparture.value = nextShuttleTime == null
-          ? null
-          : NextDepartureHint(
-              time: nextShuttleTime,
-              isFirstOfDay: !anyShuttleDeparted,
-            );
+      nextShuttleDeparture.value =
+          nextShuttleTime == null
+              ? null
+              : NextDepartureHint(
+                time: nextShuttleTime,
+                isFirstOfDay: !anyShuttleDeparted,
+              );
       if (upcomingShuttles.isNotEmpty &&
           upcomingShuttles[0].scheduleId != null) {
         selectedScheduleId.value = upcomingShuttles[0].scheduleId!;
@@ -697,14 +748,16 @@ class UpcomingDepartureViewModel extends GetxController
   Future<void> loadCeanStopSequences() async {
     // 천안 하행 노선 정류장 순서 로드
     final stopData24 = await BusStaticDataLoader.loadStopJson('24_DOWN');
-    final stops24 = (stopData24['response']['body']['items']['item'] as List)
-        .map<String>((e) => e['nodeord'].toString())
-        .toList();
+    final stops24 =
+        (stopData24['response']['body']['items']['item'] as List)
+            .map<String>((e) => e['nodeord'].toString())
+            .toList();
     // 81_DOWN
     final stopData81 = await BusStaticDataLoader.loadStopJson('81_DOWN');
-    final stops81 = (stopData81['response']['body']['items']['item'] as List)
-        .map<String>((e) => e['nodeord'].toString())
-        .toList();
+    final stops81 =
+        (stopData81['response']['body']['items']['item'] as List)
+            .map<String>((e) => e['nodeord'].toString())
+            .toList();
     // '각원사회차지'(회차지) 제외, '각원사'~'호서대(천안)' 범위만!
     var idx24Start = stops24.indexOf('2');
     var idx24End = stops24.indexOf('7');
@@ -749,8 +802,9 @@ class UpcomingDepartureViewModel extends GetxController
       (dynamic event) {
         final Map<String, dynamic> payload;
         try {
-          payload =
-              Map<String, dynamic>.from(jsonDecode(event.toString()) as Map);
+          payload = Map<String, dynamic>.from(
+            jsonDecode(event.toString()) as Map,
+          );
         } catch (_) {
           return; // pong 같은 다른 메시지
         }
@@ -804,9 +858,7 @@ class UpcomingDepartureViewModel extends GetxController
 
   void _applyCeanRealtime() {
     final payload = _latestCeanPayload;
-    if (payload == null ||
-        _ce24DownStops.isEmpty ||
-        _ce81DownStops.isEmpty) {
+    if (payload == null || _ce24DownStops.isEmpty || _ce81DownStops.isEmpty) {
       return;
     }
     ceRealtimeBuses.assignAll(

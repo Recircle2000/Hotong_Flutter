@@ -311,7 +311,7 @@ class UpcomingDepartureCard extends StatelessWidget {
   }
 }
 
-// 막차 출발 시각 자리. 빨간 글자로 시각을 3초, '막차'를 1.5초씩 번갈아 보여 준다.
+// 막차 출발 시각 자리. 빨간 글자로 시각을 6초, '막차'를 1.5초씩 번갈아 보여 준다.
 // 주기를 벽시계에 맞춰 화면에 막차가 여러 줄이어도 함께 바뀐다.
 // 애니메이션 줄이기를 켠 기기에서는 '막차 20:30'으로 고정한다.
 class LastBusTimeLabel extends StatefulWidget {
@@ -319,7 +319,7 @@ class LastBusTimeLabel extends StatefulWidget {
 
   final String time;
 
-  static const timePhase = Duration(milliseconds: 3000);
+  static const timePhase = Duration(milliseconds: 6000);
   static const lastBusPhase = Duration(milliseconds: 1500);
   static const fadeDuration = Duration(milliseconds: 300);
 
