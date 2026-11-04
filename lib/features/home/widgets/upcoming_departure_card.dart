@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:hsro/shared/widgets/auto_scroll_text.dart';
 import 'package:hsro/shared/widgets/scale_button.dart';
@@ -113,6 +115,9 @@ class UpcomingDepartureCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    // 막차는 출발 시각 자리에서 시각과 '막차'를 번갈아 보여 준다.
+    // 시각이 없는 줄(실시간 위치)만 둘째 줄 배지로 표시한다.
+    final lastBusInTrailing = isLastBus && trailingText != null;
 
     // 막차 배지 (카드 오른쪽 아래)
     final lastBusBadge = Container(
@@ -218,7 +223,9 @@ class UpcomingDepartureCard extends StatelessWidget {
                             ],
                           ),
                         ),
-                      if (trailingText != null)
+                      if (lastBusInTrailing)
+                        LastBusTimeLabel(time: trailingText!)
+                      else if (trailingText != null)
                         Text(
                           trailingText!,
                           maxLines: 1,
@@ -262,7 +269,7 @@ class UpcomingDepartureCard extends StatelessWidget {
                         ),
                       ),
                     ),
-                    if (isLastBus) lastBusBadge,
+                    if (isLastBus && !lastBusInTrailing) lastBusBadge,
                   ],
                 )
               else
@@ -293,12 +300,125 @@ class UpcomingDepartureCard extends StatelessWidget {
                         ),
                       ),
                     ),
-                    if (isLastBus) lastBusBadge,
+                    if (isLastBus && !lastBusInTrailing) lastBusBadge,
                   ],
                 ),
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+// 막차 출발 시각 자리. 빨간 글자로 시각을 3초, '막차'를 1.5초씩 번갈아 보여 준다.
+// 주기를 벽시계에 맞춰 화면에 막차가 여러 줄이어도 함께 바뀐다.
+// 애니메이션 줄이기를 켠 기기에서는 '막차 20:30'으로 고정한다.
+class LastBusTimeLabel extends StatefulWidget {
+  const LastBusTimeLabel({super.key, required this.time});
+
+  final String time;
+
+  static const timePhase = Duration(milliseconds: 3000);
+  static const lastBusPhase = Duration(milliseconds: 1500);
+  static const fadeDuration = Duration(milliseconds: 300);
+
+  // 지금 시각을 보여 줄 차례인지와 다음 전환까지 남은 시간
+  static (bool showTime, Duration untilNext) phaseAt(DateTime now) {
+    final cycle = timePhase.inMilliseconds + lastBusPhase.inMilliseconds;
+    final position = now.millisecondsSinceEpoch % cycle;
+    if (position < timePhase.inMilliseconds) {
+      return (
+        true,
+        Duration(milliseconds: timePhase.inMilliseconds - position),
+      );
+    }
+    return (false, Duration(milliseconds: cycle - position));
+  }
+
+  @override
+  State<LastBusTimeLabel> createState() => _LastBusTimeLabelState();
+}
+
+class _LastBusTimeLabelState extends State<LastBusTimeLabel> {
+  Timer? _timer;
+  bool _showTime = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _scheduleNext();
+  }
+
+  void _scheduleNext() {
+    final (showTime, untilNext) = LastBusTimeLabel.phaseAt(DateTime.now());
+    _showTime = showTime;
+    // 경계 직전에 깨어나 같은 차례로 계산하지 않도록 조금 늦게 깨운다.
+    _timer = Timer(untilNext + const Duration(milliseconds: 20), () {
+      if (!mounted) return;
+      setState(_scheduleNext);
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final color =
+        isDarkMode ? const Color(0xFFFF8A80) : const Color(0xFFB42318);
+    final timeStyle = TextStyle(
+      fontSize: 14,
+      fontWeight: FontWeight.w600,
+      fontFeatures: tabularFigures,
+      color: color,
+    );
+    final label = Text(
+      '막차',
+      maxLines: 1,
+      softWrap: false,
+      style: timeStyle.copyWith(fontSize: 13),
+    );
+    final time = Text(
+      widget.time,
+      maxLines: 1,
+      softWrap: false,
+      style: timeStyle,
+    );
+
+    if (MediaQuery.maybeDisableAnimationsOf(context) ?? false) {
+      return Semantics(
+        label: '막차 ${widget.time}',
+        excludeSemantics: true,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [label, const SizedBox(width: 4), time],
+        ),
+      );
+    }
+
+    // 두 글자를 겹쳐 두고 투명도만 바꿔, 폭이 바뀌어 옆 글자가 흔들리지 않게 한다.
+    return Semantics(
+      label: '막차 ${widget.time}',
+      excludeSemantics: true,
+      child: Stack(
+        alignment: Alignment.centerRight,
+        children: [
+          AnimatedOpacity(
+            opacity: _showTime ? 1 : 0,
+            duration: LastBusTimeLabel.fadeDuration,
+            child: time,
+          ),
+          AnimatedOpacity(
+            opacity: _showTime ? 0 : 1,
+            duration: LastBusTimeLabel.fadeDuration,
+            child: label,
+          ),
+        ],
       ),
     );
   }
