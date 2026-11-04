@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:tutorial_coach_mark/tutorial_coach_mark.dart';
 import 'package:hsro/core/utils/bus_times_loader.dart';
@@ -9,6 +8,7 @@ import 'package:hsro/features/notice/models/emergency_notice_model.dart';
 import 'package:hsro/features/notice/widgets/emergency_notice_banner.dart';
 import 'package:hsro/features/settings/viewmodel/settings_viewmodel.dart';
 import 'package:hsro/shared/widgets/auto_scroll_text.dart';
+import 'package:hsro/shared/widgets/scale_button.dart';
 
 class CityBusGroupedView extends StatefulWidget {
   final String? forcedCampus;
@@ -571,13 +571,13 @@ class _CityBusGroupedViewState extends State<CityBusGroupedView> {
       final nextDepartureTime = _getNextDepartureTime(routeKey);
       final isOperating = nextDepartureTime.startsWith('출발: ');
 
-      return InkWell(
+      // 앱 공통 누름 효과(살짝 작아짐 + 햅틱)
+      return ScaleButton(
         key: isFirstExperienceRoute ? _firstRouteKey : null,
-        onTap: () {
-          HapticFeedback.lightImpact();
-          Get.to(() => BusMapView(initialRoute: routeKey));
-        },
-        child: Padding(
+        onTap: () => Get.to(() => BusMapView(initialRoute: routeKey)),
+        child: Container(
+          // 글자 사이 빈 곳을 눌러도 반응하도록 투명 바탕을 깐다.
+          color: Colors.transparent,
           padding: const EdgeInsets.fromLTRB(16, 12, 8, 12),
           child: Row(
             children: [
