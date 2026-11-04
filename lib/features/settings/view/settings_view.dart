@@ -4,9 +4,11 @@ import 'package:get/get.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:hsro/core/constants/app_links.dart';
+import 'package:hsro/core/repository/bus_data_history_repository.dart';
 import 'package:hsro/core/utils/bus_static_data_loader.dart';
 import 'package:hsro/core/utils/bus_times_loader.dart';
 import 'package:hsro/features/guide/view/guide_selection_view.dart';
+import 'package:hsro/features/settings/view/bus_data_history_view.dart';
 import 'package:hsro/features/settings/viewmodel/settings_viewmodel.dart';
 import 'package:hsro/shared/widgets/scale_button.dart';
 
@@ -41,7 +43,7 @@ class SettingsView extends StatelessWidget {
                   child: Text(
                     '설정',
                     style: theme.textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.bold,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                 ),
@@ -81,7 +83,7 @@ class SettingsView extends StatelessWidget {
                           context,
                           title: '위치 기반 위젯 활성화',
                           description:
-                              '캠퍼스 밖에서는 등교\n(동남구,서북구 셔틀 미지원)\n캠퍼스 안에서는 하교정보 표시',
+                              '캠퍼스 밖에서는 등교 정보,\n캠퍼스 안에서는 하교 정보 표시\n동남구·서북구 셔틀 미지원',
                           value: controller
                               .isLocationBasedDepartureWidgetEnabled.value,
                           onChanged: (enabled) {
@@ -127,7 +129,7 @@ class SettingsView extends StatelessWidget {
     // 설정 카드 공통 배경 스타일
     return BoxDecoration(
       color: cardColor,
-      borderRadius: BorderRadius.circular(24),
+      borderRadius: BorderRadius.circular(16),
     );
   }
 
@@ -155,10 +157,10 @@ class SettingsView extends StatelessWidget {
         ),
         const SizedBox(width: 16),
         Container(
-          padding: const EdgeInsets.all(3),
+          padding: const EdgeInsets.all(4),
           decoration: BoxDecoration(
             color: theme.colorScheme.onSurface.withValues(alpha: 0.06),
-            borderRadius: BorderRadius.circular(11),
+            borderRadius: BorderRadius.circular(12),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
@@ -191,6 +193,10 @@ class SettingsView extends StatelessWidget {
   }) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    // 선택된 칸은 트랙보다 한 단계 밝게 띄운다(다크 모드에서는 surface가 트랙보다 어둡다).
+    final selectedColor = theme.brightness == Brightness.dark
+        ? Colors.white.withValues(alpha: 0.14)
+        : colorScheme.surface;
 
     return Semantics(
       button: true,
@@ -204,9 +210,9 @@ class SettingsView extends StatelessWidget {
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 160),
             curve: Curves.easeOutCubic,
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
-              color: isSelected ? colorScheme.surface : Colors.transparent,
+              color: isSelected ? selectedColor : Colors.transparent,
               borderRadius: BorderRadius.circular(8),
             ),
             child: AnimatedDefaultTextStyle(
@@ -229,11 +235,11 @@ class SettingsView extends StatelessWidget {
   Widget _buildSectionDivider(BuildContext context) {
     // 섹션 사이 구분선
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 14),
+      padding: const EdgeInsets.symmetric(vertical: 16),
       child: Divider(
         height: 1,
         thickness: 1,
-        color: Theme.of(context).dividerColor.withValues(alpha: 0.12),
+        color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.08),
       ),
     );
   }
@@ -258,7 +264,7 @@ class SettingsView extends StatelessWidget {
               Text(
                 title,
                 style: textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.w700,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
               const SizedBox(height: 4),
@@ -320,7 +326,7 @@ class SettingsView extends StatelessWidget {
                   Text(
                     title,
                     style: textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w700,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                   const SizedBox(height: 4),
@@ -336,7 +342,7 @@ class SettingsView extends StatelessWidget {
             ),
             Icon(
               Icons.chevron_right_rounded,
-              color: Colors.grey[500],
+              color: theme.hintColor,
             ),
           ],
         ),
@@ -348,155 +354,181 @@ class SettingsView extends StatelessWidget {
     final theme = Theme.of(context);
 
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
-      decoration: BoxDecoration(
-        color: theme.cardColor.withValues(alpha: 0.5),
-        borderRadius: BorderRadius.circular(20),
-      ),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+      decoration: _buildCardDecoration(context, theme.cardColor),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // 앱 버전과 버스 데이터 버전 표시
           Text(
             '앱 정보',
             style: theme.textTheme.titleSmall?.copyWith(
-              fontWeight: FontWeight.w700,
+              fontWeight: FontWeight.w600,
             ),
           ),
-          const SizedBox(height: 10),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              FutureBuilder<PackageInfo>(
-                future: PackageInfo.fromPlatform(),
-                builder: (context, snapshot) {
-                  if (!snapshot.hasData) {
-                    return const SizedBox.shrink();
-                  }
-                  // 앱 버전 뱃지
-                  return _buildInfoBadge(
-                    context,
-                    '앱 ${snapshot.data!.version}',
-                  );
-                },
-              ),
-              FutureBuilder<Map<String, dynamic>>(
-                future: BusTimesLoader.loadBusTimes(),
-                builder: (context, snapshot) {
-                  if (!snapshot.hasData) {
-                    return const SizedBox.shrink();
-                  }
-                  final version = snapshot.data!['version'] ?? '-';
-                  // 시내버스 시간표 데이터 버전 뱃지
-                  return _buildInfoBadge(
-                    context,
-                    '시내버스시간표 $version',
-                  );
-                },
-              ),
-              FutureBuilder<String?>(
-                future: BusStaticDataLoader.loadActiveVersion(),
-                builder: (context, snapshot) {
-                  if (!snapshot.hasData) {
-                    return const SizedBox.shrink();
-                  }
-                  final version = snapshot.data ?? '-';
-                  // 시내버스 노선/정류장 데이터 버전 뱃지
-                  return _buildInfoBadge(
-                    context,
-                    '시내버스노선 $version',
-                  );
-                },
-              ),
-            ],
+          const SizedBox(height: 8),
+          // 앱 버전과 버스 데이터 버전 표시
+          FutureBuilder<PackageInfo>(
+            future: PackageInfo.fromPlatform(),
+            builder: (context, snapshot) {
+              if (!snapshot.hasData) {
+                return const SizedBox.shrink();
+              }
+              return _buildInfoRow(context, '앱', snapshot.data!.version);
+            },
           ),
-          const SizedBox(height: 12),
-          // 정책/라이선스/피드백 외부 링크
-          Wrap(
-            spacing: 12,
-            runSpacing: 6,
-            children: [
-              _buildTextButton(
+          FutureBuilder<Map<String, dynamic>>(
+            future: BusTimesLoader.loadBusTimes(),
+            builder: (context, snapshot) {
+              if (!snapshot.hasData) {
+                return const SizedBox.shrink();
+              }
+              final version = snapshot.data!['version'] ?? '-';
+              return _buildInfoRow(
                 context,
-                '개인정보처리방침      ',
-                () async {
-                  // 개인정보처리방침 문서 열기
-                  final Uri url = Uri.parse(
-                      'https://www.notion.so/1eda668f263380ff92aae3ac8b74b157?pvs=4');
-                  if (await canLaunchUrl(url)) {
-                    await launchUrl(url, mode: LaunchMode.externalApplication);
-                  }
-                },
-              ),
-              _buildTextButton(
+                '시내버스 시간표',
+                '$version',
+                onTap: () => Get.to(() => BusDataHistoryView(
+                      kind: BusDataHistoryKind.timetable,
+                      currentVersion: '$version',
+                    )),
+              );
+            },
+          ),
+          FutureBuilder<String?>(
+            future: BusStaticDataLoader.loadActiveVersion(),
+            builder: (context, snapshot) {
+              if (!snapshot.hasData) {
+                return const SizedBox.shrink();
+              }
+              final version = snapshot.data ?? '-';
+              return _buildInfoRow(
                 context,
-                '오픈소스 라이선스',
-                () async {
-                  // Flutter 기본 라이선스 페이지 표시
-                  final packageInfo = await PackageInfo.fromPlatform();
-                  if (context.mounted) {
-                    showLicensePage(
-                      context: context,
-                      applicationName: '호통',
-                      applicationVersion: packageInfo.version,
-                      applicationLegalese:
-                          '© 2026 호통\n\n이 앱은 다음 오픈소스 라이브러리들을 사용합니다:',
-                    );
-                  }
-                },
-              ),
-              _buildTextButton(
-                context,
-                '피드백/지원',
-                () async {
-                  // 피드백 접수 폼 열기
-                  final Uri url = Uri.parse(feedbackFormUrl);
-                  if (await canLaunchUrl(url)) {
-                    await launchUrl(url, mode: LaunchMode.externalApplication);
-                  }
-                },
-              ),
-            ],
+                '시내버스 노선',
+                version,
+                onTap: () => Get.to(() => BusDataHistoryView(
+                      kind: BusDataHistoryKind.route,
+                      currentVersion: version,
+                    )),
+              );
+            },
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Divider(
+              height: 1,
+              thickness: 1,
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.08),
+            ),
+          ),
+          // 정책/라이선스/피드백 링크
+          _buildLinkRow(
+            context,
+            '개인정보처리방침',
+            () async {
+              // 개인정보처리방침 문서 열기
+              final Uri url = Uri.parse(
+                  'https://www.notion.so/1eda668f263380ff92aae3ac8b74b157?pvs=4');
+              if (await canLaunchUrl(url)) {
+                await launchUrl(url, mode: LaunchMode.externalApplication);
+              }
+            },
+          ),
+          _buildLinkRow(
+            context,
+            '오픈소스 라이선스',
+            () async {
+              // Flutter 기본 라이선스 페이지 표시
+              final packageInfo = await PackageInfo.fromPlatform();
+              if (context.mounted) {
+                showLicensePage(
+                  context: context,
+                  applicationName: '호통',
+                  applicationVersion: packageInfo.version,
+                  applicationLegalese:
+                      '© 2026 호통\n\n이 앱은 다음 오픈소스 라이브러리들을 사용합니다:',
+                );
+              }
+            },
+          ),
+          _buildLinkRow(
+            context,
+            '피드백/지원',
+            () async {
+              // 피드백 접수 폼 열기
+              final Uri url = Uri.parse(feedbackFormUrl);
+              if (await canLaunchUrl(url)) {
+                await launchUrl(url, mode: LaunchMode.externalApplication);
+              }
+            },
           ),
         ],
       ),
     );
   }
 
-  Widget _buildInfoBadge(BuildContext context, String label) {
+  // 버전 정보 한 줄: 왼쪽 이름, 오른쪽 고정폭 값. onTap이 있으면 변경이력으로 이동한다.
+  Widget _buildInfoRow(
+    BuildContext context,
+    String label,
+    String value, {
+    VoidCallback? onTap,
+  }) {
     final theme = Theme.of(context);
+    final style = theme.textTheme.bodySmall;
 
-    // 버전 정보용 배지
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: theme.scaffoldBackgroundColor.withValues(alpha: 0.55),
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Text(
-        label,
-        style: theme.textTheme.bodySmall?.copyWith(
-          fontWeight: FontWeight.w600,
-        ),
+    final row = Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              label,
+              style: style?.copyWith(color: theme.hintColor),
+            ),
+          ),
+          Text(
+            value,
+            style: style?.copyWith(
+              fontWeight: FontWeight.w500,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
+          ),
+          if (onTap != null)
+            Icon(
+              Icons.chevron_right_rounded,
+              size: 16,
+              color: theme.hintColor,
+            ),
+        ],
       ),
     );
+    return onTap == null ? row : ScaleButton(onTap: onTap, child: row);
   }
 
-  Widget _buildTextButton(
-      BuildContext context, String label, VoidCallback onTap) {
-    // 설정 하단 링크 스타일 버튼
+  // 설정 하단 링크 한 줄
+  Widget _buildLinkRow(BuildContext context, String label, VoidCallback onTap) {
+    final theme = Theme.of(context);
+
     return ScaleButton(
       onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 13,
-            color: Colors.blue[700],
-            fontWeight: FontWeight.w500,
-          ),
+      child: SizedBox(
+        height: 40,
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                label,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.72),
+                ),
+              ),
+            ),
+            Icon(
+              Icons.chevron_right_rounded,
+              size: 18,
+              color: theme.hintColor,
+            ),
+          ],
         ),
       ),
     );

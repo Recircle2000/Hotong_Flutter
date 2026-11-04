@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'dart:io' show Platform;
 import 'package:hsro/features/subway/models/subway_schedule_model.dart';
 import 'package:hsro/features/subway/viewmodel/subway_schedule_viewmodel.dart';
+import 'package:hsro/features/subway/widgets/subway_segmented_control.dart';
 
 class SubwayScheduleView extends StatefulWidget {
   final String? initialStationName;
@@ -62,46 +62,70 @@ class _SubwayScheduleViewState extends State<SubwayScheduleView> {
     controller.changeStation(station);
   }
 
+  static const List<FontFeature> _tabular = [FontFeature.tabularFigures()];
+
+  // 급행·행선지 구분색: 라이트는 흰 배경 대비를 맞춘 진한 톤, 다크는 밝은 톤
+  Color _expressColor(bool dark) =>
+      dark ? const Color(0xFFFF7A6E) : const Color(0xFFD23F31);
+  Color _guroColor(bool dark) =>
+      dark ? const Color(0xFF8FB0FF) : const Color(0xFF2F62D0);
+  Color _byeongjeomColor(bool dark) =>
+      dark ? const Color(0xFF6FCB8F) : const Color(0xFF27804A);
+  Color _cheonanColor(bool dark) =>
+      dark ? const Color(0xFFF2B35B) : const Color(0xFFA35F00);
+
+  bool _isDark(BuildContext context) =>
+      Theme.of(context).brightness == Brightness.dark;
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: SafeArea(
-        child: Column(
-          children: [
-            // 상단 헤더
-            _buildHeader(context),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0),
-              child: Column(
-                children: [
-                  // 역 선택 토글
-                  _buildStationSelector(context),
-                  const SizedBox(height: 16),
-                  // 평일/주말 선택과 급행 안내
-                  _buildDayTypeAndLegendRow(context),
-                  const SizedBox(height: 16),
-                ],
-              ),
-            ),
-            // 천안역/아산역 시간표 페이지 전환
-            Expanded(
-              child: PageView(
-                controller: _pageController,
-                onPageChanged: _onPageChanged,
-                physics: const BouncingScrollPhysics(),
-                children: [
-                  _buildScheduleContent(context, '천안'),
-                  _buildScheduleContent(context, '아산'),
-                ],
-              ),
-            ),
-          ],
+      appBar: AppBar(
+        title: const Text(
+          '지하철 시간표',
+          style: TextStyle(fontWeight: FontWeight.w600),
         ),
+      ),
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
+            child: Column(
+              children: [
+                // 역 선택 토글
+                Obx(
+                  () => SubwaySegmentedControl(
+                    labels: const ['천안역', '아산역'],
+                    selectedIndex:
+                        controller.selectedStation.value == '아산' ? 1 : 0,
+                    onChanged: (i) => _onStationTapped(i == 0 ? '천안' : '아산'),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                // 평일/주말 선택과 행선지 범례
+                _buildDayTypeAndLegendRow(context),
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
+          // 천안역/아산역 시간표 페이지 전환
+          Expanded(
+            child: PageView(
+              controller: _pageController,
+              onPageChanged: _onPageChanged,
+              children: [
+                _buildScheduleContent(context, '천안'),
+                _buildScheduleContent(context, '아산'),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
 
   Widget _buildScheduleContent(BuildContext context, String station) {
+    final hintColor = Theme.of(context).hintColor;
     return Obx(() {
       // 현재 선택한 역과 일치할 때만 실제 시간표 표시
       if (controller.selectedStation.value != station) {
@@ -112,12 +136,17 @@ class _SubwayScheduleViewState extends State<SubwayScheduleView> {
         return const Center(child: CircularProgressIndicator.adaptive());
       }
       if (controller.error.value.isNotEmpty) {
-        return Center(child: Text(controller.error.value));
+        return Center(
+          child: Text(controller.error.value,
+              style: TextStyle(color: hintColor)),
+        );
       }
 
       final schedule = controller.scheduleData.value;
       if (schedule == null) {
-        return const Center(child: Text('데이터가 없습니다.'));
+        return Center(
+          child: Text('시간표 정보가 없어요', style: TextStyle(color: hintColor)),
+        );
       }
 
       // 상행/하행 섹션으로 나눠 시간표 표시
@@ -127,8 +156,7 @@ class _SubwayScheduleViewState extends State<SubwayScheduleView> {
           _buildSectionContainer(
             context,
             title: '상행',
-            subtitle: '(서울/병점/천안)',
-            icon: Icons.arrow_circle_up,
+            subtitle: '서울·병점·천안 방면',
             isExpanded: controller.isUpExpanded.value,
             items: schedule.timetable['상행'] ?? [],
             onTap: () => controller.isUpExpanded.toggle(),
@@ -138,8 +166,7 @@ class _SubwayScheduleViewState extends State<SubwayScheduleView> {
           _buildSectionContainer(
             context,
             title: '하행',
-            subtitle: '(신창/아산)',
-            icon: Icons.arrow_circle_down,
+            subtitle: '신창·아산 방면',
             isExpanded: controller.isDownExpanded.value,
             items: schedule.timetable['하행'] ?? [],
             onTap: () => controller.isDownExpanded.toggle(),
@@ -149,7 +176,7 @@ class _SubwayScheduleViewState extends State<SubwayScheduleView> {
               !controller.isDownExpanded.value)
             Expanded(child: _buildFooter(context)),
           if (controller.isUpExpanded.value || controller.isDownExpanded.value)
-            const SizedBox(height: 16), // Bottom spacing
+            const SizedBox(height: 16),
         ],
       );
     });
@@ -159,21 +186,19 @@ class _SubwayScheduleViewState extends State<SubwayScheduleView> {
     BuildContext context, {
     required String title,
     required String subtitle,
-    required IconData icon,
     required bool isExpanded,
     required List<SubwayScheduleItem> items,
     required VoidCallback onTap,
   }) {
     // 접힘/펼침 가능한 상행/하행 시간표 섹션
     final header =
-        _buildSectionHeader(context, title, subtitle, icon, isExpanded, onTap);
+        _buildSectionHeader(context, title, subtitle, isExpanded, onTap);
 
     if (!isExpanded) {
       return header;
     }
 
     return Expanded(
-      flex: 1,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -181,19 +206,19 @@ class _SubwayScheduleViewState extends State<SubwayScheduleView> {
           Expanded(
             child: TweenAnimationBuilder<double>(
               tween: Tween(begin: 0.0, end: 1.0),
-              duration: const Duration(milliseconds: 350),
+              duration: const Duration(milliseconds: 250),
               curve: Curves.easeOutCubic,
               builder: (context, value, child) {
                 return Opacity(
                   opacity: value,
                   child: Transform.translate(
-                    offset: Offset(0, 20 * (1 - value)),
+                    offset: Offset(0, 8 * (1 - value)),
                     child: child,
                   ),
                 );
               },
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: _buildTimeTableGrid(context, items),
               ),
             ),
@@ -204,135 +229,44 @@ class _SubwayScheduleViewState extends State<SubwayScheduleView> {
   }
 
   Widget _buildSectionHeader(BuildContext context, String title,
-      String subtitle, IconData icon, bool isExpanded, VoidCallback onTap) {
+      String subtitle, bool isExpanded, VoidCallback onTap) {
+    final hintColor = Theme.of(context).hintColor;
     // 섹션 헤더 탭 시 펼침 상태 전환
-    return GestureDetector(
+    return InkWell(
       onTap: onTap,
-      child: Container(
-        color: Theme.of(context).scaffoldBackgroundColor,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Row(
-              children: [
-                Icon(icon, color: const Color(0xFF0052A4), size: 24),
-                const SizedBox(width: 8),
-                Text(
-                  title,
-                  style: const TextStyle(
-                      fontSize: 18, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(width: 4),
-                Text(
+      child: SizedBox(
+        height: 52,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          child: Row(
+            children: [
+              const SubwayLineMark(),
+              const SizedBox(width: 8),
+              Text(
+                title,
+                style:
+                    const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
                   subtitle,
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.normal,
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 13, color: hintColor),
                 ),
-              ],
-            ),
-            Icon(
-              isExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-            )
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildHeader(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          IconButton(
-            onPressed: () => Get.back(),
-            icon: Icon(Platform.isIOS ? Icons.arrow_back_ios : Icons.arrow_back,
-                color: Theme.of(context).colorScheme.onBackground),
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(),
-            style: IconButton.styleFrom(
-              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            ),
-          ),
-          const Text(
-            '지하철 시간표',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(width: 24),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStationSelector(BuildContext context) {
-    return Obx(() {
-      final isCheonan = controller.selectedStation.value == '천안';
-      // 두 역 중 하나를 고르는 토글 UI
-      return Container(
-        padding: const EdgeInsets.all(4),
-        decoration: BoxDecoration(
-          color: Theme.of(context).cardColor,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-              color: Theme.of(context).dividerColor.withOpacity(0.1)),
-        ),
-        child: Row(
-          children: [
-            Expanded(
-              child: _buildToggleButton(
-                context,
-                text: '천안역',
-                isSelected: isCheonan,
-                onTap: () => _onStationTapped('천안'),
               ),
-            ),
-            const SizedBox(width: 4),
-            Expanded(
-              child: _buildToggleButton(
-                context,
-                text: '아산역',
-                isSelected: !isCheonan,
-                onTap: () => _onStationTapped('아산'),
+              AnimatedRotation(
+                turns: isExpanded ? 0.5 : 0,
+                duration: const Duration(milliseconds: 200),
+                curve: Curves.easeOutCubic,
+                child: Icon(
+                  Icons.keyboard_arrow_down_rounded,
+                  size: 20,
+                  color: hintColor,
+                ),
               ),
-            ),
-          ],
-        ),
-      );
-    });
-  }
-
-  Widget _buildToggleButton(BuildContext context,
-      {required String text,
-      required bool isSelected,
-      required VoidCallback onTap}) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        // 선택 상태 전환을 부드럽게 표시
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(vertical: 10),
-        decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFF0052A4) : Colors.transparent,
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Text(
-          text,
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            fontSize: 14,
-            fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-            color: isSelected
-                ? Colors.white
-                : Theme.of(context).colorScheme.onSurfaceVariant,
+            ],
           ),
         ),
       ),
@@ -341,138 +275,78 @@ class _SubwayScheduleViewState extends State<SubwayScheduleView> {
 
   Widget _buildDayTypeAndLegendRow(BuildContext context) {
     return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        // Express & Destination Legend
-        Obx(() {
-          final isCheonanStation = controller.selectedStation.value == '천안';
-          final legendItems = <Widget>[
-            _buildLegendItem(context, '급행', Colors.red),
-            _buildLegendItem(context, '구로행', Colors.blue),
-            _buildLegendItem(context, '병점행', Colors.green),
-            if (!isCheonanStation)
-              _buildLegendItem(context, '천안행', Colors.orange),
-          ];
-
-          Widget buildLegendRow(List<Widget> items) {
-            return Row(
-              mainAxisSize: MainAxisSize.min,
+        // 급행·행선지 범례
+        Expanded(
+          child: Obx(() {
+            final dark = _isDark(context);
+            final isCheonanStation = controller.selectedStation.value == '천안';
+            return Wrap(
+              spacing: 10,
+              runSpacing: 4,
               children: [
-                for (int i = 0; i < items.length; i++) ...[
-                  if (i > 0) const SizedBox(width: 6),
-                  items[i],
-                ],
+                _buildLegendItem(context, '급행', _expressColor(dark)),
+                _buildLegendItem(context, '구로행', _guroColor(dark)),
+                _buildLegendItem(context, '병점행', _byeongjeomColor(dark)),
+                if (!isCheonanStation)
+                  _buildLegendItem(context, '천안행', _cheonanColor(dark)),
               ],
             );
-          }
-
-          return Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-              color: Theme.of(context).brightness == Brightness.dark
-                  ? Colors.grey[800]
-                  : Colors.grey[100],
-              borderRadius: BorderRadius.circular(4),
-              border: Border.all(
-                  color: Theme.of(context).dividerColor.withOpacity(0.2)),
+          }),
+        ),
+        const SizedBox(width: 12),
+        // 평일/주말 선택
+        SizedBox(
+          width: 144,
+          child: Obx(
+            () => SubwaySegmentedControl(
+              labels: const ['평일', '토·공휴일'],
+              selectedIndex: controller.selectedDayType.value == '평일' ? 0 : 1,
+              onChanged: (i) => controller.changeDayType(i == 0 ? '평일' : '주말'),
+              height: 36,
+              fontSize: 13,
             ),
-            child: legendItems.length == 4
-                ? Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      buildLegendRow(legendItems.sublist(0, 2)),
-                      const SizedBox(height: 4),
-                      buildLegendRow(legendItems.sublist(2, 4)),
-                    ],
-                  )
-                : buildLegendRow(legendItems),
-          );
-        }),
-
-        // Day Type Selectors
-        Obx(() {
-          final isWeekday = controller.selectedDayType.value == '평일';
-          return Container(
-            decoration: BoxDecoration(
-              color: Theme.of(context).brightness == Brightness.dark
-                  ? const Color(0xFF1E1E1E)
-                  : Colors.grey[100],
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(
-                  color: Theme.of(context).dividerColor.withOpacity(0.1)),
-            ),
-            padding: const EdgeInsets.all(4),
-            child: Row(
-              children: [
-                _buildDayTypeButton(context, '평일', isWeekday,
-                    () => controller.changeDayType('평일')),
-                _buildDayTypeButton(context, '토요일/공휴일', !isWeekday,
-                    () => controller.changeDayType('주말')),
-              ],
-            ),
-          );
-        }),
+          ),
+        ),
       ],
     );
   }
 
   Widget _buildLegendItem(BuildContext context, String label, Color color) {
     return Row(
+      mainAxisSize: MainAxisSize.min,
       children: [
-        CircleAvatar(backgroundColor: color, radius: 4),
+        Container(
+          width: 8,
+          height: 8,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
         const SizedBox(width: 4),
         Text(
           label,
-          style: TextStyle(
-            fontSize: 12,
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
-            fontWeight: FontWeight.w500,
-          ),
+          style: TextStyle(fontSize: 12, color: Theme.of(context).hintColor),
         ),
       ],
     );
   }
 
-  Widget _buildDayTypeButton(
-      BuildContext context, String text, bool isSelected, VoidCallback onTap) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-        decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFF0052A4) : Colors.transparent,
-          borderRadius: BorderRadius.circular(6),
-        ),
-        child: Text(
-          text,
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-            color: isSelected ? Colors.white : Theme.of(context).hintColor,
-          ),
-        ),
-      ),
-    );
-  }
-
   Widget _buildTimeTableGrid(
       BuildContext context, List<SubwayScheduleItem> items) {
+    final theme = Theme.of(context);
+    final hintColor = theme.hintColor;
+    final onSurface = theme.colorScheme.onSurface;
+
     if (items.isEmpty) {
       return Container(
         padding: const EdgeInsets.all(24),
         width: double.infinity,
         decoration: BoxDecoration(
-          color: Theme.of(context).cardColor,
+          color: theme.cardColor,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-              color: Theme.of(context).dividerColor.withOpacity(0.1)),
         ),
         child: Center(
-            child: Text('운행 정보가 없습니다.',
-                style: TextStyle(color: Theme.of(context).hintColor))),
+          child: Text('운행 정보가 없어요', style: TextStyle(color: hintColor)),
+        ),
       );
     }
 
@@ -491,118 +365,115 @@ class _SubwayScheduleViewState extends State<SubwayScheduleView> {
     }
 
     final sortedHours = grouped.keys.toList()..sort();
+    final dark = _isDark(context);
+    final hairline = onSurface.withValues(alpha: 0.06);
+
+    // 보고 있는 요일 종류가 오늘과 같을 때만 지금 시각 행을 표시
+    final now = DateTime.now();
+    final todayType = now.weekday <= DateTime.friday ? '평일' : '주말';
+    final currentHour = controller.selectedDayType.value == todayType
+        ? (now.hour == 0 ? 25 : now.hour)
+        : null;
 
     return Container(
       decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
+        color: theme.cardColor,
         borderRadius: BorderRadius.circular(16),
-        border:
-            Border.all(color: Theme.of(context).dividerColor.withOpacity(0.1)),
       ),
+      clipBehavior: Clip.antiAlias,
       child: Column(
         children: [
-          Container(
-            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-            decoration: BoxDecoration(
-              color: Theme.of(context).brightness == Brightness.dark
-                  ? Colors.grey[800]!.withOpacity(0.5)
-                  : Colors.grey[50],
-              borderRadius:
-                  const BorderRadius.vertical(top: Radius.circular(16)),
-              border: Border(
-                  bottom: BorderSide(
-                      color: Theme.of(context).dividerColor.withOpacity(0.1))),
-            ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
             child: Row(
               children: [
                 SizedBox(
-                    width: 40,
-                    child: Text('시',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                            color: Theme.of(context).hintColor))),
+                  width: 32,
+                  child: Text('시',
+                      style: TextStyle(fontSize: 12, color: hintColor)),
+                ),
                 const SizedBox(width: 16),
-                Text('분',
-                    style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        color: Theme.of(context).hintColor)),
+                Text('분', style: TextStyle(fontSize: 12, color: hintColor)),
               ],
             ),
           ),
+          Divider(height: 1, thickness: 1, color: hairline),
           Expanded(
-            child: ListView.builder(
-              physics: const BouncingScrollPhysics(),
+            child: ListView.separated(
               itemCount: sortedHours.length,
+              separatorBuilder: (_, __) => Divider(
+                height: 1,
+                thickness: 1,
+                indent: 16,
+                endIndent: 16,
+                color: hairline,
+              ),
               itemBuilder: (context, index) {
                 final hour = sortedHours[index];
                 final hourItems = grouped[hour]!;
                 hourItems
                     .sort((a, b) => a.departureTime.compareTo(b.departureTime));
+                final isCurrentHour = hour == currentHour;
 
                 return Container(
+                  color: isCurrentHour
+                      ? onSurface.withValues(alpha: 0.04)
+                      : null,
                   padding:
                       const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-                  decoration: BoxDecoration(
-                    border: Border(
-                        bottom: BorderSide(
-                            color: Theme.of(context)
-                                .dividerColor
-                                .withOpacity(0.05))),
-                  ),
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       SizedBox(
-                          width: 40,
-                          child: Text(
-                              (hour == 25 ? '00' : hour)
-                                  .toString()
-                                  .padLeft(2, '0'),
-                              textAlign: TextAlign.center,
-                              style: const TextStyle(
-                                color: Color(0xFF0052A4),
-                                fontSize: 14,
-                                fontWeight: FontWeight.bold,
-                              ))),
+                        width: 32,
+                        child: Text(
+                          (hour == 25 ? 0 : hour).toString().padLeft(2, '0'),
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: isCurrentHour
+                                ? FontWeight.w600
+                                : FontWeight.w500,
+                            color: isCurrentHour ? onSurface : hintColor,
+                            fontFeatures: _tabular,
+                          ),
+                        ),
+                      ),
                       const SizedBox(width: 16),
                       Expanded(
                         child: Wrap(
-                          spacing: 12,
+                          spacing: 16,
                           runSpacing: 8,
                           children: hourItems.map((item) {
                             final minute = item.departureTime.split(':')[1];
 
-                            // Determine color based on destination (priority) or express status
+                            // 행선지를 먼저, 그다음 급행 여부로 색을 정한다
                             Color itemColor;
                             if (item.arrivalStation == '구로') {
-                              itemColor = Colors.blue;
+                              itemColor = _guroColor(dark);
                             } else if (item.arrivalStation == '병점') {
-                              itemColor = Colors.green;
+                              itemColor = _byeongjeomColor(dark);
                             } else if (item.arrivalStation == '천안') {
-                              itemColor = Colors.orange;
+                              itemColor = _cheonanColor(dark);
                             } else if (item.isExpress) {
-                              itemColor = Colors.red;
+                              itemColor = _expressColor(dark);
                             } else {
-                              itemColor =
-                                  Theme.of(context).colorScheme.onSurface;
+                              itemColor = onSurface;
                             }
 
                             return Text(
                               minute,
                               style: TextStyle(
-                                fontSize: 14,
+                                fontSize: 15,
                                 fontWeight: item.isExpress
-                                    ? FontWeight.bold
-                                    : FontWeight.w500,
+                                    ? FontWeight.w600
+                                    : FontWeight.w400,
                                 color: itemColor,
+                                fontFeatures: _tabular,
                               ),
                             );
                           }).toList(),
                         ),
-                      )
+                      ),
                     ],
                   ),
                 );
@@ -615,31 +486,14 @@ class _SubwayScheduleViewState extends State<SubwayScheduleView> {
   }
 
   Widget _buildFooter(BuildContext context) {
-    return Center(
-      child: Container(
-        margin: const EdgeInsets.only(top: 8),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        decoration: BoxDecoration(
-          color: Theme.of(context).brightness == Brightness.dark
-              ? Colors.grey[800]
-              : Colors.grey[100],
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.info_outline,
-                size: 14, color: Theme.of(context).hintColor),
-            const SizedBox(width: 6),
-            Text(
-              '도로 사정이나 철도 운영 상황에 따라 변경될 수 있습니다',
-              style: TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.w500,
-                color: Theme.of(context).hintColor,
-              ),
-            ),
-          ],
+    return Align(
+      alignment: Alignment.topCenter,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
+        child: Text(
+          '철도 운영 상황에 따라 바뀔 수 있어요',
+          textAlign: TextAlign.center,
+          style: TextStyle(fontSize: 12, color: Theme.of(context).hintColor),
         ),
       ),
     );

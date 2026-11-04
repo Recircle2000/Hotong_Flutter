@@ -5,6 +5,7 @@ import 'package:get/get.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 import 'package:hsro/features/city_bus/view/grouped_bus_view.dart';
 import 'package:hsro/features/auth/view/taxi_auth_gate_view.dart';
+import 'package:hsro/features/home/widgets/upcoming_departure_card.dart';
 import 'package:hsro/features/settings/viewmodel/settings_viewmodel.dart';
 import 'package:hsro/features/shuttle/view/shuttle_route_selection_view.dart';
 import 'package:hsro/features/subway/view/subway_view.dart';
@@ -37,7 +38,7 @@ class HomeTransportMenuSection extends StatelessWidget {
       ),
     );
     if (!Get.isRegistered<TaxiAvailabilityService>()) {
-      return Row(children: [subway, const SizedBox(width: 10), _taxiCard()]);
+      return Row(children: [subway, const SizedBox(width: 8), _taxiCard()]);
     }
     final availability = Get.find<TaxiAvailabilityService>();
     return Obx(
@@ -45,7 +46,7 @@ class HomeTransportMenuSection extends StatelessWidget {
         children: [
           subway,
           if (availability.showTaxiMenu) ...[
-            const SizedBox(width: 10),
+            const SizedBox(width: 8),
             _taxiCard(availability),
           ],
         ],
@@ -55,7 +56,7 @@ class HomeTransportMenuSection extends StatelessWidget {
 
   Widget _taxiCard([TaxiAvailabilityService? availability]) => Expanded(
     child: _TransportMenuCard(
-      title: '택시',
+      title: '택시팟',
       icon: PhosphorIconsRegular.taxi,
       color: const Color(0xFFF5A623),
       onTap: () async {
@@ -88,7 +89,7 @@ class HomeTransportMenuSection extends StatelessWidget {
                         Get.to(() => const ShuttleRouteSelectionView()),
                   ),
                 ),
-                const SizedBox(width: 10),
+                const SizedBox(width: 8),
                 Expanded(
                   child: _TransportMenuCard(
                     title: '시내버스',
@@ -100,7 +101,7 @@ class HomeTransportMenuSection extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 8),
           // 지하철/택시 카드. 택시 서비스가 꺼지면 지하철이 한 줄을 채운다.
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -131,21 +132,20 @@ class _TransportMenuCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
     final cardColor = Theme.of(context).cardColor;
-    final textColor = isDarkMode ? Colors.white : Colors.black87;
+    final textColor = UpcomingDepartureColors.title(context);
 
     return ScaleButton(
       onTap: onTap,
       child: Container(
-        height: height ?? 128,
+        height: height ?? 104,
         decoration: BoxDecoration(
           color: cardColor,
-          borderRadius: BorderRadius.circular(isCompact ? 18 : 22),
+          borderRadius: BorderRadius.circular(16),
         ),
         padding: isCompact
-            ? const EdgeInsets.symmetric(horizontal: 18)
-            : const EdgeInsets.all(18),
+            ? const EdgeInsets.symmetric(horizontal: 16)
+            : const EdgeInsets.all(16),
         child: isCompact
             // 작은 가로형 카드: 왼쪽 아이콘 + 옆에 텍스트
             ? Row(
@@ -156,7 +156,7 @@ class _TransportMenuCard extends StatelessWidget {
                     title,
                     style: TextStyle(
                       fontSize: 16,
-                      fontWeight: FontWeight.w700,
+                      fontWeight: FontWeight.w600,
                       color: textColor,
                     ),
                   ),
@@ -167,12 +167,12 @@ class _TransportMenuCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Icon(icon, size: 30, color: color),
+                  Icon(icon, size: 28, color: color),
                   Text(
                     title,
                     style: TextStyle(
-                      fontSize: 19,
-                      fontWeight: FontWeight.w800,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
                       color: textColor,
                     ),
                   ),

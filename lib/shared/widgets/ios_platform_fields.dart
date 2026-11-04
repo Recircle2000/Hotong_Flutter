@@ -10,6 +10,14 @@ class IOSCompactDatePickerField extends StatefulWidget {
   final DateTime minimumDate;
   final DateTime maximumDate;
   final ValueChanged<DateTime> onDateChanged;
+  // 비워 두면 iOS 쪽 기본값("yyyy년M월d일", 16pt 보통 굵기)을 쓴다.
+  final String? displayFormat;
+  final double? fontSize;
+  final bool bold;
+  // true면 iOS 라벨을 숨기고 이 위젯 전체를 누를 수 있게 한다.
+  // 글자는 아래에 깔린 Flutter 위젯이 그린다.
+  final bool fillTapArea;
+  final double height;
 
   const IOSCompactDatePickerField({
     super.key,
@@ -17,6 +25,11 @@ class IOSCompactDatePickerField extends StatefulWidget {
     required this.minimumDate,
     required this.maximumDate,
     required this.onDateChanged,
+    this.displayFormat,
+    this.fontSize,
+    this.bold = false,
+    this.fillTapArea = false,
+    this.height = 32,
   });
 
   @override
@@ -36,7 +49,7 @@ class _IOSCompactDatePickerFieldState extends State<IOSCompactDatePickerField> {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 32,
+      height: widget.height,
       child: UiKitView(
         viewType: 'hsro/ios_compact_date_picker',
         // iOS 쪽에서 날짜 범위를 바로 적용할 수 있도록 초기값을 함께 넘긴다.
@@ -44,6 +57,11 @@ class _IOSCompactDatePickerFieldState extends State<IOSCompactDatePickerField> {
           'initialDate': widget.initialDate.millisecondsSinceEpoch,
           'minimumDate': widget.minimumDate.millisecondsSinceEpoch,
           'maximumDate': widget.maximumDate.millisecondsSinceEpoch,
+          if (widget.displayFormat != null)
+            'displayFormat': widget.displayFormat,
+          if (widget.fontSize != null) 'fontSize': widget.fontSize,
+          'bold': widget.bold,
+          if (widget.fillTapArea) ...{'hideLabel': true, 'fillTapArea': true},
         },
         creationParamsCodec: const StandardMessageCodec(),
         onPlatformViewCreated: _handlePlatformViewCreated,
@@ -102,10 +120,7 @@ class _IOSRoutePopupButtonFieldState extends State<IOSRoutePopupButtonField> {
       creationParams: {
         'selectedRouteId': widget.selectedRouteId,
         'routes': widget.routes
-            .map((route) => {
-                  'id': route.id,
-                  'title': route.routeName,
-                })
+            .map((route) => {'id': route.id, 'title': route.routeName})
             .toList(growable: false),
       },
       creationParamsCodec: const StandardMessageCodec(),

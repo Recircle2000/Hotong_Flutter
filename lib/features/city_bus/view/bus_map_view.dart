@@ -17,19 +17,6 @@ import 'package:hsro/features/city_bus/viewmodel/busmap_viewmodel.dart';
 import 'package:hsro/shared/widgets/scale_button.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 
-// BusMapViewModel 확장 - 강조 표시용 변수 추가
-extension BusMapViewModelExtension on BusMapViewModel {
-  static final RxInt highlightedStation = RxInt(-1);
-
-  void highlightStation(int index) {
-    BusMapViewModelExtension.highlightedStation.value = index;
-  }
-
-  void clearHighlightedStation() {
-    BusMapViewModelExtension.highlightedStation.value = -1;
-  }
-}
-
 class BusMapView extends StatefulWidget {
   final String? initialRoute;
   final String? initialDestination;
@@ -188,23 +175,28 @@ class _BusMapViewState extends State<BusMapView> {
                           vertical: 12,
                         ),
                         decoration: BoxDecoration(
-                          color: Colors.orange.withValues(alpha: 0.1),
+                          color: Theme.of(context)
+                              .colorScheme
+                              .onSurface
+                              .withValues(alpha: 0.04),
+                          border: Border(
+                            bottom: BorderSide(color: _hairlineColor(context)),
+                          ),
                         ),
                         child: Row(
                           children: [
                             Icon(
-                              Icons.info_outline,
-                              color: Colors.orange[700],
-                              size: 20,
+                              Icons.info_outline_rounded,
+                              color: Theme.of(context).hintColor,
+                              size: 18,
                             ),
                             const SizedBox(width: 8),
                             Expanded(
                               child: Text(
-                                '현재 노선에 운행 중인 버스가 없습니다.',
+                                '지금 이 노선에 운행 중인 버스가 없어요',
                                 style: TextStyle(
                                   fontSize: 13,
-                                  color: Colors.orange[700],
-                                  fontWeight: FontWeight.w500,
+                                  color: Theme.of(context).hintColor,
                                 ),
                               ),
                             ),
@@ -310,13 +302,14 @@ class _BusMapViewState extends State<BusMapView> {
       );
       final valueStyle = TextStyle(
         fontSize: 13,
-        fontWeight: FontWeight.w700,
+        fontWeight: FontWeight.w600,
         color: Theme.of(context).colorScheme.onSurface,
+        fontFeatures: const [FontFeature.tabularFigures()],
       );
 
       return Container(
         width: double.infinity,
-        padding: const EdgeInsets.fromLTRB(16, 6, 16, 14),
+        padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
         decoration: BoxDecoration(
           border: Border(bottom: BorderSide(color: _hairlineColor(context))),
         ),
@@ -341,13 +334,11 @@ class _BusMapViewState extends State<BusMapView> {
 
   // 구분선 색상
   Color _hairlineColor(BuildContext context) =>
-      Theme.of(context).brightness == Brightness.dark
-          ? Colors.white.withValues(alpha: 0.1)
-          : const Color(0xFFDFE2E7);
+      Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.08);
 
   // 앱바 제목: 노선 번호 배지 + 기점 → 종점
   Widget _buildRouteTitle(BuildContext context, String routeKey) {
-    const titleStyle = TextStyle(fontSize: 16, fontWeight: FontWeight.w700);
+    const titleStyle = TextStyle(fontSize: 16, fontWeight: FontWeight.w600);
     if (routeKey.isEmpty) {
       return const Text('시내버스 위치', style: titleStyle);
     }
@@ -363,17 +354,17 @@ class _BusMapViewState extends State<BusMapView> {
       mainAxisSize: MainAxisSize.min,
       children: [
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
           decoration: BoxDecoration(
             color: cityBusAccent,
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(6),
           ),
           child: Text(
             match.group(1)!,
             style: const TextStyle(
               color: Colors.white,
               fontSize: 14,
-              fontWeight: FontWeight.w700,
+              fontWeight: FontWeight.w600,
             ),
           ),
         ),
@@ -404,21 +395,21 @@ class _BusMapViewState extends State<BusMapView> {
     return ScaleButton(
       onTap: onTap,
       child: Container(
-        height: 52,
+        height: 48,
         decoration: BoxDecoration(
           color: isDark
               ? Colors.white.withValues(alpha: 0.08)
               : Theme.of(context).cardColor,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(12),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Transform.flip(
               flipX: flipIcon,
-              child: Icon(icon, size: 19, color: foreground),
+              child: Icon(icon, size: 18, color: foreground),
             ),
-            const SizedBox(width: 6),
+            const SizedBox(width: 8),
             Flexible(
               child: Text(
                 label,
@@ -426,7 +417,7 @@ class _BusMapViewState extends State<BusMapView> {
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
                   fontSize: 14,
-                  fontWeight: FontWeight.w700,
+                  fontWeight: FontWeight.w500,
                   color: foreground,
                 ),
               ),
@@ -455,16 +446,19 @@ class _BusMapViewState extends State<BusMapView> {
               decoration: BoxDecoration(
                 color: Theme.of(context).scaffoldBackgroundColor,
                 borderRadius:
-                    const BorderRadius.vertical(top: Radius.circular(25)),
+                    const BorderRadius.vertical(top: Radius.circular(20)),
               ),
               child: Column(
                 children: [
                   Container(
                     margin: const EdgeInsets.symmetric(vertical: 8),
-                    width: 40,
+                    width: 36,
                     height: 4,
                     decoration: BoxDecoration(
-                      color: Colors.grey[300],
+                      color: Theme.of(context)
+                          .colorScheme
+                          .onSurface
+                          .withValues(alpha: 0.16),
                       borderRadius: BorderRadius.circular(2),
                     ),
                   ),
@@ -612,227 +606,4 @@ class _BusMapViewState extends State<BusMapView> {
     // 매칭되지 않으면 기본값은 하행
     return false;
   }
-}
-
-class StationItem extends StatelessWidget {
-  final int index;
-  final String stationName;
-  final bool isBusHere;
-  final bool isLastStation;
-
-  const StationItem({
-    Key? key,
-    required this.index,
-    required this.stationName,
-    required this.isBusHere,
-    required this.isLastStation,
-  }) : super(key: key);
-
-  Widget build(BuildContext context) {
-    return Obx(() {
-      // 강조 표시 여부 확인
-      final isHighlighted =
-          BusMapViewModelExtension.highlightedStation.value == index;
-
-      // 강조 표시된 정류장이면 애니메이션 효과 추가
-      if (isHighlighted) {
-        return TweenAnimationBuilder<double>(
-          tween: Tween<double>(begin: 0.0, end: 1.0),
-          duration: const Duration(milliseconds: 800),
-          builder: (context, value, child) {
-            return Container(
-              decoration: BoxDecoration(
-                color: Color.lerp(
-                    Colors.transparent, Colors.yellow.withOpacity(0.3), value),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: child,
-            );
-          },
-          child: _buildStationContent(context, isHighlighted),
-        );
-      }
-
-      // 일반 정류장
-      return _buildStationContent(context, isHighlighted);
-    });
-  }
-
-  // 정류장 내용 위젯
-  Widget _buildStationContent(BuildContext context, bool isHighlighted) {
-    return Column(
-      children: [
-        Container(
-          padding: const EdgeInsets.symmetric(vertical: 26.0, horizontal: 16.0),
-          child: Row(
-            children: [
-              // 왼쪽: 정류장 번호와 연결선
-              SizedBox(
-                width: 24,
-                height: 24,
-                child: Stack(
-                  children: [
-                    CustomPaint(
-                      painter: StationPainter(
-                        index: index,
-                        isLastStation: isLastStation,
-                        isHighlighted: isHighlighted,
-                      ),
-                      size: const Size(24, 24),
-                    ),
-                    Center(
-                      child: Icon(
-                        Icons.keyboard_arrow_down,
-                        size: 18,
-                        color: isHighlighted ? Colors.orange : Colors.grey,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              const SizedBox(width: 12),
-
-              // 버스 아이콘
-              SizedBox(
-                width: 40,
-                child: isBusHere
-                    ? const Icon(
-                        Icons.directions_bus,
-                        color: Colors.blue,
-                        size: 20,
-                      )
-                    // 강조 표시된 정류장이면 위치 아이콘 표시
-                    : isHighlighted
-                        ? _buildPulsingIcon()
-                        : null,
-              ),
-
-              // 정류장 이름과 번호
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      stationName,
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: isBusHere || isHighlighted
-                            ? FontWeight.bold
-                            : FontWeight.normal,
-                        color: isHighlighted
-                            ? Colors.orange
-                            : isBusHere
-                                ? Colors.blue
-                                : Theme.of(context).textTheme.bodyLarge?.color,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Obx(() {
-                      final controller = Get.find<BusMapViewModel>();
-                      final stationNumber =
-                          controller.stationNumbers.length > index
-                              ? controller.stationNumbers[index]
-                              : "";
-                      return Text(
-                        "$stationNumber",
-                        style: TextStyle(
-                          fontSize: 12,
-                          color:
-                              isHighlighted ? Colors.orange[700] : Colors.grey,
-                        ),
-                      );
-                    }),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-
-        // 구분선
-        if (!isLastStation)
-          Padding(
-            padding: const EdgeInsets.only(left: 76.0),
-            child: Divider(
-              height: 0,
-              thickness: 1,
-              color:
-                  isHighlighted ? Colors.orange.withOpacity(0.3) : Colors.grey,
-            ),
-          ),
-      ],
-    );
-  }
-
-  // 펄스 애니메이션 아이콘
-  Widget _buildPulsingIcon() {
-    return TweenAnimationBuilder<double>(
-      tween: Tween<double>(begin: 0.8, end: 1.2),
-      duration: const Duration(milliseconds: 800),
-      // 애니메이션 반복
-      onEnd: () {
-        // 반복 애니메이션을 위해 다시 빌드하게 함
-        Future.microtask(
-            () => BusMapViewModelExtension.highlightedStation.refresh());
-      },
-      builder: (context, value, child) {
-        return Transform.scale(
-          scale: value,
-          child: child,
-        );
-      },
-      child: const Icon(
-        Icons.location_on,
-        color: Colors.orange,
-        size: 20,
-      ),
-    );
-  }
-}
-
-class StationPainter extends CustomPainter {
-  final int index;
-  final bool isLastStation;
-  final bool isHighlighted;
-
-  StationPainter({
-    required this.index,
-    required this.isLastStation,
-    required this.isHighlighted,
-  });
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    // 원 그리기
-    final Paint circlePaint = Paint()
-      ..color = isHighlighted ? Colors.orange[100]! : Colors.grey[300]!
-      ..style = PaintingStyle.fill;
-
-    final Paint borderPaint = Paint()
-      ..color = isHighlighted ? Colors.orange : Colors.grey[400]!
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = isHighlighted ? 2.0 : 1.0;
-
-    final center = Offset(size.width / 2, size.height / 2);
-    final radius = size.width / 2 - 1;
-
-    canvas.drawCircle(center, radius, circlePaint);
-    canvas.drawCircle(center, radius, borderPaint);
-
-    // 세로선 그리기 (마지막 정류장이 아닌 경우)
-    if (!isLastStation) {
-      final Paint linePaint = Paint()
-        ..color = isHighlighted ? Colors.orange[300]! : Colors.grey[300]!
-        ..strokeWidth = isHighlighted ? 2.0 : 2.0;
-
-      final startPoint = Offset(size.width / 2, size.height);
-      final endPoint = Offset(size.width / 2, size.height + 64.0); // 다음 원까지의 거리
-
-      canvas.drawLine(startPoint, endPoint, linePaint);
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
 }

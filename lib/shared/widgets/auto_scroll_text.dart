@@ -103,18 +103,50 @@ class _AutoScrollTextState extends State<AutoScrollText> {
 
   @override
   Widget build(BuildContext context) {
+    final scrollView = SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      controller: _scrollController,
+      physics: NeverScrollableScrollPhysics(), // 사용자 스크롤 비활성화
+      child: Text(
+        widget.text,
+        style: widget.style,
+      ),
+    );
+
     return SizedBox(
       height: widget.height,
       child: Align(
         alignment: Alignment.centerLeft,
-        child: SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          controller: _scrollController,
-          physics: NeverScrollableScrollPhysics(), // 사용자 스크롤 비활성화
-          child: Text(
-            widget.text,
-            style: widget.style,
-          ),
+        // 글자가 잘려 나가는 쪽 가장자리만 흐리게 해서 잘림 대신 흘러가는 것처럼 보이게 한다.
+        child: AnimatedBuilder(
+          animation: _scrollController,
+          builder: (context, child) {
+            if (!_scrollController.hasClients ||
+                !_scrollController.position.hasContentDimensions) {
+              return child!;
+            }
+            final position = _scrollController.position;
+            final fadeStart = position.pixels > 0;
+            final fadeEnd = position.pixels < position.maxScrollExtent;
+            if (!fadeStart && !fadeEnd) return child!;
+            return ShaderMask(
+              blendMode: BlendMode.dstIn,
+              shaderCallback: (bounds) {
+                final edge = bounds.width == 0 ? 0.0 : 16 / bounds.width;
+                return LinearGradient(
+                  colors: [
+                    fadeStart ? Colors.transparent : Colors.black,
+                    Colors.black,
+                    Colors.black,
+                    fadeEnd ? Colors.transparent : Colors.black,
+                  ],
+                  stops: [0, edge, 1 - edge, 1],
+                ).createShader(bounds);
+              },
+              child: child,
+            );
+          },
+          child: scrollView,
         ),
       ),
     );

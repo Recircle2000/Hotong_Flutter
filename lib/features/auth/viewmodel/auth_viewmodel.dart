@@ -88,7 +88,7 @@ class AuthViewModel extends GetxController {
       step.value = TaxiAuthStep.otp;
       _startResendTimer();
     } on InvalidSchoolEmailException {
-      errorMessage.value = '호서대학교 학교 이메일을 정확히 입력해주세요.';
+      errorMessage.value = '학번 8자리를 정확히 입력해주세요.';
     } on AuthException catch (error) {
       errorMessage.value = _authErrorMessage(error);
     } catch (_) {

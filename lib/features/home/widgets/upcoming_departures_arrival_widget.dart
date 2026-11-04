@@ -105,11 +105,11 @@ class _UpcomingDeparturesArrivalWidgetState
                     '곧 도착',
                     style: TextStyle(
                       fontSize: 17,
-                      fontWeight: FontWeight.w700,
+                      fontWeight: FontWeight.w600,
                       color: UpcomingDepartureColors.title(context),
                     ),
                   ),
-                  const SizedBox(width: 6),
+                  const SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       _buildHeaderSubtitle(),
@@ -176,7 +176,7 @@ class _UpcomingDeparturesArrivalWidgetState
                                   context,
                                   viewModel.shuttleEmptyMessage.value,
                                 )
-                              : Column(
+                              : UpcomingDepartureCardGroup(
                                   children: viewModel.shuttleArrivals
                                       .take(3)
                                       .map(
@@ -203,7 +203,7 @@ class _UpcomingDeparturesArrivalWidgetState
                                   context,
                                   viewModel.busEmptyMessage.value,
                                 )
-                              : Column(
+                              : UpcomingDepartureCardGroup(
                                   children: viewModel.busArrivals
                                       .take(3)
                                       .map(
@@ -248,7 +248,7 @@ class _UpcomingDeparturesArrivalWidgetState
   Widget _buildEmptyMessage(BuildContext context, String message) {
     // 주변 정류장 없음 또는 도착 정보 없음 상태 카드
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 22, horizontal: 8),
+      padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 8),
       decoration: BoxDecoration(
         color: UpcomingDepartureColors.card(context),
         borderRadius: BorderRadius.circular(16),
@@ -322,7 +322,7 @@ class _UpcomingDeparturesArrivalWidgetState
               size: 12,
               color: accentColor,
             ),
-          const SizedBox(width: 5),
+          const SizedBox(width: 4),
           Text(
             label,
             style: TextStyle(
@@ -343,6 +343,7 @@ class _UpcomingDeparturesArrivalWidgetState
     final String arrivalTime = _formatTime(arrival.arrivalTime);
 
     return UpcomingDepartureCard(
+      inGroup: true,
       primaryText: formatMinutesLeft(arrival.minutesLeft),
       primaryColor: _getMinuteBadgeColor(arrival.minutesLeft),
       trailingText: arrivalTime,
@@ -374,6 +375,7 @@ class _UpcomingDeparturesArrivalWidgetState
     final bool isScheduled = arrival.kind == LocationBusArrivalKind.scheduled;
 
     return UpcomingDepartureCard(
+      inGroup: true,
       primaryText: isScheduled
           ? formatMinutesLeft(arrival.minutesLeft ?? 0)
           : arrival.badgeText,

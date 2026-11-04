@@ -6,6 +6,7 @@ import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:hsro/features/notice/models/notice_model.dart';
 import 'package:hsro/features/notice/viewmodel/notice_viewmodel.dart';
+import 'package:hsro/features/notice/widgets/notice_markdown_style.dart';
 import 'package:hsro/shared/widgets/auto_scroll_text.dart';
 
 class NoticeDetailView extends StatelessWidget {
@@ -67,8 +68,12 @@ class NoticeDetailView extends StatelessWidget {
                   child: MarkdownBody(
                     // 공지 본문은 마크다운으로 렌더링
                     data: notice.content,
-                    styleSheet: MarkdownStyleSheet.fromTheme(theme).copyWith(
-                      p: theme.textTheme.bodyLarge?.copyWith(
+                    // 관리자 페이지의 Toast UI 에디터는 Enter 한 번도 줄바꿈으로 보여주므로
+                    // 앱에서도 같은 줄바꿈을 살린다.
+                    softLineBreak: true,
+                    styleSheet: noticeMarkdownStyleSheet(
+                      theme,
+                      paragraph: theme.textTheme.bodyLarge?.copyWith(
                         fontSize:
                             (theme.textTheme.bodyLarge?.fontSize ?? 16) - 1,
                         height: 1.7,

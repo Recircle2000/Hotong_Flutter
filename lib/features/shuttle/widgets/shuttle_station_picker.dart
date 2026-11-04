@@ -6,6 +6,7 @@ import 'package:get/get.dart';
 import 'package:hsro/features/shuttle/models/shuttle_models.dart';
 import 'package:hsro/features/shuttle/view/naver_map_station_detail_view.dart';
 import 'package:hsro/features/shuttle/view/shuttle_station_map_view.dart';
+import 'package:hsro/shared/widgets/scale_button.dart';
 
 Future<ShuttleStation?> showShuttleStationPicker({
   required BuildContext context,
@@ -38,7 +39,7 @@ Future<ShuttleStation?> showShuttleStationPicker({
     isScrollControlled: true,
     backgroundColor: Theme.of(context).cardColor,
     shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
     ),
     builder: builder,
   );
@@ -118,12 +119,24 @@ class _ShuttleStationPickerState extends State<_ShuttleStationPicker> {
     return '${meters.round()}m';
   }
 
+  // 다크 모드에서는 셔틀 빨강을 밝은 톤으로 바꿔 대비를 맞춘다
+  Color get _accentColor => Theme.of(context).brightness == Brightness.dark
+      ? Colors.redAccent
+      : _shuttleColor;
+
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final onSurface = theme.colorScheme.onSurface;
+    final stations = _availableStations;
+    final favorites = _searchController.text.isEmpty
+        ? _favoriteStations
+        : const <ShuttleStation>[];
+
     return Material(
-      color: Theme.of(context).cardColor,
+      color: theme.cardColor,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       clipBehavior: Clip.antiAlias,
       child: SizedBox(
@@ -132,17 +145,17 @@ class _ShuttleStationPickerState extends State<_ShuttleStationPicker> {
           top: false,
           child: Column(
             children: [
-              const SizedBox(height: 10),
+              const SizedBox(height: 8),
               Container(
-                width: 44,
+                width: 36,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: Colors.grey.shade400,
-                  borderRadius: BorderRadius.circular(999),
+                  color: onSurface.withValues(alpha: 0.16),
+                  borderRadius: BorderRadius.circular(2),
                 ),
               ),
               Padding(
-                padding: const EdgeInsets.fromLTRB(16, 14, 8, 10),
+                padding: const EdgeInsets.fromLTRB(20, 8, 8, 8),
                 child: Row(
                   children: [
                     Expanded(
@@ -150,112 +163,80 @@ class _ShuttleStationPickerState extends State<_ShuttleStationPicker> {
                         widget.title,
                         style: const TextStyle(
                           fontSize: 20,
-                          fontWeight: FontWeight.bold,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
                     ),
                     IconButton(
+                      tooltip: '닫기',
                       onPressed: () => Navigator.pop(context),
-                      icon: const Icon(Icons.close),
+                      icon: Icon(Icons.close_rounded, color: theme.hintColor),
                     ),
                   ],
                 ),
               ),
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Container(
-                  height: 50,
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).scaffoldBackgroundColor,
-                    borderRadius: BorderRadius.circular(25),
-                  ),
-                  child: TextField(
-                    controller: _searchController,
-                    onChanged: (_) => setState(() {}),
-                    onTapOutside: (_) =>
-                        FocusManager.instance.primaryFocus?.unfocus(),
-                    decoration: const InputDecoration(
-                      hintText: '정류장 이름 검색',
-                      prefixIcon: Icon(Icons.search),
-                      border: InputBorder.none,
-                      contentPadding: EdgeInsets.symmetric(vertical: 14),
-                    ),
-                  ),
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: _buildSearchField(),
               ),
               const SizedBox(height: 12),
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
+                padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: Row(
                   children: [
-                    Expanded(
-                      child: _buildQuickButton(
-                        icon: Icons.my_location,
-                        label: _isLoadingLocation ? '확인 중' : '내 주변',
-                        onTap: _isLoadingLocation ? null : _loadLocation,
-                      ),
+                    _buildQuickChip(
+                      icon: Icons.near_me_outlined,
+                      label: _isLoadingLocation ? '위치 확인 중' : '내 주변',
+                      selected: _position != null,
+                      onTap: _isLoadingLocation ? null : _loadLocation,
                     ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: _buildQuickButton(
-                        icon: Icons.map_outlined,
-                        label: '지도에서 선택',
-                        onTap: _selectFromMap,
-                      ),
+                    const SizedBox(width: 8),
+                    _buildQuickChip(
+                      icon: Icons.map_outlined,
+                      label: '지도에서 선택',
+                      onTap: _selectFromMap,
                     ),
                   ],
                 ),
               ),
               const SizedBox(height: 12),
+              Divider(
+                height: 1,
+                thickness: 1,
+                color: onSurface.withValues(alpha: 0.08),
+              ),
               Expanded(
-                child: _availableStations.isEmpty
-                    ? Center(
-                        child: Text(
-                          widget.allowedStationIds != null
-                              ? '이동 가능한 정류장이 없습니다.'
-                              : '검색 결과가 없습니다.',
-                          style: TextStyle(color: Theme.of(context).hintColor),
-                        ),
-                      )
+                child: stations.isEmpty
+                    ? _buildEmptyState()
                     : ListView(
-                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
+                        padding: const EdgeInsets.only(bottom: 16),
                         children: [
-                          if (_favoriteStations.isNotEmpty &&
-                              _searchController.text.isEmpty) ...[
-                            Container(
-                              padding: const EdgeInsets.fromLTRB(10, 4, 6, 6),
-                              decoration: BoxDecoration(
-                                color: _shuttleColor.withValues(alpha: 0.06),
-                                borderRadius: BorderRadius.circular(16),
-                              ),
-                              child: Column(
-                                children: [
-                                  _buildSectionTitle(
-                                    '즐겨찾는 정류장',
-                                    icon: Icons.star_rounded,
-                                    color: Colors.amber.shade700,
-                                  ),
-                                  ..._favoriteStations.map(_buildStationTile),
-                                ],
-                              ),
+                          if (favorites.isNotEmpty) ...[
+                            _buildSectionTitle(
+                              '즐겨찾는 정류장',
+                              count: favorites.length,
+                              icon: Icons.star_rounded,
                             ),
-                            Padding(
-                              padding: const EdgeInsets.only(top: 16),
-                              child: Divider(
-                                height: 1,
-                                color: Theme.of(context)
-                                    .dividerColor
-                                    .withValues(alpha: 0.65),
+                            // 즐겨찾기만 옅은 면 위에 묶어 한눈에 구분되게 한다
+                            Container(
+                              margin:
+                                  const EdgeInsets.symmetric(horizontal: 12),
+                              decoration: BoxDecoration(
+                                color: onSurface.withValues(alpha: 0.04),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              clipBehavior: Clip.antiAlias,
+                              child: Column(
+                                children:
+                                    _buildStationRows(favorites, inset: 8),
                               ),
                             ),
                           ],
                           _buildSectionTitle(
                             _position == null ? '전체 정류장' : '가까운 정류장',
-                            icon: _position == null
-                                ? Icons.format_list_bulleted_rounded
-                                : Icons.near_me_outlined,
+                            count: stations.length,
                           ),
-                          ..._availableStations.map(_buildStationTile),
+                          ..._buildStationRows(stations),
                         ],
                       ),
               ),
@@ -266,44 +247,129 @@ class _ShuttleStationPickerState extends State<_ShuttleStationPicker> {
     );
   }
 
-  Widget _buildQuickButton({
+  Widget _buildSearchField() {
+    final theme = Theme.of(context);
+    final onSurface = theme.colorScheme.onSurface;
+    OutlineInputBorder border(Color color) => OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: color),
+        );
+
+    return SizedBox(
+      height: 48,
+      child: TextField(
+        controller: _searchController,
+        onChanged: (_) => setState(() {}),
+        onTapOutside: (_) => FocusManager.instance.primaryFocus?.unfocus(),
+        textInputAction: TextInputAction.search,
+        style: const TextStyle(fontSize: 16),
+        decoration: InputDecoration(
+          hintText: '정류장 이름 검색',
+          hintStyle: TextStyle(color: theme.hintColor),
+          prefixIcon: Icon(
+            Icons.search_rounded,
+            size: 20,
+            color: theme.hintColor,
+          ),
+          suffixIcon: _searchController.text.isEmpty
+              ? null
+              : IconButton(
+                  tooltip: '검색어 지우기',
+                  onPressed: () {
+                    _searchController.clear();
+                    setState(() {});
+                  },
+                  icon: Icon(
+                    Icons.cancel_rounded,
+                    size: 18,
+                    color: theme.hintColor,
+                  ),
+                ),
+          filled: true,
+          fillColor: onSurface.withValues(alpha: 0.05),
+          contentPadding: EdgeInsets.zero,
+          border: border(Colors.transparent),
+          enabledBorder: border(Colors.transparent),
+          focusedBorder: border(onSurface.withValues(alpha: 0.16)),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildQuickChip({
     required IconData icon,
     required String label,
     required VoidCallback? onTap,
+    bool selected = false,
   }) {
-    return OutlinedButton.icon(
-      onPressed: onTap,
-      icon: Icon(icon, size: 18),
-      label: Text(label),
-      style: OutlinedButton.styleFrom(
-        foregroundColor: _shuttleColor,
-        side: BorderSide(color: _shuttleColor.withValues(alpha: 0.25)),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        padding: const EdgeInsets.symmetric(vertical: 11),
+    final onSurface = Theme.of(context).colorScheme.onSurface;
+    final foreground =
+        selected ? _accentColor : onSurface.withValues(alpha: 0.8);
+
+    // 앱 공통 누름 효과(살짝 작아짐 + 햅틱). onTap이 null이면 비활성으로 그대로 그린다.
+    return ScaleButton(
+      onTap: onTap,
+      child: Container(
+        decoration: BoxDecoration(
+          color: selected
+              ? _accentColor.withValues(alpha: 0.1)
+              : onSurface.withValues(alpha: 0.05),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: SizedBox(
+          height: 36,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(icon, size: 16, color: foreground),
+                const SizedBox(width: 6),
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    color: foreground,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
 
   Widget _buildSectionTitle(
     String title, {
+    required int count,
     IconData? icon,
-    Color? color,
   }) {
-    final foregroundColor = color ?? Theme.of(context).colorScheme.onSurface;
+    final theme = Theme.of(context);
     return Padding(
-      padding: const EdgeInsets.only(top: 10, bottom: 6),
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
       child: Row(
         children: [
           if (icon != null) ...[
-            Icon(icon, size: 17, color: foregroundColor),
-            const SizedBox(width: 6),
+            Icon(icon, size: 16, color: Colors.amber.shade700),
+            const SizedBox(width: 4),
           ],
           Text(
             title,
             style: TextStyle(
-              color: foregroundColor,
-              fontWeight: FontWeight.bold,
-              fontSize: 14,
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+              color: theme.hintColor,
+            ),
+          ),
+          const SizedBox(width: 4),
+          Text(
+            '$count',
+            style: TextStyle(
+              fontSize: 13,
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.32),
+              fontFeatures: const [FontFeature.tabularFigures()],
             ),
           ),
         ],
@@ -311,51 +377,105 @@ class _ShuttleStationPickerState extends State<_ShuttleStationPicker> {
     );
   }
 
-  Widget _buildStationTile(ShuttleStation station) {
+  Widget _buildEmptyState() {
+    final hintColor = Theme.of(context).hintColor;
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.search_off_rounded, size: 32, color: hintColor),
+          const SizedBox(height: 8),
+          Text(
+            widget.allowedStationIds != null && _searchController.text.isEmpty
+                ? '이동 가능한 정류장이 없어요'
+                : '검색 결과가 없어요',
+            style: TextStyle(color: hintColor),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // 같은 묶음 안의 정류장은 안쪽 들여쓴 헤어라인으로 나눈다
+  List<Widget> _buildStationRows(
+    List<ShuttleStation> stations, {
+    double inset = 20,
+  }) {
+    final hairline =
+        Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.06);
+    return [
+      for (var index = 0; index < stations.length; index++) ...[
+        if (index > 0)
+          Divider(
+            height: 1,
+            thickness: 1,
+            indent: inset,
+            endIndent: inset,
+            color: hairline,
+          ),
+        _buildStationTile(stations[index], inset: inset),
+      ],
+    ];
+  }
+
+  Widget _buildStationTile(ShuttleStation station, {double inset = 20}) {
+    final theme = Theme.of(context);
     final isFavorite = widget.isStationFavorite(station);
-    return Material(
-      type: MaterialType.transparency,
-      child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 4),
-        title: _buildStationTitle(station),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (_position != null) ...[
-              Text(
-                _distanceLabel(station),
-                style: const TextStyle(color: _shuttleColor, fontSize: 12),
-              ),
+
+    // 앱 공통 누름 효과(살짝 작아짐 + 햅틱)
+    return ScaleButton(
+      onTap: () => Navigator.pop(context, station),
+      child: Container(
+        // 글자 사이 빈 곳을 눌러도 반응하도록 투명 바탕을 깐다.
+        color: Colors.transparent,
+        height: 56,
+        child: Padding(
+          padding: EdgeInsets.only(left: inset, right: inset - 8),
+          child: Row(
+            children: [
+              Expanded(child: _buildStationTitle(station)),
+              if (_position != null) ...[
+                const SizedBox(width: 8),
+                Text(
+                  _distanceLabel(station),
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: theme.hintColor,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
+                ),
+              ],
               const SizedBox(width: 4),
-            ],
-            IconButton(
-              tooltip: isFavorite ? '즐겨찾기 해제' : '즐겨찾기 추가',
-              visualDensity: VisualDensity.compact,
-              onPressed: () async {
-                await widget.onToggleFavorite(station);
-                if (mounted) setState(() {});
-              },
-              icon: Icon(
-                isFavorite ? Icons.star_rounded : Icons.star_border_rounded,
-                color: isFavorite
-                    ? Colors.amber.shade700
-                    : Theme.of(context).hintColor,
-              ),
-            ),
-            Builder(
-              builder: (buttonContext) => IconButton(
-                tooltip: '정류장 정보',
+              IconButton(
+                tooltip: isFavorite ? '즐겨찾기 해제' : '즐겨찾기 추가',
                 visualDensity: VisualDensity.compact,
-                onPressed: () => _showStationInfoMenu(station, buttonContext),
+                onPressed: () async {
+                  await widget.onToggleFavorite(station);
+                  if (mounted) setState(() {});
+                },
                 icon: Icon(
-                  Icons.info_outline,
-                  color: Theme.of(context).hintColor,
+                  isFavorite ? Icons.star_rounded : Icons.star_border_rounded,
+                  size: 22,
+                  color: isFavorite
+                      ? Colors.amber.shade700
+                      : theme.colorScheme.onSurface.withValues(alpha: 0.32),
                 ),
               ),
-            ),
-          ],
+              Builder(
+                builder: (buttonContext) => IconButton(
+                  tooltip: '정류장 정보',
+                  visualDensity: VisualDensity.compact,
+                  onPressed: () => _showStationInfoMenu(station, buttonContext),
+                  icon: Icon(
+                    Icons.info_outline_rounded,
+                    size: 20,
+                    color: theme.hintColor,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
-        onTap: () => Navigator.pop(context, station),
       ),
     );
   }
@@ -369,9 +489,10 @@ class _ShuttleStationPickerState extends State<_ShuttleStationPicker> {
             station.name,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontSize: 16),
           ),
         ),
-        if (badges.isNotEmpty) const SizedBox(width: 7),
+        if (badges.isNotEmpty) const SizedBox(width: 8),
         for (var index = 0; index < badges.length; index++) ...[
           if (index > 0) const SizedBox(width: 4),
           _buildTransportBadge(badges[index]),
@@ -538,18 +659,18 @@ class _ShuttleStationPickerState extends State<_ShuttleStationPicker> {
 
   Widget _buildTransportBadge(_StationTransportBadge badge) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
       decoration: BoxDecoration(
         color: badge.color,
-        borderRadius: BorderRadius.circular(6),
+        borderRadius: BorderRadius.circular(4),
       ),
       child: Text(
         badge.label,
         style: const TextStyle(
           color: Colors.white,
-          fontSize: 10,
-          fontWeight: FontWeight.bold,
-          height: 1.1,
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+          height: 1.2,
         ),
       ),
     );
@@ -559,7 +680,7 @@ class _ShuttleStationPickerState extends State<_ShuttleStationPicker> {
     setState(() => _isLoadingLocation = true);
     try {
       if (!await Geolocator.isLocationServiceEnabled()) {
-        _showMessage('위치 서비스를 활성화해주세요.');
+        _showMessage('위치 서비스를 켜주세요');
         return;
       }
       var permission = await Geolocator.checkPermission();
@@ -568,7 +689,7 @@ class _ShuttleStationPickerState extends State<_ShuttleStationPicker> {
       }
       if (permission == LocationPermission.denied ||
           permission == LocationPermission.deniedForever) {
-        _showMessage('위치 권한 없이 전체 정류장을 표시합니다.');
+        _showMessage('위치 권한이 없어 전체 정류장을 보여드려요');
         return;
       }
       final position = await Geolocator.getCurrentPosition(
@@ -577,7 +698,7 @@ class _ShuttleStationPickerState extends State<_ShuttleStationPicker> {
       );
       if (mounted) setState(() => _position = position);
     } catch (_) {
-      _showMessage('현재 위치를 확인하지 못했습니다.');
+      _showMessage('현재 위치를 확인하지 못했어요');
     } finally {
       if (mounted) setState(() => _isLoadingLocation = false);
     }
@@ -590,7 +711,7 @@ class _ShuttleStationPickerState extends State<_ShuttleStationPicker> {
     if (!mounted || station == null) return;
     final allowedIds = widget.allowedStationIds;
     if (allowedIds != null && !allowedIds.contains(station.id)) {
-      _showMessage('이 출발지에서 이동할 수 없는 정류장입니다.');
+      _showMessage('이 출발지에서 갈 수 없는 정류장이에요');
       return;
     }
     Navigator.pop(context, station);

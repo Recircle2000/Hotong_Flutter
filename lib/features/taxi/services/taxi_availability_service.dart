@@ -1,13 +1,12 @@
 import 'dart:async';
-import 'dart:convert';
 
 import 'package:flutter/widgets.dart';
 import 'package:get/get.dart';
 import 'package:http/http.dart' as http;
 import 'package:hsro/core/network/authenticated_api_client.dart';
+import 'package:hsro/core/repository/app_config_repository.dart';
 import 'package:hsro/core/services/auth_service.dart';
 import 'package:hsro/core/services/preferences_service.dart';
-import 'package:hsro/core/utils/env_config.dart';
 import 'package:hsro/features/taxi/repository/taxi_repository.dart';
 
 /// 서버의 택시 서비스 운영 스위치를 읽어 홈 메뉴에 택시를 보여줄지 정한다.
@@ -21,14 +20,17 @@ class TaxiAvailabilityService extends GetxService with WidgetsBindingObserver {
     PreferencesService? preferences,
     String? baseUrl,
   }) : _authService = authService,
-       _client = client ?? http.Client(),
+       // 테스트처럼 클라이언트나 주소를 따로 주면 전용 저장소를, 아니면 앱 전체가 함께 쓰는 저장소를 쓴다.
+       _appConfig = client == null && baseUrl == null
+           ? AppConfigRepository.shared
+           : AppConfigRepository(client: client, baseUrl: baseUrl),
        _preferences = preferences ?? PreferencesService(),
        _baseUrl = baseUrl;
 
   static const _enabledCacheKey = 'taxi_service_enabled';
 
   final AuthService _authService;
-  final http.Client _client;
+  final AppConfigRepository _appConfig;
   final PreferencesService _preferences;
   final String? _baseUrl;
 
@@ -69,25 +71,11 @@ class TaxiAvailabilityService extends GetxService with WidgetsBindingObserver {
   }
 
   Future<void> _fetchSwitch() async {
-    try {
-      final baseUrl = (_baseUrl ?? EnvConfig.baseUrl).replaceFirst(
-        RegExp(r'/$'),
-        '',
-      );
-      final response = await _client
-          .get(Uri.parse('$baseUrl/api/app-config'))
-          .timeout(const Duration(seconds: 5));
-      if (response.statusCode != 200) return;
-      final body = jsonDecode(utf8.decode(response.bodyBytes));
-      if (body is! Map<String, dynamic> || body['taxi_enabled'] is! bool) {
-        return;
-      }
-      final enabled = body['taxi_enabled'] as bool;
-      taxiEnabled.value = enabled;
-      await _preferences.setBool(_enabledCacheKey, enabled);
-    } catch (_) {
-      // 오프라인이면 마지막으로 받은 값을 그대로 쓴다.
-    }
+    // 오프라인이거나 응답이 이상하면 마지막으로 받은 값을 그대로 쓴다.
+    final enabled = (await _appConfig.fetch())?.taxiEnabled;
+    if (enabled == null) return;
+    taxiEnabled.value = enabled;
+    await _preferences.setBool(_enabledCacheKey, enabled);
   }
 
   Future<void> _checkOngoingParty() async {
@@ -124,7 +112,6 @@ class TaxiAvailabilityService extends GetxService with WidgetsBindingObserver {
   @override
   void onClose() {
     WidgetsBinding.instance.removeObserver(this);
-    _client.close();
     super.onClose();
   }
 }

@@ -104,6 +104,7 @@ class BusMapViewModel extends GetxController with WidgetsBindingObserver {
       final busList = allRoutesBusData[route]!;
       updateBusMarkers(busList);
       _updateCurrentPosition(busList);
+      update();
     }
 
     // 웹소켓에 새 노선 정보 전송
@@ -349,6 +350,15 @@ class BusMapViewModel extends GetxController with WidgetsBindingObserver {
       }).toList();
 
       stationMarkers.assignAll(stopMarkers);
+
+      // 노선을 바꾼 직후에는 정류장 목록이 아직 없어 버스가 어느 정류장에 있는지 계산하지 못했다.
+      // 노선 정보 화면에서 이미 받아 둔 위치로 지금 다시 계산해, 다음 웹소켓 메시지(최대 5초)를 기다리지 않게 한다.
+      final buses = allRoutesBusData[targetRoute];
+      if (buses != null && buses.isNotEmpty) {
+        updateBusMarkers(buses);
+        _updateCurrentPosition(buses);
+        update();
+      }
     } catch (e) {
       if (selectedRoute.value != targetRoute) {
         return;

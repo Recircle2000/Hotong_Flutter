@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:hsro/features/notice/view/notice_detail_view.dart';
 import 'package:hsro/features/notice/view/notice_list_view.dart';
+import 'package:hsro/features/home/widgets/upcoming_departure_card.dart';
 import 'package:hsro/features/notice/viewmodel/notice_viewmodel.dart';
+import 'package:hsro/shared/widgets/auto_scroll_text.dart';
 import 'package:hsro/shared/widgets/scale_button.dart';
 
 class HomeNoticeSection extends StatelessWidget {
@@ -23,11 +25,12 @@ class HomeNoticeSection extends StatelessWidget {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
+              Text(
                 '공지사항',
                 style: TextStyle(
                   fontSize: 17,
-                  fontWeight: FontWeight.w700,
+                  fontWeight: FontWeight.w600,
+                  color: UpcomingDepartureColors.title(context),
                 ),
               ),
               GestureDetector(
@@ -43,7 +46,7 @@ class HomeNoticeSection extends StatelessWidget {
                     '전체보기',
                     style: TextStyle(
                       fontSize: 13,
-                      color: Colors.grey[600],
+                      color: UpcomingDepartureColors.secondary(context),
                     ),
                   ),
                 ),
@@ -69,7 +72,7 @@ class HomeNoticeSection extends StatelessWidget {
               constraints: const BoxConstraints(minHeight: 48),
               decoration: BoxDecoration(
                 color: Theme.of(context).cardColor,
-                borderRadius: BorderRadius.circular(14),
+                borderRadius: BorderRadius.circular(16),
               ),
               padding: const EdgeInsets.only(left: 16, right: 12),
               child: Row(
@@ -78,27 +81,37 @@ class HomeNoticeSection extends StatelessWidget {
                     child: Obx(() {
                       if (noticeViewModel.isLoading.value) {
                         // 공지 로딩 중
-                        return const Text(
-                          '서버에 연결 중...',
-                          style: TextStyle(fontSize: 15, color: Colors.grey),
+                        return Text(
+                          '서버에 연결 중',
+                          style: TextStyle(
+                            fontSize: 15,
+                            color: UpcomingDepartureColors.muted(context),
+                          ),
                         );
                       }
 
                       final notice = noticeViewModel.notice.value;
-                      // 공지 제목은 길면 말줄임표로 자름
-                      return Text(
-                        notice?.title ?? '새로운 공지사항이 없습니다',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontSize: 15),
+                      final title = notice?.title ?? '새로운 공지사항이 없습니다';
+                      // 공지 제목이 길면 옆으로 흘려 끝까지 보여준다.
+                      return AutoScrollText(
+                        // 공지가 바뀌면 스크롤을 처음부터 다시 시작
+                        key: ValueKey(title),
+                        text: title,
+                        style: TextStyle(
+                          fontSize: 15,
+                          color: UpcomingDepartureColors.title(context),
+                        ),
+                        height: 20,
+                        pauseDuration: const Duration(milliseconds: 1200),
+                        scrollDuration: const Duration(seconds: 4),
                       );
                     }),
                   ),
-                  const SizedBox(width: 10),
-                  const Icon(
+                  const SizedBox(width: 8),
+                  Icon(
                     Icons.chevron_right,
                     size: 20,
-                    color: Color(0xFF8A909C),
+                    color: UpcomingDepartureColors.muted(context),
                   ),
                 ],
               ),
