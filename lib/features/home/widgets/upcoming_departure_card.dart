@@ -119,9 +119,10 @@ class UpcomingDepartureCard extends StatelessWidget {
       margin: const EdgeInsets.only(left: 8),
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
-        color: isDarkMode
-            ? const Color(0xFFB42318).withValues(alpha: 0.25)
-            : const Color(0xFFFDECEA),
+        color:
+            isDarkMode
+                ? const Color(0xFFB42318).withValues(alpha: 0.25)
+                : const Color(0xFFFDECEA),
         borderRadius: BorderRadius.circular(4),
       ),
       child: Text(
@@ -143,9 +144,10 @@ class UpcomingDepartureCard extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: BoxDecoration(
             // 그룹 안에서는 투명하게 두되, 줄 전체가 눌리도록 색은 채워 둔다.
-            color: inGroup
-                ? Colors.transparent
-                : UpcomingDepartureColors.card(context),
+            color:
+                inGroup
+                    ? Colors.transparent
+                    : UpcomingDepartureColors.card(context),
             borderRadius: BorderRadius.circular(16),
           ),
           child: Column(
@@ -154,80 +156,80 @@ class UpcomingDepartureCard extends StatelessWidget {
               Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  Text(
-                    primaryText,
-                    style: TextStyle(
-                      fontSize: 20,
-                      height: 1.2,
-                      fontWeight: FontWeight.w600,
-                      fontFeatures: tabularFigures,
-                      color:
-                          primaryColor ??
-                          UpcomingDepartureColors.title(context),
+                  // 출발 시각은 항상 다 보이게 두고, '1시간 23분'처럼 긴 남은 시간은
+                  // 자리가 모자랄 때만 글자를 줄여 한 줄에 맞춘다.
+                  Expanded(
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        primaryText,
+                        maxLines: 1,
+                        softWrap: false,
+                        style: TextStyle(
+                          fontSize: 20,
+                          height: 1.2,
+                          fontWeight: FontWeight.w600,
+                          fontFeatures: tabularFigures,
+                          color:
+                              primaryColor ??
+                              UpcomingDepartureColors.title(context),
+                        ),
+                      ),
                     ),
                   ),
                   const SizedBox(width: 6),
-                  Expanded(
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        if (isRealtime)
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 6,
-                              vertical: 2,
-                            ),
-                            decoration: BoxDecoration(
-                              color: isDarkMode
-                                  ? Colors.white.withValues(alpha: 0.12)
-                                  : const Color(0xFFEEF0F3),
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Container(
-                                  width: 6,
-                                  height: 6,
-                                  decoration: BoxDecoration(
-                                    color: UpcomingDepartureColors.title(
-                                      context,
-                                    ),
-                                    shape: BoxShape.circle,
-                                  ),
-                                ),
-                                const SizedBox(width: 4),
-                                Text(
-                                  '실시간',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w600,
-                                    color: UpcomingDepartureColors.title(
-                                      context,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (isRealtime)
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
                           ),
-                        if (trailingText != null)
-                          Flexible(
-                            child: Text(
-                              trailingText!,
-                              maxLines: 1,
-                              softWrap: false,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontFeatures: tabularFigures,
-                                color: UpcomingDepartureColors.secondary(
-                                  context,
+                          decoration: BoxDecoration(
+                            color:
+                                isDarkMode
+                                    ? Colors.white.withValues(alpha: 0.12)
+                                    : const Color(0xFFEEF0F3),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Container(
+                                width: 6,
+                                height: 6,
+                                decoration: BoxDecoration(
+                                  color: UpcomingDepartureColors.title(context),
+                                  shape: BoxShape.circle,
                                 ),
                               ),
-                            ),
+                              const SizedBox(width: 4),
+                              Text(
+                                '실시간',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                  color: UpcomingDepartureColors.title(context),
+                                ),
+                              ),
+                            ],
                           ),
-                      ],
-                    ),
+                        ),
+                      if (trailingText != null)
+                        Text(
+                          trailingText!,
+                          maxLines: 1,
+                          softWrap: false,
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontFeatures: tabularFigures,
+                            color: UpcomingDepartureColors.secondary(context),
+                          ),
+                        ),
+                    ],
                   ),
                 ],
               ),
