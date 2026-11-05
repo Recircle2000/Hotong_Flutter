@@ -7,8 +7,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_naver_map/flutter_naver_map.dart';
 import 'package:get/get.dart';
 import 'package:hsro/core/utils/bus_static_data_loader.dart';
+import 'package:hsro/features/city_bus/view/components/route_title.dart';
+import 'package:hsro/features/city_bus/view/components/station_item.dart'
+    show cityBusAccent, cityBusAccentOnDark;
 import 'package:hsro/features/city_bus/viewmodel/busmap_viewmodel.dart';
 import 'package:hsro/features/settings/viewmodel/settings_viewmodel.dart';
+import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 
 class NaverBusMapDetailView extends StatefulWidget {
   final String routeName;
@@ -34,10 +38,21 @@ class _NaverBusMapDetailViewState extends State<NaverBusMapDetailView> {
   bool _overlayRefreshQueued = false;
   bool _isPreparingBusIcon = false;
   bool _isPreparingStationIcon = false;
+  bool _isPreparingArrowIcon = false;
   Brightness? _overlayBrightness;
 
   NOverlayImage? _busMarkerIcon;
   NOverlayImage? _stationMarkerIcon;
+  NOverlayImage? _routeArrowIcon;
+
+  // 노선 전체가 보이도록 카메라를 맞춘 노선. 같은 노선은 한 번만 맞춘다.
+  String? _fittedRoute;
+
+  static const double _busIconCanvas = 36;
+  static const double _stationIconSize = 12;
+  static const double _arrowIconSize = 12;
+  // 기본 마커(200000)보다 위에 그려 버스가 정류장 원에 가리지 않게 한다
+  static const int _busGlobalZIndex = 210000;
 
   @override
   void initState() {
@@ -60,26 +75,15 @@ class _NaverBusMapDetailViewState extends State<NaverBusMapDetailView> {
 
   bool get _isDarkMode => Theme.of(context).brightness == Brightness.dark;
 
-  Color get _stationMarkerColor =>
-      _isDarkMode ? const Color(0xFF5F8DFF) : const Color(0xFF0B3D91);
+  // 정류장 목록 화면과 같은 시내버스 색 하나로 라인·정류장·버스를 그린다
+  Color get _accent => _isDarkMode ? cityBusAccentOnDark : cityBusAccent;
 
-  Color get _busMarkerColor =>
-      _isDarkMode ? const Color(0xFF6A99FF) : const Color(0xFF0D47A1);
+  // 지도 바탕과 떨어지게 하는 색. 라인 테두리, 정류장 원 안쪽, 강조색 위 아이콘에 쓴다.
+  Color get _mapSurface =>
+      _isDarkMode ? const Color(0xFF14161A) : Colors.white;
 
   Color get _busCaptionColor =>
-      _isDarkMode ? const Color(0xFFEAF1FF) : const Color(0xFF0D47A1);
-
-  Color get _busCaptionHaloColor =>
-      _isDarkMode ? const Color(0xFF0F172A) : Colors.white;
-
-  Color get _busMarkerBackgroundColor =>
-      _isDarkMode ? const Color(0xFF111827) : Colors.white;
-
-  Color get _busMarkerBorderColor =>
-      _isDarkMode ? const Color(0xFF93C5FD) : const Color(0xFF1E3A8A);
-
-  Color get _routePolylineColor =>
-      _isDarkMode ? const Color(0xFF1E3A8A) : Colors.blueAccent;
+      _isDarkMode ? const Color(0xFFEAF1FF) : const Color(0xFF1F2937);
 
   // 이 줌보다 작으면(더 멀리 보면) 정류장 마커를 숨깁니다.
   double get _stationMarkerMinZoom => 12.5;
@@ -94,6 +98,7 @@ class _NaverBusMapDetailViewState extends State<NaverBusMapDetailView> {
     _overlayBrightness = brightness;
     _busMarkerIcon = null;
     _stationMarkerIcon = null;
+    _routeArrowIcon = null;
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) {
@@ -101,6 +106,7 @@ class _NaverBusMapDetailViewState extends State<NaverBusMapDetailView> {
       }
       _prepareBusMarkerIcon();
       _prepareStationMarkerIcon();
+      _prepareRouteArrowIcon();
       _queueOverlayRefresh();
     });
   }
@@ -156,22 +162,35 @@ class _NaverBusMapDetailViewState extends State<NaverBusMapDetailView> {
 
     _isPreparingBusIcon = true;
     try {
+      // 정류장 목록의 버스 표시와 같은 모양: 시내버스 색으로 채운 원 + 버스 아이콘
       _busMarkerIcon = await NOverlayImage.fromWidget(
         context: context,
-        size: const Size(32, 32),
-        widget: Container(
-          width: 30,
-          height: 30,
-          decoration: BoxDecoration(
-            color: _busMarkerBackgroundColor,
-            shape: BoxShape.circle,
-            border: Border.all(color: _busMarkerBorderColor, width: 1.8),
-          ),
-          alignment: Alignment.center,
-          child: Icon(
-            Icons.directions_bus_rounded,
-            size: 17,
-            color: _busMarkerColor,
+        size: const Size(_busIconCanvas, _busIconCanvas),
+        widget: SizedBox.square(
+          dimension: _busIconCanvas,
+          child: Center(
+            child: Container(
+              width: 30,
+              height: 30,
+              decoration: BoxDecoration(
+                color: _accent,
+                shape: BoxShape.circle,
+                border: Border.all(color: _mapSurface, width: 2),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.24),
+                    blurRadius: 4,
+                    offset: const Offset(0, 1),
+                  ),
+                ],
+              ),
+              alignment: Alignment.center,
+              child: Icon(
+                PhosphorIconsRegular.bus,
+                size: 16,
+                color: _mapSurface,
+              ),
+            ),
           ),
         ),
       );
@@ -193,19 +212,51 @@ class _NaverBusMapDetailViewState extends State<NaverBusMapDetailView> {
 
     _isPreparingStationIcon = true;
     try {
+      // 정류장 목록과 같은 속 빈 원. 중심을 좌표에 맞춰 라인 위에 얹는다.
       _stationMarkerIcon = await NOverlayImage.fromWidget(
         context: context,
-        size: const Size(20, 20),
-        widget: Icon(
-          Icons.location_on_rounded,
-          size: 20,
-          color: _stationMarkerColor,
+        size: const Size(_stationIconSize, _stationIconSize),
+        widget: Container(
+          width: _stationIconSize,
+          height: _stationIconSize,
+          decoration: BoxDecoration(
+            color: _mapSurface,
+            shape: BoxShape.circle,
+            border: Border.all(color: _accent, width: 2),
+          ),
         ),
       );
     } catch (_) {
       // 아이콘 생성 실패 시 기본 마커 색상 사용
     } finally {
       _isPreparingStationIcon = false;
+      if (mounted) {
+        _queueOverlayRefresh();
+      }
+    }
+  }
+
+  Future<void> _prepareRouteArrowIcon() async {
+    // 노선 라인 위 진행 방향 화살표 (이미지 위쪽이 진행 방향)
+    if (_isPreparingArrowIcon || _routeArrowIcon != null || !mounted) {
+      return;
+    }
+
+    _isPreparingArrowIcon = true;
+    try {
+      _routeArrowIcon = await NOverlayImage.fromWidget(
+        context: context,
+        size: const Size(_arrowIconSize, _arrowIconSize),
+        widget: Icon(
+          PhosphorIconsBold.caretUp,
+          size: _arrowIconSize,
+          color: _mapSurface,
+        ),
+      );
+    } catch (_) {
+      // 화살표 생성 실패 시 화살표 없이 라인만 표시
+    } finally {
+      _isPreparingArrowIcon = false;
       if (mounted) {
         _queueOverlayRefresh();
       }
@@ -247,6 +298,7 @@ class _NaverBusMapDetailViewState extends State<NaverBusMapDetailView> {
       if (overlays.isNotEmpty) {
         await mapController.addOverlayAll(overlays);
       }
+      await _fitRouteIfNeeded(mapController);
     } catch (_) {
       // 지도 전환 타이밍에는 오버레이 갱신 실패 가능, 무시
     } finally {
@@ -256,6 +308,25 @@ class _NaverBusMapDetailViewState extends State<NaverBusMapDetailView> {
         _queueOverlayRefresh();
       }
     }
+  }
+
+  Future<void> _fitRouteIfNeeded(NaverMapController mapController) async {
+    // 노선을 처음 그릴 때 한 번, 노선 전체가 화면에 들어오게 맞춘다
+    final route = controller.selectedRoute.value;
+    final points = controller.routePolylinePoints.toList();
+    if (points.length < 2 || _fittedRoute == route) {
+      return;
+    }
+
+    _fittedRoute = route;
+    await mapController.updateCamera(
+      NCameraUpdate.fitBounds(
+        NLatLngBounds.from(
+          points.map((point) => NLatLng(point.latitude, point.longitude)),
+        ),
+        padding: const EdgeInsets.all(48),
+      ),
+    );
   }
 
   Set<NPathOverlay> _buildRouteOverlays() {
@@ -273,10 +344,12 @@ class _NaverBusMapDetailViewState extends State<NaverBusMapDetailView> {
       NPathOverlay(
         id: 'city_bus_route_path',
         coords: coords,
-        width: 4.0,
-        color: _routePolylineColor,
-        outlineColor: Colors.transparent,
-        outlineWidth: 0.0,
+        width: 7,
+        color: _accent,
+        outlineColor: _mapSurface,
+        outlineWidth: 1.5,
+        patternImage: _routeArrowIcon,
+        patternInterval: 64,
       ),
     };
   }
@@ -292,23 +365,17 @@ class _NaverBusMapDetailViewState extends State<NaverBusMapDetailView> {
       // 정류장 마커 순서 기준으로 메타데이터 매칭
       final point = stationMarkers[i].position;
       final metadata = i < _stationMetadata.length ? _stationMetadata[i] : null;
-      final hasCustomIcon = _stationMarkerIcon != null;
+      // 아이콘이 준비되기 전에는 그리지 않는다 (기본 핀이 잠깐 보이지 않게)
+      final icon = _stationMarkerIcon;
+      if (icon == null) continue;
 
-      final marker = hasCustomIcon
-          ? NMarker(
-              id: 'city_station_$i',
-              position: NLatLng(point.latitude, point.longitude),
-              icon: _stationMarkerIcon,
-              size: const Size(20, 20),
-              anchor: const NPoint(0.5, 0.85),
-            )
-          : NMarker(
-              id: 'city_station_$i',
-              position: NLatLng(point.latitude, point.longitude),
-              iconTintColor: _stationMarkerColor,
-              size: const Size(18, 18),
-              anchor: const NPoint(0.5, 1.0),
-            );
+      final marker = NMarker(
+        id: 'city_station_$i',
+        position: NLatLng(point.latitude, point.longitude),
+        icon: icon,
+        size: const Size(_stationIconSize, _stationIconSize),
+        anchor: const NPoint(0.5, 0.5),
+      );
       marker.setMinZoom(_stationMarkerMinZoom);
       marker.setOnTapListener((_) => _showStationInfo(metadata, i));
       overlays.add(marker);
@@ -350,38 +417,42 @@ class _NaverBusMapDetailViewState extends State<NaverBusMapDetailView> {
   }) {
     // 커스텀 아이콘이 준비되면 사용하고, 아니면 기본 마커로 표시
     final hasCustomIcon = _busMarkerIcon != null;
+    final busNumber = _shortVehicleNo(vehicleNo);
+    final caption = busNumber.isEmpty
+        ? null
+        : NOverlayCaption(
+            text: busNumber,
+            textSize: 12,
+            color: _busCaptionColor,
+            haloColor: _mapSurface,
+          );
 
-    return hasCustomIcon
+    final marker = hasCustomIcon
         ? NMarker(
             id: id,
             position: position,
             icon: _busMarkerIcon,
-            size: const Size(32, 32),
-            caption: vehicleNo.isEmpty
-                ? null
-                : NOverlayCaption(
-                    text: vehicleNo,
-                    textSize: 9.5,
-                    color: _busCaptionColor,
-                    haloColor: _busCaptionHaloColor,
-                  ),
+            size: const Size(_busIconCanvas, _busIconCanvas),
+            caption: caption,
             anchor: const NPoint(0.5, 0.5),
           )
         : NMarker(
             id: id,
             position: position,
             size: const Size(20, 20),
-            iconTintColor: _busMarkerColor,
-            caption: vehicleNo.isEmpty
-                ? null
-                : NOverlayCaption(
-                    text: vehicleNo,
-                    textSize: 9.5,
-                    color: _busCaptionColor,
-                    haloColor: _busCaptionHaloColor,
-                  ),
+            iconTintColor: _accent,
+            caption: caption,
             anchor: const NPoint(0.5, 1.0),
           );
+    // 버스는 정류장 원보다 항상 위에 그린다
+    marker.setGlobalZIndex(_busGlobalZIndex);
+    return marker;
+  }
+
+  // "충남72자1070" → "1070" (정류장 목록의 차량 번호 배지와 같은 표기)
+  String _shortVehicleNo(String vehicleNo) {
+    final match = RegExp(r'(\d{4})$').firstMatch(vehicleNo.trim());
+    return match?.group(1) ?? vehicleNo;
   }
 
   void _showStationInfo(_StationMetadata? station, int index) {
@@ -413,7 +484,8 @@ class _NaverBusMapDetailViewState extends State<NaverBusMapDetailView> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.routeName),
+        title: CityBusRouteTitle(displayName: widget.routeName),
+        centerTitle: true,
         actions: [
           LinkShareButton(
             content: () => CityBusShare.content(controller.selectedRoute.value),
@@ -463,6 +535,8 @@ class _NaverBusMapDetailViewState extends State<NaverBusMapDetailView> {
                 // 지도 준비 완료 후 컨트롤러 연결 및 오버레이 첫 갱신
                 _mapController = mapController;
                 _isMapReady = true;
+                // 테마·캠퍼스 변경으로 지도를 새로 만들면 노선 전체 보기도 다시 맞춘다
+                _fittedRoute = null;
                 mapController.setLocationTrackingMode(
                   NLocationTrackingMode.noFollow,
                 );
