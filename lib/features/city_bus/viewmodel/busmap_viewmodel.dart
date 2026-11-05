@@ -7,6 +7,7 @@ import 'package:hsro/core/utils/bus_static_data_loader.dart';
 import 'package:hsro/core/utils/bus_times_loader.dart';
 import 'package:hsro/core/utils/env_config.dart';
 import 'package:hsro/features/city_bus/models/bus_city_model.dart';
+import 'package:hsro/features/city_bus/utils/route_progress.dart';
 import 'package:hsro/features/settings/viewmodel/settings_viewmodel.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
@@ -81,6 +82,16 @@ class BusMapViewModel extends GetxController with WidgetsBindingObserver {
   // 모든 노선의 버스 데이터 저장 (grouped_bus_view에서 사용)
   final RxMap<String, List<Bus>> allRoutesBusData = <String, List<Bus>>{}.obs;
 
+  // 지금 지도선과 정류장 목록이 어느 노선 것인지. 둘이 같은 노선일 때만 트랙을 만든다.
+  String? _polylineRoute;
+  String? _stationsRoute;
+
+  // 지도선을 따라 정류장·버스 위치를 계산하는 트랙 (선택 노선용)
+  RouteTrack? _routeTrack;
+
+  // 차량별 직전 노선 거리(m). GPS가 조금 뒤로 튀어도 버스가 뒤로 가 보이지 않게 한다.
+  final Map<String, double> _lastBusS = {};
+
   /// 노선을 변경하고 데이터를 새로고침하는 함수 (웹소켓 재연결 없이)
   void updateSelectedRoute(String route) {
     // 이미 같은 노선이면 무시
@@ -93,6 +104,9 @@ class BusMapViewModel extends GetxController with WidgetsBindingObserver {
     currentPositions.clear();
     detailedBusPositions.clear();
     routePolylinePoints.clear();
+    _polylineRoute = null;
+    _routeTrack = null;
+    _lastBusS.clear();
 
     // 데이터 새로고침
     fetchRouteData(route);
@@ -154,6 +168,8 @@ class BusMapViewModel extends GetxController with WidgetsBindingObserver {
       } else {
         selectedRoute.value = "순환5_DOWN";
       }
+      _routeTrack = null;
+      _lastBusS.clear();
       fetchRouteData(selectedRoute.value);
       fetchStationData(selectedRoute.value);
     });
@@ -248,7 +264,9 @@ class BusMapViewModel extends GetxController with WidgetsBindingObserver {
           print(
               'No data found for route ${selectedRoute.value} - clearing markers');
           markers.clear();
-          currentPositions.clear(); // 데이터가 없을 경우 버스 위치도 초기화
+          // 데이터가 없을 경우 버스 위치도 초기화 (정류장 목록의 버스 아이콘 포함)
+          currentPositions.clear();
+          detailedBusPositions.clear();
           update(); // UI 새로 고침
         }
       }, onError: (error) {
@@ -292,6 +310,8 @@ class BusMapViewModel extends GetxController with WidgetsBindingObserver {
 
       // 폴리라인 데이터 저장
       routePolylinePoints.assignAll(polylinePoints);
+      _polylineRoute = targetRoute;
+      _rebuildRouteTrack(targetRoute);
     } catch (e) {
       if (selectedRoute.value != targetRoute) {
         return;
@@ -303,6 +323,32 @@ class BusMapViewModel extends GetxController with WidgetsBindingObserver {
         gravity: ToastGravity.BOTTOM,
       );
       routePolylinePoints.clear();
+      _polylineRoute = null;
+      _rebuildRouteTrack(targetRoute);
+    }
+  }
+
+  /// 지도선과 정류장 목록이 같은 노선으로 준비되면 트랙을 만들고,
+  /// 받아 둔 버스 위치를 바로 다시 계산한다 (다음 웹소켓 메시지를 기다리지 않음).
+  void _rebuildRouteTrack(String routeKey) {
+    if (selectedRoute.value != routeKey) return;
+
+    final ready = _polylineRoute == routeKey &&
+        _stationsRoute == routeKey &&
+        routePolylinePoints.isNotEmpty &&
+        stationMarkers.isNotEmpty;
+    _routeTrack = ready
+        ? RouteTrack.build(
+            routePolylinePoints.toList(),
+            [for (final station in stationMarkers) station.position],
+          )
+        : null;
+
+    final buses = allRoutesBusData[routeKey];
+    if (stationMarkers.isNotEmpty && buses != null && buses.isNotEmpty) {
+      updateBusMarkers(buses);
+      _updateCurrentPosition(buses);
+      update();
     }
   }
 
@@ -316,6 +362,8 @@ class BusMapViewModel extends GetxController with WidgetsBindingObserver {
       stationNumbers.clear();
       currentPositions.clear();
       detailedBusPositions.clear();
+      _stationsRoute = null;
+      _routeTrack = null;
 
       final data = await BusStaticDataLoader.loadStopJson(targetRoute);
       if (selectedRoute.value != targetRoute) {
@@ -350,15 +398,11 @@ class BusMapViewModel extends GetxController with WidgetsBindingObserver {
       }).toList();
 
       stationMarkers.assignAll(stopMarkers);
+      _stationsRoute = targetRoute;
 
       // 노선을 바꾼 직후에는 정류장 목록이 아직 없어 버스가 어느 정류장에 있는지 계산하지 못했다.
       // 노선 정보 화면에서 이미 받아 둔 위치로 지금 다시 계산해, 다음 웹소켓 메시지(최대 5초)를 기다리지 않게 한다.
-      final buses = allRoutesBusData[targetRoute];
-      if (buses != null && buses.isNotEmpty) {
-        updateBusMarkers(buses);
-        _updateCurrentPosition(buses);
-        update();
-      }
+      _rebuildRouteTrack(targetRoute);
     } catch (e) {
       if (selectedRoute.value != targetRoute) {
         return;
@@ -397,105 +441,67 @@ class BusMapViewModel extends GetxController with WidgetsBindingObserver {
       return;
     }
 
-    // 버스별로 노선 진행 방향을 고려한 위치 정보 계산
-    List<int> busPositions = [];
-    List<BusPosition> detailedPositions = [];
+    // 트랙이 지금 정류장 목록과 맞을 때만 쓴다 (노선 전환 중 어긋남 방지)
+    final track = _routeTrack != null &&
+            _routeTrack!.stationCount == stationMarkers.length
+        ? _routeTrack
+        : null;
+    final stopRefs = [
+      for (final station in stationMarkers)
+        RouteStopRef(
+          nodeOrd: int.tryParse(station.nodeOrd),
+          name: station.name,
+        ),
+    ];
+
+    final busPositions = <int>{};
+    final detailedPositions = <BusPosition>[];
 
     for (final bus in busList) {
       final busLatLng = LatLng(bus.latitude, bus.longitude);
 
-      // 노선 방향성을 고려한 현재 정류장 찾기
-      int currentStationIndex = _findCurrentStationAlongRoute(busLatLng);
+      // BIS 정류장 순번은 이름까지 맞을 때만 보조로 쓴다
+      final nodeIndex =
+          resolveStationIndex(stopRefs, bus.nodeOrd, bus.stationName);
 
-      // 현재 정류장까지의 거리 계산
-      final distanceToCurrentStation = const Distance().as(LengthUnit.Meter,
-          stationMarkers[currentStationIndex].position, busLatLng);
-
-      // 진행률 계산
-      double progressToNext = 0.0;
-      if (currentStationIndex < stationMarkers.length - 1) {
-        if (routePolylinePoints.isNotEmpty) {
-          progressToNext =
-              _calculateProgressAlongRoute(busLatLng, currentStationIndex);
-        } else {
-          // 폴백: 직선 거리 기반 계산 (더 보수적으로)
-          progressToNext = _calculateLinearProgress(
-              busLatLng, currentStationIndex, distanceToCurrentStation);
-        }
+      int stationIndex;
+      double progressToNext;
+      if (track != null) {
+        // 지도선을 따라 버스가 실제로 지난 정류장과 진행률 계산
+        final location = track.locate(
+          busLatLng,
+          nodeIndex: nodeIndex,
+          previousS: _lastBusS[bus.vehicleNo],
+        );
+        stationIndex = location.index;
+        progressToNext = location.progress;
+        final s = location.s;
+        if (s != null) _lastBusS[bus.vehicleNo] = s;
+      } else {
+        // 지도선이 아직 없으면 BIS 정류장(없으면 가장 가까운 정류장)에 둔다
+        stationIndex = nodeIndex ?? _findNearestStationByDistance(busLatLng);
+        progressToNext = 0;
       }
 
-      // 상세 위치 정보 저장
       detailedPositions.add(BusPosition(
         vehicleNo: bus.vehicleNo,
-        nearestStationIndex: currentStationIndex,
+        nearestStationIndex: stationIndex,
         progressToNext: progressToNext,
-        distanceToStation: distanceToCurrentStation,
+        distanceToStation: const Distance().as(LengthUnit.Meter,
+            stationMarkers[stationIndex].position, busLatLng),
       ));
-
-      // 중복 위치는 추가하지 않음
-      if (!busPositions.contains(currentStationIndex)) {
-        busPositions.add(currentStationIndex);
-      }
+      busPositions.add(stationIndex);
     }
 
-    // 위치 정렬 (오름차순)
-    busPositions.sort();
+    // 지금 목록에 없는 차량의 직전 위치는 버린다
+    final vehicleNos = {for (final bus in busList) bus.vehicleNo};
+    _lastBusS.removeWhere((vehicleNo, _) => !vehicleNos.contains(vehicleNo));
 
-    // 현재 위치 업데이트
-    currentPositions.assignAll(busPositions);
+    currentPositions.assignAll(busPositions.toList()..sort());
     detailedBusPositions.assignAll(detailedPositions);
   }
 
-  /// 노선 방향성을 고려하여 버스의 현재 정류장 인덱스를 찾는 함수
-  int _findCurrentStationAlongRoute(LatLng busPosition) {
-    if (routePolylinePoints.isEmpty || stationMarkers.isEmpty) {
-      return _findNearestStationByDistance(busPosition);
-    }
-
-    // 버스 위치에서 가장 가까운 폴리라인 포인트 찾기
-    int busPolyIndex = _findNearestPolylinePoint(busPosition);
-
-    // 각 정류장의 폴리라인 인덱스 계산
-    List<int> stationPolyIndices = [];
-    for (int i = 0; i < stationMarkers.length; i++) {
-      stationPolyIndices
-          .add(_findNearestPolylinePoint(stationMarkers[i].position));
-    }
-
-    // 버스 위치보다 앞에 있는 정류장들 중 가장 가까운 것 찾기
-    int currentStationIndex = 0;
-    for (int i = 0; i < stationPolyIndices.length; i++) {
-      if (stationPolyIndices[i] <= busPolyIndex) {
-        currentStationIndex = i;
-      } else {
-        break; // 버스 위치를 넘어선 첫 번째 정류장에서 중단
-      }
-    }
-
-    // 추가 검증: 현재 정류장과의 거리가 너무 멀면 다음 정류장으로 조정
-    if (currentStationIndex < stationMarkers.length - 1) {
-      final currentStationDistance = const Distance().as(LengthUnit.Meter,
-          stationMarkers[currentStationIndex].position, busPosition);
-      final nextStationDistance = const Distance().as(LengthUnit.Meter,
-          stationMarkers[currentStationIndex + 1].position, busPosition);
-
-      // 다음 정류장이 현재 정류장보다 훨씬 가깝고, 현재 정류장과의 거리가 300m 이상이면
-      if (nextStationDistance < currentStationDistance * 0.7 &&
-          currentStationDistance > 300) {
-        // 하지만 폴리라인 상에서 다음 정류장을 아직 지나지 않았다면 현재 정류장 유지
-        if (stationPolyIndices[currentStationIndex + 1] > busPolyIndex + 10) {
-          // 10포인트 여유
-          // 현재 정류장 유지
-        } else {
-          currentStationIndex = currentStationIndex + 1;
-        }
-      }
-    }
-
-    return currentStationIndex;
-  }
-
-  /// 단순 거리 기반으로 가장 가까운 정류장 찾기 (폴백 함수)
+  /// 단순 거리 기반으로 가장 가까운 정류장 찾기 (지도선이 없을 때 대체용)
   int _findNearestStationByDistance(LatLng busPosition) {
     double minDistance = double.infinity;
     int nearestStationIndex = 0;
@@ -511,47 +517,6 @@ class BusMapViewModel extends GetxController with WidgetsBindingObserver {
     }
 
     return nearestStationIndex;
-  }
-
-  /// 직선 거리 기반 진행률 계산 (보수적 접근)
-  double _calculateLinearProgress(LatLng busPosition, int currentStationIndex,
-      double distanceToCurrentStation) {
-    if (currentStationIndex >= stationMarkers.length - 1) {
-      return 0.0;
-    }
-
-    final currentStation = stationMarkers[currentStationIndex].position;
-    final nextStation = stationMarkers[currentStationIndex + 1].position;
-
-    // 현재 정류장에서 너무 멀리 떨어져 있으면 진행률 0
-    if (distanceToCurrentStation > 400) {
-      return 0.0;
-    }
-
-    // 현재 정류장에 너무 가까우면 진행률 0 (아직 출발하지 않음)
-    if (distanceToCurrentStation < 50) {
-      return 0.0;
-    }
-
-    final totalDistance =
-        const Distance().as(LengthUnit.Meter, currentStation, nextStation);
-    if (totalDistance == 0) return 0.0;
-
-    // 버스가 현재 정류장과 다음 정류장 사이의 직선상에 있는지 확인
-    final distanceToNext =
-        const Distance().as(LengthUnit.Meter, nextStation, busPosition);
-
-    // 삼각형 부등식을 이용한 직선상 위치 검증
-    final directDistance = totalDistance;
-    final actualDistance = distanceToCurrentStation + distanceToNext;
-
-    // 실제 거리가 직선 거리보다 20% 이상 크면 직선상에 있지 않다고 판단
-    if (actualDistance > directDistance * 1.2) {
-      return 0.0;
-    }
-
-    double progress = distanceToCurrentStation / totalDistance;
-    return progress.clamp(0.0, 0.75); // 최대 75%로 제한 (더 보수적)
   }
 
   /// 노선별 다음 출발시간 계산 (특히 _DOWN 노선)
@@ -590,6 +555,9 @@ class BusMapViewModel extends GetxController with WidgetsBindingObserver {
     currentPositions.clear();
     detailedBusPositions.clear();
     routePolylinePoints.clear();
+    _polylineRoute = null;
+    _routeTrack = null;
+    _lastBusS.clear();
 
     // 웹소켓 데이터 수신 상태 초기화
     hasReceivedWebSocketData.value = false;
@@ -597,99 +565,6 @@ class BusMapViewModel extends GetxController with WidgetsBindingObserver {
     // 연결 재설정
     _disconnectWebSocket();
     _connectWebSocket();
-  }
-
-  /// GeoJSON 폴리라인을 활용한 정확한 위치 계산
-  double _calculateProgressAlongRoute(
-      LatLng busPosition, int nearestStationIndex) {
-    if (routePolylinePoints.isEmpty ||
-        nearestStationIndex >= stationMarkers.length - 1) {
-      return 0.0;
-    }
-
-    final currentStation = stationMarkers[nearestStationIndex].position;
-    final nextStation = stationMarkers[nearestStationIndex + 1].position;
-
-    // 버스가 현재 정류장에서 너무 멀리 떨어져 있으면 진행률 0으로 설정
-    final distanceToCurrentStation =
-        const Distance().as(LengthUnit.Meter, currentStation, busPosition);
-    if (distanceToCurrentStation > 500) {
-      // 500미터 이상 떨어져 있으면
-      return 0.0;
-    }
-
-    // 폴리라인에서 현재 정류장과 다음 정류장에 가장 가까운 포인트 찾기
-    int currentStationPolyIndex = _findNearestPolylinePoint(currentStation);
-    int nextStationPolyIndex = _findNearestPolylinePoint(nextStation);
-
-    // 정류장 순서가 올바른지 확인 (다음 정류장이 더 뒤에 있어야 함)
-    if (nextStationPolyIndex <= currentStationPolyIndex) {
-      return 0.0;
-    }
-
-    // 버스 위치에서 가장 가까운 폴리라인 포인트 찾기
-    int busPolyIndex = _findNearestPolylinePoint(busPosition);
-
-    // 폴리라인을 따라 실제 거리 계산
-    double totalRouteDistance =
-        _calculateRouteDistance(currentStationPolyIndex, nextStationPolyIndex);
-
-    // 더 보수적인 진행률 계산
-    double busRouteDistance;
-    if (busPolyIndex <= currentStationPolyIndex) {
-      // 버스가 현재 정류장보다 앞에 있으면 0
-      busRouteDistance = 0.0;
-    } else if (busPolyIndex >= nextStationPolyIndex) {
-      // 버스가 다음 정류장을 넘어갔지만 API상 도착하지 않았다면 80%로 제한
-      busRouteDistance = totalRouteDistance * 0.8;
-    } else {
-      // 정상적으로 두 정류장 사이에 있는 경우
-      busRouteDistance =
-          _calculateRouteDistance(currentStationPolyIndex, busPolyIndex);
-    }
-
-    if (totalRouteDistance == 0) return 0.0;
-
-    double progress = busRouteDistance / totalRouteDistance;
-    return progress.clamp(0.0, 0.8); // 최대 80%로 제한
-  }
-
-  /// 폴리라인에서 주어진 위치에 가장 가까운 포인트의 인덱스 찾기
-  int _findNearestPolylinePoint(LatLng targetPosition) {
-    if (routePolylinePoints.isEmpty) return 0;
-
-    double minDistance = double.infinity;
-    int nearestIndex = 0;
-
-    for (int i = 0; i < routePolylinePoints.length; i++) {
-      final distance = const Distance()
-          .as(LengthUnit.Meter, targetPosition, routePolylinePoints[i]);
-
-      if (distance < minDistance) {
-        minDistance = distance;
-        nearestIndex = i;
-      }
-    }
-
-    return nearestIndex;
-  }
-
-  /// 폴리라인을 따라 두 포인트 사이의 실제 거리 계산
-  double _calculateRouteDistance(int startIndex, int endIndex) {
-    if (startIndex >= endIndex || endIndex >= routePolylinePoints.length) {
-      return 0.0;
-    }
-
-    double totalDistance = 0.0;
-    for (int i = startIndex; i < endIndex; i++) {
-      totalDistance += const Distance().as(
-        LengthUnit.Meter,
-        routePolylinePoints[i],
-        routePolylinePoints[i + 1],
-      );
-    }
-
-    return totalDistance;
   }
 
   /// 위치 권한 확인 및 현재 위치 가져오기
