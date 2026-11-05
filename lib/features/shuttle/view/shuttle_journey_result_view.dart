@@ -428,6 +428,9 @@ class _ShuttleJourneyResultViewState extends State<ShuttleJourneyResultView> {
   Widget _buildJourneyCard(BuildContext context, ShuttleJourney journey) {
     final nextScheduleId = _nextJourney()?.scheduleId;
     final departed = _hasDeparted(journey);
+    // 출발 후 도착 정류장에 닿기 전까지는 운행 중, 닿은 뒤에는 운행 완료
+    final arrived = _hasArrived(journey);
+    final running = departed && !arrived;
     final isNext = journey.scheduleId == nextScheduleId;
     final isExpanded = _expandedScheduleId == journey.scheduleId;
     final hintColor = Theme.of(context).hintColor;
@@ -438,7 +441,12 @@ class _ShuttleJourneyResultViewState extends State<ShuttleJourneyResultView> {
     return KeyedSubtree(
       key: cardKey,
       child: Opacity(
-        opacity: departed ? 0.45 : 1,
+        // 운행 중인 셔틀은 탈 수 없지만 아직 달리고 있어 조금만 흐리게 둔다
+        opacity: arrived
+            ? 0.45
+            : running
+            ? 0.7
+            : 1,
         child: AnimatedSize(
           duration: const Duration(milliseconds: 220),
           curve: Curves.easeOutCubic,
@@ -466,7 +474,8 @@ class _ShuttleJourneyResultViewState extends State<ShuttleJourneyResultView> {
                       '${_result.destinationStationName} 도착, '
                       '${journey.durationMinutes}분 소요'
                       '${isNext ? ', 다음 셔틀' : ''}'
-                      '${departed ? ', 운행 종료' : ''}',
+                      '${running ? ', 운행 중' : ''}'
+                      '${arrived ? ', 운행 완료' : ''}',
                   excludeSemantics: true,
                   child: GestureDetector(
                     behavior: HitTestBehavior.opaque,
@@ -498,8 +507,18 @@ class _ShuttleJourneyResultViewState extends State<ShuttleJourneyResultView> {
                                               ? Colors.redAccent
                                               : _shuttleColor,
                                         ),
-                                      if (departed)
-                                        _buildStatusChip('운행 종료', Colors.grey),
+                                      // 다음 셔틀(빨강)과 헷갈리지 않게 회색 계열로,
+                                      // 운행 완료(회색)보다는 조금 진하게 둔다
+                                      if (running)
+                                        _buildStatusChip(
+                                          '운행 중',
+                                          Theme.of(context).brightness ==
+                                                  Brightness.dark
+                                              ? Colors.blueGrey.shade200
+                                              : Colors.blueGrey.shade600,
+                                        ),
+                                      if (arrived)
+                                        _buildStatusChip('운행 완료', Colors.grey),
                                     ],
                                   ),
                                 ),
@@ -1051,7 +1070,7 @@ class _ShuttleJourneyResultViewState extends State<ShuttleJourneyResultView> {
       child: Column(
         children: [
           Text(
-            '오늘은 모든 셔틀의 운행이 종료되었어요.\n다음 날짜를 조회할까요?',
+            '오늘 탈 수 있는 셔틀이 더 없어요.\n다음 날짜를 조회할까요?',
             textAlign: TextAlign.center,
             style: TextStyle(color: Theme.of(context).hintColor),
           ),
@@ -1102,11 +1121,19 @@ class _ShuttleJourneyResultViewState extends State<ShuttleJourneyResultView> {
     });
   }
 
-  bool _hasDeparted(ShuttleJourney journey) {
+  bool _hasDeparted(ShuttleJourney journey) =>
+      _hasPassed(journey.originArrivalTime);
+
+  // 도착 정류장 도착 시각이 지났는지 (운행 완료)
+  bool _hasArrived(ShuttleJourney journey) =>
+      _hasPassed(journey.destinationArrivalTime);
+
+  // 오늘 날짜에서 "HH:mm[:ss]" 시각이 지났는지
+  bool _hasPassed(String time) {
     if (!_isToday(_result.date)) return false;
     final now = DateTime.now();
-    final parts = journey.originArrivalTime.split(':');
-    final departure = DateTime(
+    final parts = time.split(':');
+    final at = DateTime(
       now.year,
       now.month,
       now.day,
@@ -1114,7 +1141,7 @@ class _ShuttleJourneyResultViewState extends State<ShuttleJourneyResultView> {
       int.parse(parts[1]),
       parts.length > 2 ? int.parse(parts[2].split('.').first) : 0,
     );
-    return !departure.isAfter(now);
+    return !at.isAfter(now);
   }
 
   bool _isToday(String date) {
